@@ -66,7 +66,7 @@ Extend `subscriptions` without deleting legacy columns so existing installations
 
 `activeSubscription()` must require `status = active` (while remaining compatible with legacy rows whose status is null), a start time not in the future, and an end time in the future or null. The newest eligible term wins.
 
-For each first successful paid order, the activation service runs in a database transaction and row-locks the payment order, the user row, and the user's eligible subscription rows. Locking the user row serializes two different successful orders even when no subscription row exists yet:
+For each first successful paid order, the activation service captures one activation timestamp, then runs in a database transaction and row-locks the payment order, the user row, and the user's eligible subscription rows in that order. Locking the user row serializes two different successful orders even when no subscription row exists yet. Provider timestamps may be recorded as payment evidence, but entitlement time always starts or extends from the trusted server activation time:
 
 1. If the order is already `paid`, return its linked subscription without adding time.
 2. Expire any other active paid plan term for that user when switching plans.
