@@ -1,0 +1,130 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\PaymentOrder;
+use App\Services\Payments\PaymentActivationService;
+use App\Services\ToyyibPay\ToyyibPayClient;
+use App\Services\ToyyibPay\ToyyibPayException;
+use App\Support\Ringgit;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
+use Throwable;
+
+class ToyyibPayCallbackController extends Controller
+{
+    public function __invoke(
+        Request $request,
+        ToyyibPayClient $client,
+        PaymentActivationService $activationService,
+    ): Response {
+        $payload = $request->only([
+            'refno',
+            'status',
+            'reason',
+            'billcode',
+            'order_id',
+            'amount',
+            'hash',
+        ]);
+
+        try {
+            $validHash = $client->verifyCallbackHash($payload);
+        } catch (ToyyibPayException $exception) {
+            Log::error('ToyyibPay callback verification is unavailable.', [
+                'reason' => $exception->reason,
+                'exception_class' => $exception::class,
+            ]);
+
+            return $this->plainResponse('UNAVAILABLE', 503);
+        }
+
+        if (! $validHash) {
+            Log::warning('ToyyibPay callback signature was rejected.');
+
+            return $this->plainResponse('INVALID', 400);
+        }
+
+        $validator = Validator::make($payload, [
+            'refno' => ['required', 'string', 'max:255', 'regex:/^(?=.*\S)[^\x00-\x1F\x7F]+$/u'],
+            'status' => ['required', 'string', Rule::in(['1', '2', '3'])],
+            'reason' => ['nullable', 'string', 'max:500'],
+            'billcode' => ['required', 'string', 'max:100', 'regex:/^[A-Za-z0-9]+$/'],
+            'order_id' => ['required', 'string', 'uuid'],
+            'amount' => ['required', 'string', 'regex:/^\d{1,10}(?:\.\d{1,2})?$/'],
+            'hash' => ['required', 'string', 'size:32', 'regex:/^[a-f0-9]{32}$/'],
+        ]);
+
+        if ($validator->fails()) {
+            return $this->plainResponse('INVALID', 422);
+        }
+
+        /** @var array{refno:string,status:string,billcode:string,order_id:string,amount:string} $validated */
+        $validated = $validator->validated();
+
+        try {
+            $amountCents = Ringgit::decimalToCents($validated['amount']);
+            $matched = DB::transaction(function () use (
+                $validated,
+                $amountCents,
+                $activationService,
+            ): bool {
+                $order = PaymentOrder::query()
+                    ->where('external_reference', $validated['order_id'])
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $order
+                    || $order->provider !== 'toyyibpay'
+                    || $order->bill_code !== $validated['billcode']
+                    || $order->amount_cents !== $amountCents) {
+                    return false;
+                }
+
+                if ($validated['status'] === '1') {
+                    $activationService->activate($order, $validated['refno']);
+
+                    return true;
+                }
+
+                if ($order->status !== PaymentOrder::STATUS_PAID) {
+                    $order->forceFill([
+                        'status' => $validated['status'] === '2'
+                            ? PaymentOrder::STATUS_PENDING
+                            : PaymentOrder::STATUS_FAILED,
+                        'failure_reason' => $validated['status'] === '2'
+                            ? null
+                            : 'provider_failed',
+                    ])->save();
+                }
+
+                return true;
+            });
+
+            if (! $matched) {
+                return $this->plainResponse('INVALID', 422);
+            }
+        } catch (Throwable $exception) {
+            Log::error('ToyyibPay callback processing failed.', [
+                'external_reference' => $validated['order_id'],
+                'status' => $validated['status'],
+                'exception_class' => $exception::class,
+            ]);
+
+            return $this->plainResponse('ERROR', 500);
+        }
+
+        return $this->plainResponse('OK');
+    }
+
+    private function plainResponse(string $content, int $status = 200): Response
+    {
+        return response($content, $status, [
+            'Content-Type' => 'text/plain; charset=UTF-8',
+        ]);
+    }
+}

@@ -7,6 +7,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\KnowledgeController;
 use App\Http\Controllers\LandingController;
 use App\Http\Controllers\SubscriptionController;
+use App\Http\Controllers\ToyyibPayCallbackController;
 use App\Http\Controllers\WidgetController;
 use Illuminate\Support\Facades\Route;
 
@@ -15,6 +16,9 @@ Route::get('/', [LandingController::class, 'index'])->name('landing');
 Route::get('/pricing', [LandingController::class, 'pricing'])->name('landing.pricing');
 Route::view('/privacy', 'privacy')->name('privacy');
 Route::view('/terms', 'terms')->name('terms');
+Route::post('/payments/toyyibpay/callback', ToyyibPayCallbackController::class)
+    ->middleware('throttle:120,1')
+    ->name('payments.toyyibpay.callback');
 
 // ── Guest Auth Routes ──
 Route::middleware('guest')->group(function () {
