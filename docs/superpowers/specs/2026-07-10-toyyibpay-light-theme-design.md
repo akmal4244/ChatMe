@@ -42,6 +42,7 @@ Create a `payment_orders` table as the immutable payment intent and callback ide
 | --- | --- |
 | `id` | Internal primary key |
 | `user_id`, `plan_id` | Purchased account and plan |
+| `subscription_id` | Resulting entitlement, nullable until a verified success |
 | `external_reference` | Random UUID, unique, sent as ToyyibPay `order_id` |
 | `bill_code` | ToyyibPay Bill code, nullable until Bill creation, unique when present |
 | `provider` | `toyyibpay` |
@@ -67,7 +68,7 @@ Extend `subscriptions` without deleting legacy columns so existing installations
 
 For each first successful paid order, the activation service runs in a database transaction and row-locks the payment order, the user row, and the user's eligible subscription rows. Locking the user row serializes two different successful orders even when no subscription row exists yet:
 
-1. If the order is already `paid`, return the existing result without adding time.
+1. If the order is already `paid`, return its linked subscription without adding time.
 2. Expire any other active paid plan term for that user when switching plans.
 3. For the same active plan, extend that row from the later of `now()` or its current `ends_at`. For a different plan, expire the old paid row and create a new row starting at `now()`.
 4. Add one month with no overflow and store the ToyyibPay reference on the resulting entitlement.

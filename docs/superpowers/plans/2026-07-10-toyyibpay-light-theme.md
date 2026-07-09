@@ -42,6 +42,7 @@
 - `User::paymentOrders(): HasMany`
 - `PaymentOrder::getRouteKeyName(): string` returns `external_reference`
 - `Plan::priceInCents(): int` converts the decimal-string cast without trusting browser or floating-point input
+- `PaymentOrder::subscription(): BelongsTo` links every paid attempt to the exact entitlement it created or extended
 
 - [ ] Write failing tests for first payment, same-plan extension, plan switch, duplicate callback, two distinct successful orders, and expired/cancelled entitlement exclusion.
 - [ ] Run `php artisan test --compact tests/Feature/PaymentActivationTest.php`; confirm intended failures.
