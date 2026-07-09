@@ -2,15 +2,21 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\PaymentOrder;
 use App\Models\Plan;
-use App\Models\Subscription;
+use App\Services\ToyyibPay\ToyyibPayClient;
+use App\Services\ToyyibPay\ToyyibPayException;
+use App\Support\MalaysianPhone;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
+use InvalidArgumentException;
+use Throwable;
+use UnexpectedValueException;
 
 class SubscriptionController extends Controller
 {
-    /**
-     * Show available plans.
-     */
     public function plans()
     {
         $plans = Plan::orderBy('price')->get();
@@ -18,94 +24,127 @@ class SubscriptionController extends Controller
         return view('subscription.plans', compact('plans'));
     }
 
-    /**
-     * Show the checkout page for a specific plan.
-     */
-    public function checkout(Plan $plan)
-    {
-        $user = auth()->user();
-        $intent = $user->createSetupIntent();
-
-        return view('subscription.checkout', compact('plan', 'intent'));
-    }
-
-    /**
-     * Process the subscription checkout.
-     */
-    public function subscribe(Request $request, Plan $plan)
-    {
-        $user = $request->user();
+    public function checkout(
+        Request $request,
+        Plan $plan,
+        ToyyibPayClient $client,
+    ): RedirectResponse {
+        $amountCents = $this->purchasableAmount($plan);
 
         $request->validate([
-            'payment_method' => ['required', 'string'],
+            'phone' => ['required', 'string', 'max:30'],
         ]);
 
-        $user->createOrGetStripeCustomer();
-        $user->updateDefaultPaymentMethod($request->payment_method);
+        try {
+            $phone = MalaysianPhone::normalize((string) $request->input('phone'));
+        } catch (InvalidArgumentException) {
+            throw ValidationException::withMessages([
+                'phone' => 'Masukkan nombor telefon mudah alih Malaysia yang sah.',
+            ]);
+        }
 
-        $subscription = $user->newSubscription('default', $plan->stripe_price_id ?? null)
-            ->create($request->payment_method);
-
-        // Store subscription record
-        Subscription::create([
-            'user_id' => $user->id,
+        $user = $request->user();
+        $order = $user->paymentOrders()->create([
             'plan_id' => $plan->id,
-            'stripe_id' => $subscription->stripe_id ?? '',
-            'stripe_status' => $subscription->stripe_status ?? 'active',
+            'provider' => 'toyyibpay',
+            'amount_cents' => $amountCents,
+            'status' => PaymentOrder::STATUS_CREATING,
         ]);
 
-        return redirect()->route('dashboard')
-            ->with('success', 'Successfully subscribed to the ' . $plan->name . ' plan!');
+        $applicationUrl = rtrim((string) config('app.url'), '/');
+        $returnUrl = $applicationUrl.'/subscription/orders/'.$order->external_reference.'/return';
+        $callbackUrl = $applicationUrl.'/payments/toyyibpay/callback';
+
+        $billCode = null;
+
+        try {
+            $billCode = $client->createBill(
+                $order,
+                $user,
+                $phone,
+                $returnUrl,
+                $callbackUrl,
+            );
+
+            $order->forceFill([
+                'bill_code' => $billCode,
+                'status' => PaymentOrder::STATUS_PENDING,
+                'failure_reason' => null,
+            ])->save();
+
+            return redirect()->away($client->paymentUrl($billCode));
+        } catch (Throwable $exception) {
+            $reason = $this->safeFailureReason($exception);
+
+            $failureUpdate = [
+                'status' => PaymentOrder::STATUS_FAILED,
+                'failure_reason' => $reason,
+                'updated_at' => now(),
+            ];
+
+            if ($billCode !== null) {
+                $failureUpdate['bill_code'] = $billCode;
+            }
+
+            try {
+                PaymentOrder::query()
+                    ->whereKey($order->id)
+                    ->where('status', '!=', PaymentOrder::STATUS_PAID)
+                    ->update($failureUpdate);
+            } catch (Throwable $stateException) {
+                Log::error('Payment order failure state could not be persisted.', [
+                    'payment_order_id' => $order->id,
+                    'external_reference' => $order->external_reference,
+                    'exception_class' => $stateException::class,
+                ]);
+            }
+
+            Log::warning('ToyyibPay checkout could not be started.', [
+                'payment_order_id' => $order->id,
+                'external_reference' => $order->external_reference,
+                'reason' => $reason,
+                'exception_class' => $exception::class,
+            ]);
+
+            return back()
+                ->withInput($request->only('phone'))
+                ->withErrors([
+                    'payment' => 'Pembayaran tidak dapat dimulakan sekarang. Sila cuba semula sebentar lagi.',
+                ]);
+        }
     }
 
-    /**
-     * Show the billing portal / manage subscription page.
-     */
-    public function manage(Request $request)
+    private function purchasableAmount(Plan $plan): int
     {
-        $user = $request->user();
-        $subscription = $user->subscriptions()->latest()->first();
-
-        return view('subscription.manage', compact('subscription'));
-    }
-
-    /**
-     * Redirect to Stripe billing portal.
-     */
-    public function billingPortal(Request $request)
-    {
-        $user = $request->user();
-
-        return $user->redirectToBillingPortal(route('subscription.manage'));
-    }
-
-    /**
-     * Cancel the current subscription.
-     */
-    public function cancel(Request $request)
-    {
-        $user = $request->user();
-
-        if ($user->subscription()) {
-            $user->subscription()->cancel();
+        try {
+            $amountCents = $plan->priceInCents();
+        } catch (UnexpectedValueException) {
+            $amountCents = 0;
         }
 
-        return redirect()->route('subscription.manage')
-            ->with('success', 'Your subscription has been cancelled.');
-    }
-
-    /**
-     * Resume a cancelled subscription.
-     */
-    public function resume(Request $request)
-    {
-        $user = $request->user();
-
-        if ($user->subscription() && $user->subscription()->onGracePeriod()) {
-            $user->subscription()->resume();
+        if (! $plan->is_active
+            || ! in_array($plan->slug, ['pro', 'enterprise'], true)
+            || $amountCents <= 0) {
+            throw ValidationException::withMessages([
+                'plan' => 'Pelan ini tidak tersedia untuk pembayaran.',
+            ]);
         }
 
-        return redirect()->route('subscription.manage')
-            ->with('success', 'Your subscription has been resumed.');
+        return $amountCents;
+    }
+
+    private function safeFailureReason(Throwable $exception): string
+    {
+        if (! $exception instanceof ToyyibPayException) {
+            return 'internal_error';
+        }
+
+        return in_array($exception->reason, [
+            'configuration_error',
+            'transport_error',
+            'http_error',
+            'invalid_response',
+            'invalid_request',
+        ], true) ? $exception->reason : 'provider_error';
     }
 }

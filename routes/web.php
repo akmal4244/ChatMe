@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\DashboardController;
@@ -26,8 +27,10 @@ Route::middleware('guest')->group(function () {
 // ── Authenticated Routes ──
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/onboarding', function () { return view('onboarding'); })->name('onboarding');
-    
+    Route::get('/onboarding', function () {
+        return view('onboarding');
+    })->name('onboarding');
+
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
     // Chatbots
@@ -47,17 +50,16 @@ Route::middleware('auth')->group(function () {
 
     // Subscription
     Route::get('/subscription/plans', [SubscriptionController::class, 'plans'])->name('subscription.plans');
-    Route::post('/subscribe/{plan}', [SubscriptionController::class, 'subscribe'])->name('subscription.subscribe');
-    Route::get('/subscription/success', [SubscriptionController::class, 'success'])->name('subscription.success');
+    Route::post('/subscription/{plan}/checkout', [SubscriptionController::class, 'checkout'])->name('subscription.checkout');
+    Route::post('/subscribe/{plan}', [SubscriptionController::class, 'checkout'])->name('subscription.subscribe');
 });
-
 
 // ── Admin Routes ──
 Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
-    Route::get('/', [App\Http\Controllers\AdminController::class, 'dashboard'])->name('dashboard');
-    Route::get('/users', [App\Http\Controllers\AdminController::class, 'users'])->name('users');
-    Route::get('/chatbots', [App\Http\Controllers\AdminController::class, 'chatbots'])->name('chatbots');
-    Route::post('/users/{user}/toggle-admin', [App\Http\Controllers\AdminController::class, 'toggleAdmin'])->name('users.toggle-admin');
+    Route::get('/', [AdminController::class, 'dashboard'])->name('dashboard');
+    Route::get('/users', [AdminController::class, 'users'])->name('users');
+    Route::get('/chatbots', [AdminController::class, 'chatbots'])->name('chatbots');
+    Route::post('/users/{user}/toggle-admin', [AdminController::class, 'toggleAdmin'])->name('users.toggle-admin');
 });
 
 // Widget Script (public)
