@@ -36,6 +36,10 @@ class ApiController extends Controller
             return response()->json(['error' => 'Domain not allowed'], 403);
         }
 
+        if (!$chatbot->user->canSendChatMessage()) {
+            return response()->json(['error' => 'Monthly message limit reached'], 429);
+        }
+
         $data = $request->validate([
             'message' => 'required|string|max:1000',
             'session_id' => 'nullable|string|max:100',

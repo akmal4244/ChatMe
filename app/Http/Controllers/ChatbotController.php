@@ -6,6 +6,7 @@ use App\Models\Chatbot;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class ChatbotController extends Controller
 {
@@ -43,6 +44,12 @@ class ChatbotController extends Controller
             'bot_name' => ['nullable', 'string', 'max:255'],
             'system_prompt' => ['nullable', 'string', 'max:5000'],
         ]);
+
+        if (!$request->user()->canCreateChatbot()) {
+            throw ValidationException::withMessages([
+                'name' => 'Your current plan chatbot limit has been reached.',
+            ]);
+        }
 
         $validated['user_id'] = $request->user()->id;
         $validated['slug'] = Str::slug($request->name) . '-' . Str::random(6);

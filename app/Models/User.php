@@ -79,6 +79,26 @@ class User extends Authenticatable
         return $this->chatbots()->count() < $plan->chatbot_limit;
     }
 
+    public function canSendChatMessage(): bool
+    {
+        $plan = $this->currentPlan();
+        if (!$plan) {
+            return false;
+        }
+
+        if ($plan->monthly_messages === -1) {
+            return true;
+        }
+
+        $messagesThisMonth = ChatLog::query()
+            ->where('role', 'user')
+            ->whereHas('chatbot', fn ($query) => $query->where('user_id', $this->id))
+            ->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])
+            ->count();
+
+        return $messagesThisMonth < $plan->monthly_messages;
+    }
+
     public function canAddKnowledgeItems(Chatbot $chatbot, int $count = 1): bool
     {
         if ($count < 0 || $chatbot->user_id !== $this->id) {
