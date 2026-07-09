@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\KnowledgeController;
 use App\Models\Chatbot;
 use App\Models\KnowledgeItem;
 use App\Models\Plan;
@@ -253,6 +254,48 @@ class KnowledgeImportTest extends TestCase
         ]);
     }
 
+    public function test_quota_protected_writes_lock_the_chatbot_and_recount_inside_the_transaction(): void
+    {
+        foreach ([
+            'store' => 'KnowledgeItem::create(',
+            'import' => '$lockedChatbot->knowledgeItems()->create(',
+        ] as $method => $writeNeedle) {
+            $source = $this->controllerMethodSource($method);
+            $transactionPosition = strpos($source, 'DB::transaction(function');
+            $authorizationPosition = strpos($source, "Gate::authorize('update', \$chatbot)");
+            $validationPosition = strpos($source, '$request->validate(');
+
+            $this->assertNotFalse($transactionPosition, "{$method} must use a database transaction.");
+            $this->assertNotFalse($authorizationPosition, "{$method} must preserve authorization.");
+            $this->assertNotFalse($validationPosition, "{$method} must preserve request validation.");
+            $this->assertTrue(
+                $authorizationPosition < $transactionPosition && $validationPosition < $transactionPosition,
+                "{$method} must authorize and validate before opening the write transaction."
+            );
+
+            $transactionBody = $this->transactionClosureBody($source);
+
+            $this->assertNotNull($transactionBody, "{$method} must have a complete transaction closure.");
+            $this->assertMatchesRegularExpression(
+                '/Chatbot::query\(\)\s*->whereKey\(\$chatbot->getKey\(\)\)\s*->lockForUpdate\(\)\s*->firstOrFail\(\)/',
+                $transactionBody,
+                "{$method} must lock the same chatbot parent row."
+            );
+
+            $lockPosition = strpos($transactionBody, 'lockForUpdate()');
+            $quotaPosition = strpos($transactionBody, 'canAddKnowledgeItems(');
+            $writePosition = strpos($transactionBody, $writeNeedle);
+
+            $this->assertNotFalse($lockPosition, "{$method} must lock before checking quota.");
+            $this->assertNotFalse($quotaPosition, "{$method} must re-count quota while locked.");
+            $this->assertNotFalse($writePosition, "{$method} must write while locked.");
+            $this->assertTrue(
+                $lockPosition < $quotaPosition && $quotaPosition < $writePosition,
+                "{$method} must lock, then check quota, then write in that order."
+            );
+        }
+    }
+
     public function test_single_store_rejects_question_category_and_tags_beyond_schema_length(): void
     {
         $this->actingAs($this->user)
@@ -306,5 +349,48 @@ class KnowledgeImportTest extends TestCase
             'question' => $question,
             'answer' => 'Existing answer',
         ]);
+    }
+
+    private function controllerMethodSource(string $method): string
+    {
+        $reflection = new \ReflectionMethod(KnowledgeController::class, $method);
+        $fileName = $reflection->getFileName();
+
+        $this->assertNotFalse($fileName);
+        $lines = file($fileName);
+        $this->assertIsArray($lines);
+
+        return implode('', array_slice(
+            $lines,
+            $reflection->getStartLine() - 1,
+            $reflection->getEndLine() - $reflection->getStartLine() + 1
+        ));
+    }
+
+    private function transactionClosureBody(string $source): ?string
+    {
+        $transactionPosition = strpos($source, 'DB::transaction(function');
+        if ($transactionPosition === false) {
+            return null;
+        }
+
+        $openingBrace = strpos($source, '{', $transactionPosition);
+        if ($openingBrace === false) {
+            return null;
+        }
+
+        $depth = 0;
+        for ($position = $openingBrace; $position < strlen($source); $position++) {
+            if ($source[$position] === '{') {
+                $depth++;
+            } elseif ($source[$position] === '}') {
+                $depth--;
+                if ($depth === 0) {
+                    return substr($source, $openingBrace + 1, $position - $openingBrace - 1);
+                }
+            }
+        }
+
+        return null;
     }
 }

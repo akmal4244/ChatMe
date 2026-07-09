@@ -66,16 +66,23 @@ class KnowledgeController extends Controller
             'tags' => ['nullable', 'string', 'max:255'],
         ]);
 
-        if (! $chatbot->user->canAddKnowledgeItems($chatbot)) {
-            throw ValidationException::withMessages([
-                'question' => 'Your plan knowledge limit has been reached.',
-            ]);
-        }
+        DB::transaction(function () use ($chatbot, $validated): void {
+            $lockedChatbot = Chatbot::query()
+                ->whereKey($chatbot->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        $validated['chatbot_id'] = $chatbot->id;
-        $validated['is_active'] = true;
+            if (! $lockedChatbot->user->canAddKnowledgeItems($lockedChatbot)) {
+                throw ValidationException::withMessages([
+                    'question' => 'Your plan knowledge limit has been reached.',
+                ]);
+            }
 
-        KnowledgeItem::create($validated);
+            $validated['chatbot_id'] = $lockedChatbot->id;
+            $validated['is_active'] = true;
+
+            KnowledgeItem::create($validated);
+        });
 
         return redirect()->route('knowledge.index', $chatbot)
             ->with('success', 'Knowledge item added successfully.');
@@ -188,15 +195,20 @@ class KnowledgeController extends Controller
             ]);
         }
 
-        if (! $chatbot->user->canAddKnowledgeItems($chatbot, count($rows))) {
-            throw ValidationException::withMessages([
-                'json_data' => 'This import exceeds your plan knowledge limit.',
-            ]);
-        }
-
         DB::transaction(function () use ($chatbot, $rows): void {
+            $lockedChatbot = Chatbot::query()
+                ->whereKey($chatbot->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if (! $lockedChatbot->user->canAddKnowledgeItems($lockedChatbot, count($rows))) {
+                throw ValidationException::withMessages([
+                    'json_data' => 'This import exceeds your plan knowledge limit.',
+                ]);
+            }
+
             foreach ($rows as $row) {
-                $chatbot->knowledgeItems()->create([
+                $lockedChatbot->knowledgeItems()->create([
                     'question' => $row['question'],
                     'answer' => $row['answer'],
                     'category' => $row['category'] ?? null,
