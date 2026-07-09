@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use UnexpectedValueException;
@@ -38,6 +39,22 @@ class Plan extends Model
     public function subscriptions(): HasMany
     {
         return $this->hasMany(Subscription::class);
+    }
+
+    public function scopeVisibleForSale(Builder $query): Builder
+    {
+        return $query
+            ->where('is_active', true)
+            ->where(function (Builder $query): void {
+                $query
+                    ->where(function (Builder $query): void {
+                        $query->where('slug', 'free')->where('price', 0);
+                    })
+                    ->orWhere(function (Builder $query): void {
+                        $query->whereIn('slug', ['pro', 'enterprise'])->where('price', '>', 0);
+                    });
+            })
+            ->orderBy('price');
     }
 
     public function isFree(): bool

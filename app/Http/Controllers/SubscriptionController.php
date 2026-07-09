@@ -21,7 +21,7 @@ class SubscriptionController extends Controller
 {
     public function plans()
     {
-        $plans = Plan::orderBy('price')->get();
+        $plans = Plan::visibleForSale()->get();
 
         return view('subscription.plans', compact('plans'));
     }

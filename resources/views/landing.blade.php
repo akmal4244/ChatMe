@@ -245,21 +245,21 @@
                     <ul style="list-style:none;margin-bottom:32px;display:flex;flex-direction:column;gap:14px;">
                         <li style="display:flex;align-items:center;gap:10px;font-size:13px;color:rgba(255,255,255,0.5);">
                             <i class="ph ph-check" style="color:rgba(52,211,153,0.8);font-size:15px;"></i>
-                            {{ $plan->chatbots_limit ?? 1 }} chatbot
+                            {{ $plan->chatbot_limit === -1 ? 'Tanpa had chatbot' : number_format($plan->chatbot_limit).' chatbot' }}
                         </li>
                         <li style="display:flex;align-items:center;gap:10px;font-size:13px;color:rgba(255,255,255,0.5);">
                             <i class="ph ph-check" style="color:rgba(52,211,153,0.8);font-size:15px;"></i>
-                            {{ $plan->knowledge_limit ?? 50 }} item pengetahuan
+                            {{ $plan->knowledge_limit === -1 ? 'Tanpa had pengetahuan' : number_format($plan->knowledge_limit).' item pengetahuan' }}
                         </li>
                         <li style="display:flex;align-items:center;gap:10px;font-size:13px;color:rgba(255,255,255,0.5);">
                             <i class="ph ph-check" style="color:rgba(52,211,153,0.8);font-size:15px;"></i>
-                            {{ $plan->messages_limit ? number_format($plan->messages_limit) . ' mesej' : 'Mesej tanpa had' }}/bulan
+                            {{ $plan->monthly_messages === -1 ? 'Tanpa had mesej' : number_format($plan->monthly_messages).' mesej/bulan' }}
                         </li>
                     </ul>
 
                     @auth
-                    <a href="{{ route('subscription.subscribe', $plan) }}" class="group" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;border-radius:999px;font-size:14px;font-weight:600;text-decoration:none;transition:all 0.4s cubic-bezier(0.32,0.72,0,1);{{ $loop->index === 1 ? 'background:#fff;color:#050505;' : 'background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.7);' }}">
-                        {{ auth()->user()->subscription?->plan_id === $plan->id ? 'Pelan Semasa' : 'Pilih Pelan' }}
+                    <a href="{{ route('subscription.plans') }}" class="group" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;border-radius:999px;font-size:14px;font-weight:600;text-decoration:none;transition:all 0.4s cubic-bezier(0.32,0.72,0,1);{{ $loop->index === 1 ? 'background:#fff;color:#050505;' : 'background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.7);' }}">
+                        {{ auth()->user()->currentPlan()?->id === $plan->id ? 'Pelan Semasa' : 'Lihat Pelan' }}
                         @if($loop->index === 1)
                         <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:999px;background:rgba(0,0,0,0.06);transition:all 0.4s cubic-bezier(0.32,0.72,0,1);" class="group-hover:translate-x-0.5 group-hover:scale-105">
                             <i class="ph ph-arrow-right" style="font-size:10px;"></i>

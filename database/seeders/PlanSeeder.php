@@ -51,7 +51,7 @@ class PlanSeeder extends Seeder
         foreach ($plans as $plan) {
             Plan::updateOrCreate(['slug' => $plan['slug']], $plan);
         }
-        
-        echo "Seeded " . count($plans) . " plans.\n";
+
+        Plan::where('slug', 'lifetime')->update(['is_active' => false]);
     }
 }

@@ -1,4 +1,5 @@
 <?php
+
 namespace Database\Seeders;
 
 use App\Models\Plan;
@@ -31,7 +32,10 @@ class AdminSeeder extends Seeder
                 'user_id' => $admin->id,
                 'plan_id' => $freePlan->id,
             ], [
-                'stripe_status' => 'active',
+                'provider' => 'system',
+                'status' => 'active',
+                'starts_at' => now(),
+                'ends_at' => null,
             ]);
         }
     }
