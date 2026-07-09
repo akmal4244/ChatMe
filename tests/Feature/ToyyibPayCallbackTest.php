@@ -7,6 +7,7 @@ use App\Models\Plan;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
@@ -40,11 +41,16 @@ class ToyyibPayCallbackTest extends TestCase
         $payload['hash'] = str_repeat('0', 32);
         $payload['reason'] = 'sensitive reason callback-test-secret';
         Log::spy();
+        $queryCount = 0;
+        DB::listen(function () use (&$queryCount): void {
+            $queryCount++;
+        });
 
         $this->post('/payments/toyyibpay/callback', $payload)
             ->assertStatus(400)
             ->assertSeeText('INVALID');
 
+        $this->assertSame(0, $queryCount);
         $this->assertSame(PaymentOrder::STATUS_PENDING, $order->fresh()->status);
         $this->assertDatabaseCount('subscriptions', 0);
         Log::shouldHaveReceived('warning')
@@ -60,6 +66,7 @@ class ToyyibPayCallbackTest extends TestCase
     public function test_unknown_order_bill_mismatch_and_amount_mismatch_never_mutate(): void
     {
         [$order] = $this->order();
+        Log::spy();
         $unknown = $this->payloadFor(
             (string) Str::uuid(),
             'UNKNOWN1',
@@ -82,6 +89,16 @@ class ToyyibPayCallbackTest extends TestCase
 
         $this->assertSame(PaymentOrder::STATUS_PENDING, $order->fresh()->status);
         $this->assertDatabaseCount('subscriptions', 0);
+        Log::shouldHaveReceived('warning')
+            ->times(3)
+            ->withArgs(function (string $message, array $context): bool {
+                $serialized = $message.json_encode($context);
+
+                return ! str_contains($serialized, 'TP-')
+                    && ! str_contains($serialized, 'OTHERBILL')
+                    && ! str_contains($serialized, '48.99')
+                    && isset($context['external_reference'], $context['status']);
+            });
     }
 
     public function test_verified_success_activates_once_and_duplicate_callback_is_idempotent(): void
@@ -163,8 +180,8 @@ class ToyyibPayCallbackTest extends TestCase
         $originalEnd = $firstOrder->fresh()->subscription->ends_at->toImmutable();
 
         $this->post('/payments/toyyibpay/callback', $this->payload($secondOrder, '1', $reference))
-            ->assertStatus(500)
-            ->assertSeeText('ERROR');
+            ->assertStatus(409)
+            ->assertSeeText('CONFLICT');
 
         $this->assertSame(PaymentOrder::STATUS_PENDING, $secondOrder->fresh()->status);
         $this->assertNull($secondOrder->fresh()->subscription_id);
@@ -178,7 +195,12 @@ class ToyyibPayCallbackTest extends TestCase
         $malformed = $this->payload($order, '1', 'TP-MALFORMED');
         $malformed['amount'] = '49.001';
         $malformed['hash'] = $this->hash($malformed);
+        $queryCount = 0;
+        DB::listen(function () use (&$queryCount): void {
+            $queryCount++;
+        });
         $this->post('/payments/toyyibpay/callback', $malformed)->assertStatus(422);
+        $this->assertSame(0, $queryCount);
 
         $numeric = $this->payload($order, '1', 'TP-NUMERIC');
         $numeric['status'] = 1;

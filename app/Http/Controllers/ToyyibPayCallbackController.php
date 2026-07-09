@@ -7,6 +7,7 @@ use App\Services\Payments\PaymentActivationService;
 use App\Services\ToyyibPay\ToyyibPayClient;
 use App\Services\ToyyibPay\ToyyibPayException;
 use App\Support\Ringgit;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
@@ -36,7 +37,6 @@ class ToyyibPayCallbackController extends Controller
             $validHash = $client->verifyCallbackHash($payload);
         } catch (ToyyibPayException $exception) {
             Log::error('ToyyibPay callback verification is unavailable.', [
-                'reason' => $exception->reason,
                 'exception_class' => $exception::class,
             ]);
 
@@ -60,6 +60,11 @@ class ToyyibPayCallbackController extends Controller
         ]);
 
         if ($validator->fails()) {
+            Log::warning('Verified ToyyibPay callback failed validation.', [
+                'status' => is_string($payload['status'] ?? null) ? $payload['status'] : null,
+                'invalid_fields' => array_keys($validator->failed()),
+            ]);
+
             return $this->plainResponse('INVALID', 422);
         }
 
@@ -106,8 +111,21 @@ class ToyyibPayCallbackController extends Controller
             });
 
             if (! $matched) {
+                Log::warning('Verified ToyyibPay callback did not match its payment order.', [
+                    'external_reference' => $validated['order_id'],
+                    'status' => $validated['status'],
+                ]);
+
                 return $this->plainResponse('INVALID', 422);
             }
+        } catch (UniqueConstraintViolationException $exception) {
+            Log::warning('ToyyibPay callback transaction reference conflicts with another order.', [
+                'external_reference' => $validated['order_id'],
+                'status' => $validated['status'],
+                'exception_class' => $exception::class,
+            ]);
+
+            return $this->plainResponse('CONFLICT', 409);
         } catch (Throwable $exception) {
             Log::error('ToyyibPay callback processing failed.', [
                 'external_reference' => $validated['order_id'],
