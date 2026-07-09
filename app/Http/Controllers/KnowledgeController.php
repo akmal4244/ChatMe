@@ -5,7 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Chatbot;
 use App\Models\KnowledgeItem;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
+use JsonException;
 
 class KnowledgeController extends Controller
 {
@@ -56,11 +60,17 @@ class KnowledgeController extends Controller
         Gate::authorize('update', $chatbot);
 
         $validated = $request->validate([
-            'question' => ['required', 'string', 'max:2000'],
+            'question' => ['required', 'string', 'max:255'],
             'answer' => ['required', 'string', 'max:10000'],
             'category' => ['nullable', 'string', 'max:255'],
-            'tags' => ['nullable', 'string', 'max:1000'],
+            'tags' => ['nullable', 'string', 'max:255'],
         ]);
+
+        if (! $chatbot->user->canAddKnowledgeItems($chatbot)) {
+            throw ValidationException::withMessages([
+                'question' => 'Your plan knowledge limit has been reached.',
+            ]);
+        }
 
         $validated['chatbot_id'] = $chatbot->id;
         $validated['is_active'] = true;
@@ -102,10 +112,10 @@ class KnowledgeController extends Controller
         $this->ensureItemBelongsToChatbot($chatbot, $item);
 
         $validated = $request->validate([
-            'question' => ['required', 'string', 'max:2000'],
+            'question' => ['required', 'string', 'max:255'],
             'answer' => ['required', 'string', 'max:10000'],
             'category' => ['nullable', 'string', 'max:255'],
-            'tags' => ['nullable', 'string', 'max:1000'],
+            'tags' => ['nullable', 'string', 'max:255'],
             'is_active' => ['boolean'],
         ]);
 
@@ -130,35 +140,73 @@ class KnowledgeController extends Controller
     }
 
     /**
-     * Bulk import knowledge items from CSV/JSON.
+     * Bulk import knowledge items from JSON.
      */
     public function import(Request $request, Chatbot $chatbot)
     {
         Gate::authorize('update', $chatbot);
 
-        $request->validate([
-            'file' => ['required', 'file', 'mimes:csv,json,txt', 'max:10240'],
+        $validated = $request->validate([
+            'json_data' => ['required', 'string', 'max:100000'],
         ]);
 
-        $file = $request->file('file');
-        $content = file_get_contents($file->getRealPath());
-        $rows = array_map('str_getcsv', explode("
-", trim($content)));
-        $headers = array_shift($rows); // First row as headers
-
-        $imported = 0;
-        foreach ($rows as $row) {
-            if (count($row) < 2) continue;
-            KnowledgeItem::create([
-                'chatbot_id' => $chatbot->id,
-                'question' => $row[0],
-                'answer' => $row[1],
-                'category' => $row[2] ?? null,
-                'tags' => $row[3] ?? null,
-                'is_active' => true,
+        try {
+            $decoded = json_decode($validated['json_data'], false, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            throw ValidationException::withMessages([
+                'json_data' => 'The JSON data is malformed.',
             ]);
-            $imported++;
         }
+
+        if (! is_array($decoded) || ! array_is_list($decoded) || count($decoded) < 1 || count($decoded) > 1000) {
+            throw ValidationException::withMessages([
+                'json_data' => 'The JSON data must be a list of 1 to 1000 objects.',
+            ]);
+        }
+
+        $rows = [];
+        foreach ($decoded as $item) {
+            if (! $item instanceof \stdClass) {
+                throw ValidationException::withMessages([
+                    'json_data' => 'Every JSON list item must be an object.',
+                ]);
+            }
+
+            $rows[] = (array) $item;
+        }
+
+        $validator = Validator::make($rows, [
+            '*.question' => ['required', 'string', 'max:255'],
+            '*.answer' => ['required', 'string', 'max:10000'],
+            '*.category' => ['nullable', 'string', 'max:255'],
+            '*.tags' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        if ($validator->fails()) {
+            throw ValidationException::withMessages([
+                'json_data' => 'The JSON data contains an invalid knowledge item.',
+            ]);
+        }
+
+        if (! $chatbot->user->canAddKnowledgeItems($chatbot, count($rows))) {
+            throw ValidationException::withMessages([
+                'json_data' => 'This import exceeds your plan knowledge limit.',
+            ]);
+        }
+
+        DB::transaction(function () use ($chatbot, $rows): void {
+            foreach ($rows as $row) {
+                $chatbot->knowledgeItems()->create([
+                    'question' => $row['question'],
+                    'answer' => $row['answer'],
+                    'category' => $row['category'] ?? null,
+                    'tags' => $row['tags'] ?? null,
+                    'is_active' => true,
+                ]);
+            }
+        });
+
+        $imported = count($rows);
 
         return redirect()->route('knowledge.index', $chatbot)
             ->with('success', "{$imported} knowledge items imported successfully.");

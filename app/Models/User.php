@@ -78,4 +78,22 @@ class User extends Authenticatable
         }
         return $this->chatbots()->count() < $plan->chatbot_limit;
     }
+
+    public function canAddKnowledgeItems(Chatbot $chatbot, int $count = 1): bool
+    {
+        if ($count < 0 || $chatbot->user_id !== $this->id) {
+            return false;
+        }
+
+        $plan = $this->currentPlan();
+        if (! $plan) {
+            return false;
+        }
+
+        if ($plan->knowledge_limit === -1) {
+            return true;
+        }
+
+        return $chatbot->knowledgeItems()->count() + $count <= $plan->knowledge_limit;
+    }
 }
