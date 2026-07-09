@@ -150,6 +150,59 @@ class ToyyibPayCheckoutTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_initial_order_insert_failure_returns_safe_feedback_without_calling_provider(): void
+    {
+        $user = User::factory()->create();
+        $plan = $this->plan('pro', '49.00');
+        $failOnce = true;
+        PaymentOrder::creating(function () use (&$failOnce): void {
+            if ($failOnce) {
+                $failOnce = false;
+                throw new RuntimeException('sensitive insert failure checkout-test-secret');
+            }
+        });
+        Http::fake();
+        Log::spy();
+
+        $this->actingAs($user)
+            ->from(route('subscription.plans'))
+            ->post("/subscription/{$plan->id}/checkout", ['phone' => '0123456789'])
+            ->assertRedirect(route('subscription.plans'))
+            ->assertSessionHasErrors('payment');
+
+        $this->assertDatabaseCount('payment_orders', 0);
+        Http::assertNothingSent();
+        Log::shouldHaveReceived('error')
+            ->once()
+            ->withArgs(function (string $message, array $context): bool {
+                $serialized = $message.json_encode($context);
+
+                return ! str_contains($serialized, 'checkout-test-secret')
+                    && ! str_contains($serialized, 'sensitive insert failure')
+                    && $context['exception_class'] === RuntimeException::class;
+            });
+    }
+
+    public function test_negative_price_and_missing_plan_are_rejected(): void
+    {
+        $user = User::factory()->create();
+        $negative = $this->plan('pro', '-1.00');
+        Http::fake();
+
+        $this->actingAs($user)
+            ->post("/subscription/{$negative->id}/checkout", ['phone' => '0123456789'])
+            ->assertSessionHasErrors('plan');
+
+        $negative->delete();
+
+        $this->actingAs($user)
+            ->post("/subscription/{$negative->id}/checkout", ['phone' => '0123456789'])
+            ->assertNotFound();
+
+        $this->assertDatabaseCount('payment_orders', 0);
+        Http::assertNothingSent();
+    }
+
     public function test_missing_provider_configuration_marks_the_attempt_failed_with_a_safe_reason(): void
     {
         $user = User::factory()->create();

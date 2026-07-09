@@ -44,12 +44,23 @@ class SubscriptionController extends Controller
         }
 
         $user = $request->user();
-        $order = $user->paymentOrders()->create([
-            'plan_id' => $plan->id,
-            'provider' => 'toyyibpay',
-            'amount_cents' => $amountCents,
-            'status' => PaymentOrder::STATUS_CREATING,
-        ]);
+
+        try {
+            $order = $user->paymentOrders()->create([
+                'plan_id' => $plan->id,
+                'provider' => 'toyyibpay',
+                'amount_cents' => $amountCents,
+                'status' => PaymentOrder::STATUS_CREATING,
+            ]);
+        } catch (Throwable $exception) {
+            Log::error('Payment order could not be created.', [
+                'user_id' => $user->id,
+                'plan_id' => $plan->id,
+                'exception_class' => $exception::class,
+            ]);
+
+            return $this->checkoutFailureResponse($request);
+        }
 
         $applicationUrl = rtrim((string) config('app.url'), '/');
         $returnUrl = $applicationUrl.'/subscription/orders/'.$order->external_reference.'/return';
@@ -106,11 +117,7 @@ class SubscriptionController extends Controller
                 'exception_class' => $exception::class,
             ]);
 
-            return back()
-                ->withInput($request->only('phone'))
-                ->withErrors([
-                    'payment' => 'Pembayaran tidak dapat dimulakan sekarang. Sila cuba semula sebentar lagi.',
-                ]);
+            return $this->checkoutFailureResponse($request);
         }
     }
 
@@ -146,5 +153,14 @@ class SubscriptionController extends Controller
             'invalid_response',
             'invalid_request',
         ], true) ? $exception->reason : 'provider_error';
+    }
+
+    private function checkoutFailureResponse(Request $request): RedirectResponse
+    {
+        return back()
+            ->withInput($request->only('phone'))
+            ->withErrors([
+                'payment' => 'Pembayaran tidak dapat dimulakan sekarang. Sila cuba semula sebentar lagi.',
+            ]);
     }
 }
