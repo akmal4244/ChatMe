@@ -28,6 +28,7 @@ class ToyyibPayClientTest extends TestCase
             'dnqr_enabled' => true,
             'timeout' => 12,
         ]);
+        config()->set('app.url', 'https://chatme.test');
     }
 
     public function test_create_bill_sends_the_exact_fixed_price_fpx_and_dnqr_payload_once(): void
@@ -269,20 +270,56 @@ class ToyyibPayClientTest extends TestCase
         $this->client()->paymentUrl('BILL123');
     }
 
-    public function test_callback_hash_verification_uses_the_documented_formula_and_accepts_hex_case(): void
+    public function test_callback_hash_verification_requires_bounded_lowercase_strings(): void
     {
         $payload = [
             'status' => '1',
             'order_id' => (string) Str::uuid(),
             'refno' => 'TP123456',
         ];
-        $payload['hash'] = strtoupper(md5('test-secret-key'.$payload['status'].$payload['order_id'].$payload['refno'].'ok'));
+        $payload['hash'] = md5('test-secret-key'.$payload['status'].$payload['order_id'].$payload['refno'].'ok');
 
         $this->assertTrue($this->client()->verifyCallbackHash($payload));
 
+        $payload['hash'] = strtoupper($payload['hash']);
+        $this->assertFalse($this->client()->verifyCallbackHash($payload));
         $payload['hash'] = str_repeat('0', 32);
         $this->assertFalse($this->client()->verifyCallbackHash($payload));
         $this->assertFalse($this->client()->verifyCallbackHash(['status' => '1']));
+        $this->assertFalse($this->client()->verifyCallbackHash([
+            'status' => 1,
+            'order_id' => 123,
+            'refno' => 456,
+            'hash' => md5('test-secret-key1123456ok'),
+        ]));
+    }
+
+    public function test_return_and_callback_urls_must_match_the_configured_application_origin(): void
+    {
+        [$order, $user] = $this->order();
+        Http::fake();
+
+        foreach ([
+            'https://attacker.example/collect',
+            'https://chatme.test/return?next=attacker',
+            'https://chatme.test/return#fragment',
+            'https://chatme.test:8443/return',
+        ] as $hostileReturnUrl) {
+            try {
+                $this->client()->createBill(
+                    $order,
+                    $user,
+                    '60123456789',
+                    $hostileReturnUrl,
+                    'https://chatme.test/callback',
+                );
+                $this->fail('Expected a non-local return URL to be rejected.');
+            } catch (ToyyibPayException $exception) {
+                $this->assertSame('invalid_request', $exception->reason);
+            }
+        }
+
+        Http::assertNothingSent();
     }
 
     public function test_client_rejects_mismatched_user_or_insecure_local_urls_before_http(): void

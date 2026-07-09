@@ -22,7 +22,7 @@ final class MalaysianPhone
             $phone = '60'.substr($phone, 1);
         }
 
-        if (! preg_match('/^601\d{8,9}$/', $phone)) {
+        if (! preg_match('/^60(?:11\d{8}|1(?:0|2|3|4|6|7|8|9)\d{7})$/', $phone)) {
             throw new InvalidArgumentException('A valid Malaysian mobile number is required.');
         }
 

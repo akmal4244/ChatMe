@@ -22,8 +22,8 @@ final class ToyyibPayClient
         $secret = $this->secretKey();
         $categoryCode = $this->categoryCode();
         $this->assertOrderUser($order, $user);
-        $this->assertHttpsUrl($returnUrl);
-        $this->assertHttpsUrl($callbackUrl);
+        $this->assertApplicationHttpsUrl($returnUrl);
+        $this->assertApplicationHttpsUrl($callbackUrl);
 
         $plan = $order->plan()->firstOrFail();
         $payload = [
@@ -80,7 +80,7 @@ final class ToyyibPayClient
     public function verifyCallbackHash(array $payload): bool
     {
         foreach (['status', 'order_id', 'refno', 'hash'] as $key) {
-            if (! array_key_exists($key, $payload) || ! is_scalar($payload[$key])) {
+            if (! array_key_exists($key, $payload) || ! is_string($payload[$key])) {
                 return false;
             }
         }
@@ -95,13 +95,13 @@ final class ToyyibPayClient
             || strlen($orderId) > 100
             || $reference === ''
             || strlen($reference) > 255
-            || ! preg_match('/^[a-fA-F0-9]{32}$/', $received)) {
+            || ! preg_match('/^[a-f0-9]{32}$/', $received)) {
             return false;
         }
 
         $expected = md5($this->secretKey().$status.$orderId.$reference.'ok');
 
-        return hash_equals($expected, strtolower($received));
+        return hash_equals($expected, $received);
     }
 
     public function duitNowQrEnabled(): bool
@@ -212,7 +212,7 @@ final class ToyyibPayClient
         }
     }
 
-    private function assertHttpsUrl(string $url): void
+    private function assertApplicationHttpsUrl(string $url): void
     {
         $parts = parse_url($url);
 
@@ -221,7 +221,30 @@ final class ToyyibPayClient
             || ($parts['scheme'] ?? null) !== 'https'
             || empty($parts['host'])
             || isset($parts['user'])
-            || isset($parts['pass'])) {
+            || isset($parts['pass'])
+            || isset($parts['query'])
+            || isset($parts['fragment'])) {
+            throw new ToyyibPayException('invalid_request');
+        }
+
+        $applicationUrl = rtrim(trim((string) config('app.url')), '/');
+        $applicationParts = parse_url($applicationUrl);
+
+        if (! is_array($applicationParts)
+            || ($applicationParts['scheme'] ?? null) !== 'https'
+            || empty($applicationParts['host'])
+            || isset($applicationParts['user'])
+            || isset($applicationParts['pass'])
+            || isset($applicationParts['query'])
+            || isset($applicationParts['fragment'])) {
+            throw new ToyyibPayException('configuration_error');
+        }
+
+        $targetPort = $parts['port'] ?? 443;
+        $applicationPort = $applicationParts['port'] ?? 443;
+
+        if (strtolower($parts['host']) !== strtolower($applicationParts['host'])
+            || $targetPort !== $applicationPort) {
             throw new ToyyibPayException('invalid_request');
         }
     }
