@@ -4,6 +4,8 @@ namespace App\Services\Payments;
 
 use App\Models\PaymentOrder;
 use App\Support\Ringgit;
+use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -40,7 +42,11 @@ class ToyyibPayReconciliationService
                     $reference = $transaction['billpaymentInvoiceNo'] ?? null;
 
                     if ($this->isValidReference($reference)) {
-                        $this->activationService->activate($lockedOrder, $reference);
+                        $this->activationService->activate(
+                            $lockedOrder,
+                            $reference,
+                            $this->providerPaidAt($transaction['billPaymentDate'] ?? null),
+                        );
 
                         return $lockedOrder->fresh();
                     }
@@ -100,5 +106,26 @@ class ToyyibPayReconciliationService
         return is_string($reference)
             && strlen($reference) <= 255
             && preg_match('/^(?=.*\S)[^\x00-\x1F\x7F]+$/u', $reference) === 1;
+    }
+
+    private function providerPaidAt(mixed $value): ?CarbonInterface
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        try {
+            $paidAt = CarbonImmutable::createFromFormat(
+                'd-m-Y H:i:s',
+                $value,
+                'Asia/Kuala_Lumpur',
+            );
+        } catch (InvalidArgumentException) {
+            return null;
+        }
+
+        return $paidAt !== false && $paidAt->format('d-m-Y H:i:s') === $value
+            ? $paidAt
+            : null;
     }
 }

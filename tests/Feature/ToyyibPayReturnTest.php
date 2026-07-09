@@ -98,7 +98,9 @@ class ToyyibPayReturnTest extends TestCase
         $paid = $order->fresh();
         $this->assertSame(PaymentOrder::STATUS_PAID, $paid->status);
         $this->assertSame('TP-RETURN-SUCCESS', $paid->transaction_reference);
+        $this->assertSame('2026-07-09 17:30:00', $paid->paid_at->format('Y-m-d H:i:s'));
         $this->assertNotNull($paid->subscription_id);
+        $this->assertSame('2026-07-10 12:00:00', $paid->subscription->starts_at->format('Y-m-d H:i:s'));
         $this->assertDatabaseCount('subscriptions', 1);
         Http::assertSent(function ($request) use ($order): bool {
             return $request->data() === ['billCode' => $order->bill_code];
@@ -287,6 +289,7 @@ class ToyyibPayReturnTest extends TestCase
             'billpaymentInvoiceNo' => $invoice,
             'billExternalReferenceNo' => $order->external_reference,
             'billpaymentChannel' => 'DuitNow QR',
+            'billPaymentDate' => '09-07-2026 17:30:00',
         ];
     }
 
