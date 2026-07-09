@@ -56,6 +56,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/subscription/plans', [SubscriptionController::class, 'plans'])->name('subscription.plans');
     Route::post('/subscription/{plan}/checkout', [SubscriptionController::class, 'checkout'])->name('subscription.checkout');
     Route::post('/subscribe/{plan}', [SubscriptionController::class, 'checkout'])->name('subscription.subscribe');
+    Route::get('/subscription/orders/{paymentOrder}/return', [SubscriptionController::class, 'result'])->name('subscription.return');
+    Route::post('/subscription/orders/{paymentOrder}/reconcile', [SubscriptionController::class, 'reconcile'])
+        ->middleware('throttle:10,1')
+        ->name('subscription.reconcile');
 });
 
 // ── Admin Routes ──

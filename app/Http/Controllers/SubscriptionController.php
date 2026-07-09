@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\PaymentOrder;
 use App\Models\Plan;
+use App\Services\Payments\ToyyibPayReconciliationService;
 use App\Services\ToyyibPay\ToyyibPayClient;
 use App\Services\ToyyibPay\ToyyibPayException;
 use App\Support\MalaysianPhone;
@@ -11,6 +12,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use Illuminate\View\View;
 use InvalidArgumentException;
 use Throwable;
 use UnexpectedValueException;
@@ -121,6 +123,77 @@ class SubscriptionController extends Controller
         }
     }
 
+    public function result(Request $request, PaymentOrder $paymentOrder): View
+    {
+        $this->assertOrderOwner($request, $paymentOrder);
+        $paymentOrder->load(['plan', 'subscription']);
+
+        return view('subscription.result', compact('paymentOrder'));
+    }
+
+    public function reconcile(
+        Request $request,
+        PaymentOrder $paymentOrder,
+        ToyyibPayClient $client,
+        ToyyibPayReconciliationService $reconciliationService,
+    ): RedirectResponse {
+        $this->assertOrderOwner($request, $paymentOrder);
+
+        if ($paymentOrder->status === PaymentOrder::STATUS_PAID) {
+            return redirect()->route('subscription.return', $paymentOrder)
+                ->with('success', 'Pembayaran telah disahkan dan langganan anda aktif.');
+        }
+
+        if (! $paymentOrder->bill_code) {
+            return redirect()->route('subscription.return', $paymentOrder)
+                ->withErrors([
+                    'payment' => 'Bil pembayaran belum tersedia. Sila mulakan semula pembayaran.',
+                ]);
+        }
+
+        try {
+            $transactions = $client->getBillTransactions($paymentOrder->bill_code);
+            $paymentOrder = $reconciliationService->reconcile($paymentOrder, $transactions);
+        } catch (ToyyibPayException $exception) {
+            Log::warning('ToyyibPay reconciliation could not be completed.', [
+                'payment_order_id' => $paymentOrder->id,
+                'external_reference' => $paymentOrder->external_reference,
+                'exception_class' => $exception::class,
+            ]);
+
+            return redirect()->route('subscription.return', $paymentOrder)
+                ->withErrors([
+                    'payment' => 'Status pembayaran belum dapat disemak. Sila cuba semula sebentar lagi.',
+                ]);
+        } catch (Throwable $exception) {
+            Log::error('Payment reconciliation failed.', [
+                'payment_order_id' => $paymentOrder->id,
+                'external_reference' => $paymentOrder->external_reference,
+                'exception_class' => $exception::class,
+            ]);
+
+            return redirect()->route('subscription.return', $paymentOrder)
+                ->withErrors([
+                    'payment' => 'Status pembayaran belum dapat disemak. Sila cuba semula sebentar lagi.',
+                ]);
+        }
+
+        if ($paymentOrder->status === PaymentOrder::STATUS_PAID) {
+            return redirect()->route('subscription.return', $paymentOrder)
+                ->with('success', 'Pembayaran telah disahkan dan langganan anda aktif.');
+        }
+
+        if ($paymentOrder->status === PaymentOrder::STATUS_FAILED) {
+            return redirect()->route('subscription.return', $paymentOrder)
+                ->withErrors([
+                    'payment' => 'Pembayaran belum berjaya. Anda boleh cuba pembayaran baharu.',
+                ]);
+        }
+
+        return redirect()->route('subscription.return', $paymentOrder)
+            ->with('info', 'Pembayaran masih diproses. Sila semak semula sebentar lagi.');
+    }
+
     private function purchasableAmount(Plan $plan): int
     {
         try {
@@ -162,5 +235,10 @@ class SubscriptionController extends Controller
             ->withErrors([
                 'payment' => 'Pembayaran tidak dapat dimulakan sekarang. Sila cuba semula sebentar lagi.',
             ]);
+    }
+
+    private function assertOrderOwner(Request $request, PaymentOrder $paymentOrder): void
+    {
+        abort_unless($request->user()?->id === $paymentOrder->user_id, 404);
     }
 }
