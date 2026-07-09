@@ -68,6 +68,7 @@
 - `ToyyibPayClient::getBillTransactions(string $billCode): array`
 - `ToyyibPayClient::verifyCallbackHash(array $payload): bool`
 - `ToyyibPayClient::duitNowQrEnabled(): bool`
+- `ToyyibPayClient::paymentUrl(string $billCode): string`
 - `MalaysianPhone::normalize(string $value): string`
 
 - [ ] Write failing tests for the exact fixed-price form payload, bounded Bill strings, FPX/DNQR owner-charge fields, URL construction, valid/invalid hash, timeout, malformed JSON, and phone formats.
