@@ -1,0 +1,64 @@
+<?php
+
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ChatbotController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\KnowledgeController;
+use App\Http\Controllers\LandingController;
+use App\Http\Controllers\SubscriptionController;
+use App\Http\Controllers\WidgetController;
+use Illuminate\Support\Facades\Route;
+
+// ── Public / Landing Routes ──
+Route::get('/', [LandingController::class, 'index'])->name('landing');
+Route::get('/pricing', [LandingController::class, 'pricing'])->name('landing.pricing');
+Route::view('/privacy', 'privacy')->name('privacy');
+Route::view('/terms', 'terms')->name('terms');
+
+// ── Guest Auth Routes ──
+Route::middleware('guest')->group(function () {
+    Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
+    Route::post('/register', [AuthController::class, 'register']);
+    Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
+    Route::post('/login', [AuthController::class, 'login']);
+});
+
+// ── Authenticated Routes ──
+Route::middleware('auth')->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/onboarding', function () { return view('onboarding'); })->name('onboarding');
+    
+    Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+
+    // Chatbots
+    Route::resource('chatbots', ChatbotController::class);
+    Route::post('/chatbots/{chatbot}/toggle', [ChatbotController::class, 'toggle'])->name('chatbots.toggle');
+    Route::get('/chatbots/{chatbot}/embed', [ChatbotController::class, 'embed'])->name('chatbots.embed');
+    Route::post('/chatbots/{chatbot}/regenerate-key', [ChatbotController::class, 'regenerateKey'])->name('chatbots.regenerate-key');
+
+    // Knowledge Base
+    Route::prefix('chatbots/{chatbot}/knowledge')->name('knowledge.')->group(function () {
+        Route::get('/', [KnowledgeController::class, 'index'])->name('index');
+        Route::post('/', [KnowledgeController::class, 'store'])->name('store');
+        Route::put('/{item}', [KnowledgeController::class, 'update'])->name('update');
+        Route::delete('/{item}', [KnowledgeController::class, 'destroy'])->name('destroy');
+        Route::post('/import', [KnowledgeController::class, 'import'])->name('import');
+    });
+
+    // Subscription
+    Route::get('/subscription/plans', [SubscriptionController::class, 'plans'])->name('subscription.plans');
+    Route::post('/subscribe/{plan}', [SubscriptionController::class, 'subscribe'])->name('subscription.subscribe');
+    Route::get('/subscription/success', [SubscriptionController::class, 'success'])->name('subscription.success');
+});
+
+
+// ── Admin Routes ──
+Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/', [App\Http\Controllers\AdminController::class, 'dashboard'])->name('dashboard');
+    Route::get('/users', [App\Http\Controllers\AdminController::class, 'users'])->name('users');
+    Route::get('/chatbots', [App\Http\Controllers\AdminController::class, 'chatbots'])->name('chatbots');
+    Route::post('/users/{user}/toggle-admin', [App\Http\Controllers\AdminController::class, 'toggleAdmin'])->name('users.toggle-admin');
+});
+
+// Widget Script (public)
+Route::get('/widget/{chatbot:api_key}.js', [WidgetController::class, 'script'])->name('widget.script');

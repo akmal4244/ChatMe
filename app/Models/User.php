@@ -1,0 +1,81 @@
+<?php
+
+namespace App\Models;
+
+// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Database\Factories\UserFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+
+class User extends Authenticatable
+{
+    /** @use HasFactory<UserFactory> */
+    use HasFactory, Notifiable;
+
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
+        'company',
+        'website',
+        'is_admin',
+    ];
+
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+            'is_admin' => 'boolean',
+        ];
+    }
+
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(Subscription::class);
+    }
+
+    public function chatbots(): HasMany
+    {
+        return $this->hasMany(Chatbot::class);
+    }
+
+    public function activeSubscription(): ?Subscription
+    {
+        return $this->subscriptions()
+            ->where(function ($query) {
+                $query->whereNull('ends_at')
+                    ->orWhere('ends_at', '>', now());
+            })
+            ->latest()
+            ->first();
+    }
+
+    public function currentPlan(): ?Plan
+    {
+        $sub = $this->activeSubscription();
+        if ($sub) {
+            return $sub->plan;
+        }
+        return Plan::where('slug', 'free')->first();
+    }
+
+    public function canCreateChatbot(): bool
+    {
+        $plan = $this->currentPlan();
+        if (!$plan) {
+            return false;
+        }
+        if ($plan->chatbot_limit === -1) {
+            return true;
+        }
+        return $this->chatbots()->count() < $plan->chatbot_limit;
+    }
+}
