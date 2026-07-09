@@ -309,6 +309,37 @@ class PaymentActivationTest extends TestCase
         $this->assertSame($second->id, $user->activeSubscription()->id);
     }
 
+    public function test_active_paid_plan_wins_over_a_newer_system_free_entitlement_until_it_expires(): void
+    {
+        $user = User::factory()->create();
+        $paidPlan = $this->paidPlan('pro-priority', '49.00');
+        $paid = $this->activationService()->activate(
+            $this->paymentOrder($user, $paidPlan),
+            'TXN-PAID-PRIORITY',
+        );
+        $freePlan = Plan::create([
+            'name' => 'Free',
+            'slug' => 'free-priority',
+            'price' => '0.00',
+        ]);
+        $free = $this->subscription($user, $freePlan, [
+            'provider' => 'system',
+            'status' => 'active',
+            'starts_at' => $this->now,
+            'ends_at' => null,
+        ]);
+
+        $this->assertGreaterThan($paid->id, $free->id);
+        $this->assertSame($paid->id, $user->fresh()->activeSubscription()->id);
+        $this->assertSame($paidPlan->id, $user->fresh()->currentPlan()->id);
+
+        Carbon::setTestNow($paid->ends_at);
+
+        $this->assertSame($free->id, $user->fresh()->activeSubscription()->id);
+        $this->assertSame($freePlan->id, $user->fresh()->currentPlan()->id);
+        Carbon::setTestNow($this->now);
+    }
+
     public function test_bill_codes_are_unique_when_present_but_multiple_nulls_are_allowed(): void
     {
         $user = User::factory()->create();

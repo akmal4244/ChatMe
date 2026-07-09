@@ -57,20 +57,23 @@ class User extends Authenticatable
         $now = now();
 
         return $this->subscriptions()
+            ->select('subscriptions.*')
+            ->join('plans', 'plans.id', '=', 'subscriptions.plan_id')
             ->where(function ($query) {
-                $query->where('status', 'active')
-                    ->orWhereNull('status');
+                $query->where('subscriptions.status', 'active')
+                    ->orWhereNull('subscriptions.status');
             })
             ->where(function ($query) use ($now) {
-                $query->whereNull('starts_at')
-                    ->orWhere('starts_at', '<=', $now);
+                $query->whereNull('subscriptions.starts_at')
+                    ->orWhere('subscriptions.starts_at', '<=', $now);
             })
             ->where(function ($query) use ($now) {
-                $query->whereNull('ends_at')
-                    ->orWhere('ends_at', '>', $now);
+                $query->whereNull('subscriptions.ends_at')
+                    ->orWhere('subscriptions.ends_at', '>', $now);
             })
-            ->orderByDesc('starts_at')
-            ->orderByDesc('id')
+            ->orderByRaw('CASE WHEN plans.price > 0 THEN 1 ELSE 0 END DESC')
+            ->orderByDesc('subscriptions.starts_at')
+            ->orderByDesc('subscriptions.id')
             ->first();
     }
 
