@@ -3,7 +3,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Chatbot;
 use App\Models\ChatLog;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ApiController extends Controller
 {
@@ -48,23 +50,39 @@ class ApiController extends Controller
         $sessionId = $data['session_id'] ?? 'session_' . uniqid();
         $userMessage = trim($data['message']);
 
-        ChatLog::create([
-            'chatbot_id' => $chatbot->id,
-            'session_id' => $sessionId,
-            'message' => $userMessage,
-            'role' => 'user',
-            'ip_address' => $request->ip(),
-            'user_agent' => $request->userAgent(),
-        ]);
+        $response = DB::transaction(function () use ($chatbot, $request, $sessionId, $userMessage): ?string {
+            $owner = User::query()
+                ->lockForUpdate()
+                ->findOrFail($chatbot->user_id);
 
-        $response = $this->findBestMatch($chatbot, $userMessage);
+            if (! $owner->canSendChatMessage()) {
+                return null;
+            }
 
-        ChatLog::create([
-            'chatbot_id' => $chatbot->id,
-            'session_id' => $sessionId,
-            'message' => $response,
-            'role' => 'bot',
-        ]);
+            ChatLog::create([
+                'chatbot_id' => $chatbot->id,
+                'session_id' => $sessionId,
+                'message' => $userMessage,
+                'role' => 'user',
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
+
+            $response = $this->findBestMatch($chatbot, $userMessage);
+
+            ChatLog::create([
+                'chatbot_id' => $chatbot->id,
+                'session_id' => $sessionId,
+                'message' => $response,
+                'role' => 'bot',
+            ]);
+
+            return $response;
+        });
+
+        if ($response === null) {
+            return response()->json(['error' => 'Monthly message limit reached'], 429);
+        }
 
         return response()->json([
             'response' => $response,

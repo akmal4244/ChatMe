@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Chatbot;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -51,12 +53,27 @@ class ChatbotController extends Controller
             ]);
         }
 
-        $validated['user_id'] = $request->user()->id;
         $validated['slug'] = Str::slug($request->name) . '-' . Str::random(6);
         $validated['api_key'] = Str::random(40);
         $validated['is_active'] = true;
 
-        Chatbot::create($validated);
+        $chatbot = DB::transaction(function () use ($request, $validated): ?Chatbot {
+            $owner = User::query()
+                ->lockForUpdate()
+                ->findOrFail($request->user()->id);
+
+            if (! $owner->canCreateChatbot()) {
+                return null;
+            }
+
+            return $owner->chatbots()->create($validated);
+        });
+
+        if (! $chatbot) {
+            throw ValidationException::withMessages([
+                'name' => 'Your current plan chatbot limit has been reached.',
+            ]);
+        }
 
         return redirect()->route('chatbots.index')
             ->with('success', 'Chatbot created successfully.');
