@@ -10,9 +10,13 @@ class Subscription extends Model
     protected $fillable = [
         'user_id',
         'plan_id',
+        'provider',
+        'provider_reference',
+        'status',
         'stripe_id',
         'stripe_status',
         'trial_ends_at',
+        'starts_at',
         'ends_at',
     ];
 
@@ -20,6 +24,7 @@ class Subscription extends Model
     {
         return [
             'trial_ends_at' => 'datetime',
+            'starts_at' => 'datetime',
             'ends_at' => 'datetime',
         ];
     }
@@ -36,9 +41,20 @@ class Subscription extends Model
 
     public function isActive(): bool
     {
-        if ($this->ends_at && now()->gt($this->ends_at)) {
+        $now = now();
+
+        if ($this->status !== null && $this->status !== 'active') {
             return false;
         }
+
+        if ($this->starts_at && $this->starts_at->gt($now)) {
+            return false;
+        }
+
+        if ($this->ends_at && $this->ends_at->lte($now)) {
+            return false;
+        }
+
         return true;
     }
 

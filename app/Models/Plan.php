@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use UnexpectedValueException;
 
 class Plan extends Model
 {
@@ -42,5 +43,19 @@ class Plan extends Model
     public function isFree(): bool
     {
         return $this->price <= 0;
+    }
+
+    public function priceInCents(): int
+    {
+        $price = (string) $this->price;
+
+        if (! preg_match('/^(\d+)(?:\.(\d{1,2}))?$/', $price, $matches)) {
+            throw new UnexpectedValueException('Plan price must be a non-negative decimal with at most two places.');
+        }
+
+        $whole = (int) $matches[1];
+        $fraction = str_pad($matches[2] ?? '', 2, '0');
+
+        return ($whole * 100) + (int) $fraction;
     }
 }

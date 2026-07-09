@@ -47,14 +47,30 @@ class User extends Authenticatable
         return $this->hasMany(Chatbot::class);
     }
 
+    public function paymentOrders(): HasMany
+    {
+        return $this->hasMany(PaymentOrder::class);
+    }
+
     public function activeSubscription(): ?Subscription
     {
+        $now = now();
+
         return $this->subscriptions()
             ->where(function ($query) {
-                $query->whereNull('ends_at')
-                    ->orWhere('ends_at', '>', now());
+                $query->where('status', 'active')
+                    ->orWhereNull('status');
             })
-            ->latest()
+            ->where(function ($query) use ($now) {
+                $query->whereNull('starts_at')
+                    ->orWhere('starts_at', '<=', $now);
+            })
+            ->where(function ($query) use ($now) {
+                $query->whereNull('ends_at')
+                    ->orWhere('ends_at', '>', $now);
+            })
+            ->orderByDesc('starts_at')
+            ->orderByDesc('id')
             ->first();
     }
 
@@ -64,25 +80,27 @@ class User extends Authenticatable
         if ($sub) {
             return $sub->plan;
         }
+
         return Plan::where('slug', 'free')->first();
     }
 
     public function canCreateChatbot(): bool
     {
         $plan = $this->currentPlan();
-        if (!$plan) {
+        if (! $plan) {
             return false;
         }
         if ($plan->chatbot_limit === -1) {
             return true;
         }
+
         return $this->chatbots()->count() < $plan->chatbot_limit;
     }
 
     public function canSendChatMessage(): bool
     {
         $plan = $this->currentPlan();
-        if (!$plan) {
+        if (! $plan) {
             return false;
         }
 
