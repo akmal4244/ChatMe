@@ -231,7 +231,7 @@ class SubscriptionController extends Controller
     private function checkoutFailureResponse(Request $request): RedirectResponse
     {
         return back()
-            ->withInput($request->only('phone'))
+            ->withInput($request->only(['phone', 'checkout_plan']))
             ->withErrors([
                 'payment' => 'Pembayaran tidak dapat dimulakan sekarang. Sila cuba semula sebentar lagi.',
             ]);

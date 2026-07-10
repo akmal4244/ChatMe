@@ -63,7 +63,7 @@ class KnowledgeImportTest extends TestCase
 
         $response
             ->assertRedirect(route('knowledge.index', $this->chatbot))
-            ->assertSessionHas('success', '2 knowledge items imported successfully.');
+            ->assertSessionHas('success', '2 item pengetahuan berjaya diimport.');
 
         $this->assertDatabaseCount('knowledge_items', 2);
         $this->assertDatabaseHas('knowledge_items', [

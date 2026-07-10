@@ -55,7 +55,9 @@ class LightThemeTest extends TestCase
 
         $this->actingAs($user)->get('/dashboard')->assertOk()
             ->assertSee('id="main-content"', false)
-            ->assertSee('aria-current="page"', false);
+            ->assertSee('aria-current="page"', false)
+            ->assertSee('<title>Papan Pemuka — ChatMe</title>', false)
+            ->assertSee('aria-label="Menu akaun untuk', false);
     }
 
     public function test_landing_uses_real_plan_data_and_manual_renewal_copy(): void

@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="description" content="ChatMe — Urus chatbot AI dan pengetahuan anda.">
-    <title>@yield('title', 'Papan Pemuka') &mdash; ChatMe</title>
+    @php($documentTitle = trim($__env->yieldContent('title', 'Papan Pemuka')))
+    <title>{{ str_contains($documentTitle, 'ChatMe') ? $documentTitle : $documentTitle.' — ChatMe' }}</title>
 
     <link rel="icon" type="image/png" href="{{ asset('akmal3d.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +19,7 @@
 <body class="app-body">
     <a href="#main-content" class="skip-link">Langkau ke kandungan</a>
 
-    <aside id="sidebar" class="sidebar" aria-label="Navigasi utama">
+    <aside id="sidebar" class="sidebar" aria-label="Navigasi utama" aria-hidden="true">
         <a href="{{ route('dashboard') }}" class="sidebar-header" aria-label="ChatMe, papan pemuka">
             <span class="sidebar-logo"><img src="{{ asset('akmal3d.png') }}" alt="" width="32" height="32"></span>
             <span class="sidebar-brand"><strong>ChatMe</strong><small>Chatbot AI</small></span>
@@ -76,7 +77,7 @@
             @endif
         </nav>
     </aside>
-    <button type="button" class="sidebar-overlay" id="sidebar-overlay" aria-label="Tutup navigasi" tabindex="-1"></button>
+    <button type="button" class="sidebar-overlay" id="sidebar-overlay" aria-label="Tutup navigasi" aria-hidden="true" tabindex="-1" disabled></button>
 
     <div class="app-shell" id="app-shell">
         <header class="topbar">
@@ -86,7 +87,7 @@
             <span class="topbar-title">@yield('page-title', 'Papan Pemuka')</span>
 
             <div class="user-menu">
-                <button type="button" class="user-btn" id="user-btn" aria-expanded="false" aria-controls="user-dropdown">
+                <button type="button" class="user-btn" id="user-btn" aria-label="Menu akaun untuk {{ auth()->user()->name ?? 'Pengguna' }}" aria-expanded="false" aria-controls="user-dropdown">
                     <span class="user-avatar-sm" aria-hidden="true">{{ strtoupper(substr(auth()->user()->name ?? 'U', 0, 1)) }}</span>
                     <span class="user-btn-name">{{ auth()->user()->name ?? 'Pengguna' }}</span>
                     <i class="ph ph-caret-down user-btn-chevron" aria-hidden="true"></i>
@@ -169,6 +170,10 @@
             if (isMobile()) {
                 sidebar.classList.toggle('mobile-open', open);
                 overlay.classList.toggle('visible', open);
+                sidebar.inert = !open;
+                sidebar.setAttribute('aria-hidden', open ? 'false' : 'true');
+                overlay.disabled = !open;
+                overlay.setAttribute('aria-hidden', open ? 'false' : 'true');
                 toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
                 return;
             }
@@ -183,7 +188,23 @@
             sidebar.classList.add('collapsed');
             appShell.classList.add('collapsed');
         }
+        sidebar.inert = isMobile();
+        sidebar.setAttribute('aria-hidden', isMobile() ? 'true' : 'false');
         toggle?.setAttribute('aria-expanded', !isMobile() && !collapsed ? 'true' : 'false');
+
+        window.addEventListener('resize', () => {
+            if (isMobile()) {
+                setSidebarState(sidebar.classList.contains('mobile-open'));
+            } else {
+                sidebar.classList.remove('mobile-open');
+                overlay.classList.remove('visible');
+                sidebar.inert = false;
+                sidebar.setAttribute('aria-hidden', 'false');
+                overlay.disabled = true;
+                overlay.setAttribute('aria-hidden', 'true');
+                toggle?.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+            }
+        });
 
         toggle?.addEventListener('click', () => setSidebarState(isMobile() ? !sidebar.classList.contains('mobile-open') : collapsed));
         overlay?.addEventListener('click', () => setSidebarState(false));
@@ -208,13 +229,20 @@
             if (!modal) return;
             modal.hidden = true;
             document.body.classList.remove('modal-open');
+            appShell.inert = false;
+            sidebar.inert = isMobile() && !sidebar.classList.contains('mobile-open');
+            document.querySelector('.skip-link').inert = false;
             lastFocused?.focus();
         };
         const openModal = (modal) => {
             if (!modal) return;
-            lastFocused = document.activeElement;
+            lastFocused = userDropdown?.contains(document.activeElement) ? userButton : document.activeElement;
+            closeUserMenu();
             modal.hidden = false;
             document.body.classList.add('modal-open');
+            appShell.inert = true;
+            sidebar.inert = true;
+            document.querySelector('.skip-link').inert = true;
             modal.querySelector('button')?.focus();
         };
 

@@ -19,6 +19,12 @@
     @if($errors->has('payment'))
         <div class="alert alert-error" role="alert">{{ $errors->first('payment') }}</div>
     @endif
+    @if($errors->has('plan'))
+        <div class="alert alert-error" role="alert">{{ $errors->first('plan') }}</div>
+    @endif
+    @if($errors->has('phone') && blank(old('checkout_plan')))
+        <div class="alert alert-error" role="alert">{{ $errors->first('phone') }}</div>
+    @endif
 
     <div class="plan-grid">
         @forelse($plans as $plan)
@@ -27,6 +33,8 @@
                 $isCurrent = $currentPlan?->id === $plan->id;
                 $isCurrentPaid = $isCurrent && ! $isFree && $activeSubscription !== null;
                 $phoneId = 'phone-'.$plan->id;
+                $isSubmittedCheckout = (string) old('checkout_plan') === (string) $plan->id;
+                $hasPhoneError = $isSubmittedCheckout && $errors->has('phone');
             @endphp
 
             <article class="plan-card {{ $plan->slug === 'pro' ? 'plan-card-featured' : '' }}" aria-labelledby="plan-{{ $plan->id }}-name">
@@ -82,6 +90,7 @@
                     @else
                         <form action="{{ route('subscription.checkout', $plan) }}" method="POST" class="checkout-form">
                             @csrf
+                            <input type="hidden" name="checkout_plan" value="{{ $plan->id }}">
                             <label for="{{ $phoneId }}">Nombor telefon mudah alih</label>
                             <p id="{{ $phoneId }}-hint" class="field-hint">Digunakan untuk bil ToyyibPay dan pengesahan pembayaran.</p>
                             <input
@@ -90,12 +99,13 @@
                                 type="tel"
                                 inputmode="tel"
                                 autocomplete="tel"
-                                value="{{ old('phone') }}"
+                                value="{{ $isSubmittedCheckout ? old('phone') : '' }}"
                                 placeholder="0123456789"
-                                aria-describedby="{{ $phoneId }}-hint{{ $errors->has('phone') ? ' '.$phoneId.'-error' : '' }}"
+                                aria-describedby="{{ $phoneId }}-hint{{ $hasPhoneError ? ' '.$phoneId.'-error' : '' }}"
+                                @if($hasPhoneError) aria-invalid="true" @endif
                                 required
                             >
-                            @if($errors->has('phone'))
+                            @if($hasPhoneError)
                                 <p id="{{ $phoneId }}-error" class="field-error" role="alert">{{ $errors->first('phone') }}</p>
                             @endif
                             <button type="submit" class="button button-primary button-full">

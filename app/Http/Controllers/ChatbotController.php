@@ -50,7 +50,7 @@ class ChatbotController extends Controller
 
         if (! $request->user()->canCreateChatbot()) {
             throw ValidationException::withMessages([
-                'name' => 'Your current plan chatbot limit has been reached.',
+                'name' => 'Had chatbot untuk pelan semasa anda telah dicapai.',
             ]);
         }
 
@@ -72,12 +72,12 @@ class ChatbotController extends Controller
 
         if (! $chatbot) {
             throw ValidationException::withMessages([
-                'name' => 'Your current plan chatbot limit has been reached.',
+                'name' => 'Had chatbot untuk pelan semasa anda telah dicapai.',
             ]);
         }
 
         return redirect()->route('chatbots.index')
-            ->with('success', 'Chatbot created successfully.');
+            ->with('success', 'Chatbot berjaya dicipta.');
     }
 
     /**
@@ -124,7 +124,7 @@ class ChatbotController extends Controller
         $chatbot->update($validated);
 
         return redirect()->route('chatbots.index')
-            ->with('success', 'Chatbot updated successfully.');
+            ->with('success', 'Chatbot berjaya dikemas kini.');
     }
 
     /**
@@ -137,7 +137,7 @@ class ChatbotController extends Controller
         $chatbot->delete();
 
         return redirect()->route('chatbots.index')
-            ->with('success', 'Chatbot deleted successfully.');
+            ->with('success', 'Chatbot berjaya dipadam.');
     }
 
     /**
@@ -170,7 +170,7 @@ class ChatbotController extends Controller
         $chatbot->update($validated);
 
         return redirect()->route('chatbots.customize', $chatbot)
-            ->with('success', 'Chatbot appearance updated successfully.');
+            ->with('success', 'Rupa chatbot berjaya dikemas kini.');
     }
 
     public function toggle(Chatbot $chatbot)
@@ -178,7 +178,7 @@ class ChatbotController extends Controller
         Gate::authorize('update', $chatbot);
         $chatbot->update(['is_active' => ! $chatbot->is_active]);
 
-        return back()->with('success', 'Status chatbot dikemaskini.');
+        return back()->with('success', 'Status chatbot berjaya dikemas kini.');
     }
 
     public function embed(Chatbot $chatbot)

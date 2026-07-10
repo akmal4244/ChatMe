@@ -70,7 +70,7 @@ class Chatbot extends Model
         $avatar = trim((string) $this->avatar_url);
 
         if ($avatar === '') {
-            return secure_asset('akmal3d.png');
+            return asset('akmal3d.png');
         }
 
         if (filter_var($avatar, FILTER_VALIDATE_URL)) {
@@ -80,13 +80,13 @@ class Chatbot extends Model
         $path = ltrim(str_replace('\\', '/', $avatar), '/');
 
         if ($path === '' || str_contains($path, '..')) {
-            return secure_asset('akmal3d.png');
+            return asset('akmal3d.png');
         }
 
         if (str_starts_with($path, 'storage/') || is_file(public_path($path))) {
-            return secure_asset($path);
+            return asset($path);
         }
 
-        return secure_asset('storage/'.$path);
+        return asset('storage/'.$path);
     }
 }

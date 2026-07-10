@@ -51,6 +51,6 @@ class AdminController extends Controller
         $user->is_admin = ! $user->is_admin;
         $user->save();
 
-        return back()->with('success', 'Status pentadbir '.$user->name.' dikemaskini.');
+        return back()->with('success', 'Status pentadbir '.$user->name.' berjaya dikemas kini.');
     }
 }

@@ -144,6 +144,27 @@ class SubscriptionPlanTest extends TestCase
         $this->assertStringNotContainsString('subscription.subscribe', $html);
     }
 
+    public function test_phone_error_is_associated_only_with_the_submitted_plan_form(): void
+    {
+        $this->seed(PlanSeeder::class);
+        $user = User::factory()->create();
+        $pro = Plan::where('slug', 'pro')->firstOrFail();
+
+        $this->actingAs($user)
+            ->from(route('subscription.plans'))
+            ->post(route('subscription.checkout', $pro), [
+                'checkout_plan' => $pro->id,
+                'phone' => '123',
+            ])
+            ->assertRedirect(route('subscription.plans'))
+            ->assertSessionHasErrors('phone');
+
+        $html = $this->get(route('subscription.plans'))->assertOk()->getContent();
+
+        $this->assertSame(1, substr_count($html, 'Masukkan nombor telefon mudah alih Malaysia yang sah.'));
+        $this->assertSame(1, substr_count($html, 'value="123"'));
+    }
+
     public function test_legacy_billing_routes_and_executable_stripe_code_are_removed(): void
     {
         $this->assertFalse(Route::has('subscription.subscribe'));

@@ -71,7 +71,7 @@ class KnowledgeController extends Controller
 
             if (! $lockedChatbot->user->canAddKnowledgeItems($lockedChatbot)) {
                 throw ValidationException::withMessages([
-                    'question' => 'Your plan knowledge limit has been reached.',
+                    'question' => 'Had pengetahuan untuk pelan anda telah dicapai.',
                 ]);
             }
 
@@ -82,7 +82,7 @@ class KnowledgeController extends Controller
         });
 
         return redirect()->route('knowledge.index', $chatbot)
-            ->with('success', 'Knowledge item added successfully.');
+            ->with('success', 'Item pengetahuan berjaya ditambah.');
     }
 
     /**
@@ -126,7 +126,7 @@ class KnowledgeController extends Controller
         $item->update($validated);
 
         return redirect()->route('knowledge.index', $chatbot)
-            ->with('success', 'Knowledge item updated successfully.');
+            ->with('success', 'Item pengetahuan berjaya dikemas kini.');
     }
 
     /**
@@ -140,7 +140,7 @@ class KnowledgeController extends Controller
         $item->delete();
 
         return redirect()->route('knowledge.index', $chatbot)
-            ->with('success', 'Knowledge item deleted successfully.');
+            ->with('success', 'Item pengetahuan berjaya dipadam.');
     }
 
     /**
@@ -158,13 +158,13 @@ class KnowledgeController extends Controller
             $decoded = json_decode($validated['json_data'], false, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException) {
             throw ValidationException::withMessages([
-                'json_data' => 'The JSON data is malformed.',
+                'json_data' => 'Data JSON tidak sah.',
             ]);
         }
 
         if (! is_array($decoded) || ! array_is_list($decoded) || count($decoded) < 1 || count($decoded) > 1000) {
             throw ValidationException::withMessages([
-                'json_data' => 'The JSON data must be a list of 1 to 1000 objects.',
+                'json_data' => 'Data JSON mestilah senarai yang mengandungi 1 hingga 1,000 objek.',
             ]);
         }
 
@@ -172,7 +172,7 @@ class KnowledgeController extends Controller
         foreach ($decoded as $item) {
             if (! $item instanceof \stdClass) {
                 throw ValidationException::withMessages([
-                    'json_data' => 'Every JSON list item must be an object.',
+                    'json_data' => 'Setiap item dalam senarai JSON mestilah sebuah objek.',
                 ]);
             }
 
@@ -188,7 +188,7 @@ class KnowledgeController extends Controller
 
         if ($validator->fails()) {
             throw ValidationException::withMessages([
-                'json_data' => 'The JSON data contains an invalid knowledge item.',
+                'json_data' => 'Data JSON mengandungi item pengetahuan yang tidak sah.',
             ]);
         }
 
@@ -200,7 +200,7 @@ class KnowledgeController extends Controller
 
             if (! $lockedChatbot->user->canAddKnowledgeItems($lockedChatbot, count($rows))) {
                 throw ValidationException::withMessages([
-                    'json_data' => 'This import exceeds your plan knowledge limit.',
+                    'json_data' => 'Import ini melebihi had pengetahuan pelan anda.',
                 ]);
             }
 
@@ -218,7 +218,7 @@ class KnowledgeController extends Controller
         $imported = count($rows);
 
         return redirect()->route('knowledge.index', $chatbot)
-            ->with('success', "{$imported} knowledge items imported successfully.");
+            ->with('success', "{$imported} item pengetahuan berjaya diimport.");
     }
 
     private function ensureItemBelongsToChatbot(Chatbot $chatbot, KnowledgeItem $item): void

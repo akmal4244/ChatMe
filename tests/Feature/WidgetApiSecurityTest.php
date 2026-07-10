@@ -79,6 +79,20 @@ class WidgetApiSecurityTest extends TestCase
         $this->assertStringNotContainsString('/storage/akmal3d.png', $avatarUrl);
     }
 
+    public function test_default_avatar_does_not_force_https_in_an_http_environment(): void
+    {
+        config()->set('app.url', 'http://chatme.test');
+        $chatbot = $this->chatbotWithWhitelist('*');
+
+        $avatarUrl = $this->withHeader('Origin', 'https://site.example.test')
+            ->getJson(route('api.widget.config', $chatbot->api_key))
+            ->assertOk()
+            ->json('avatar_url');
+
+        $this->assertStringStartsWith('http://', $avatarUrl);
+        $this->assertStringEndsWith('/akmal3d.png', $avatarUrl);
+    }
+
     private function chatbotWithWhitelist(string $whitelist): Chatbot
     {
         $user = User::factory()->create();
