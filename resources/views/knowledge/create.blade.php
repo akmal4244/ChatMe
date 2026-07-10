@@ -1,41 +1,40 @@
 @extends('layouts.app')
+@section('page-title', 'Tambah Pengetahuan')
 @section('title', 'Tambah Pengetahuan — ' . $chatbot->name)
 @section('content')
 <div class="max-w-2xl">
-    <div class="flex items-center gap-3 mb-6">
-        <a href="{{ route('knowledge.index', $chatbot) }}" class="text-white/25 hover:text-white/40 transition">&larr; Kembali</a>
-    </div>
-    <div class="bg-white/[0.03] rounded-lg border border-white/[0.06] p-6">
-        <h2 class="text-lg font-semibold text-white">Tambah Item Pengetahuan</h2>
-        <p class="text-sm text-white/25 mt-1">Tambah pasangan Soal-Jawab supaya chatbot anda boleh menjawab soalan secara automatik.</p>
+    <a href="{{ route('knowledge.index', $chatbot) }}" class="btn btn-ghost mb-6">&larr; Kembali</a>
+    <section class="card p-5 sm:p-6" aria-labelledby="knowledge-create-heading">
+        <h1 id="knowledge-create-heading" class="text-xl font-semibold text-neutral-950">Tambah Item Pengetahuan</h1>
+        <p class="text-sm text-neutral-600 mt-1">Tambah pasangan Soal-Jawab supaya chatbot anda boleh menjawab soalan secara automatik.</p>
         <form action="{{ route('knowledge.store', $chatbot) }}" method="POST" class="mt-6 space-y-5">
             @csrf
             <div>
-                <label for="question" class="block text-sm font-medium text-white/80">Soalan</label>
+                <label for="question" class="label">Soalan</label>
                 <input id="question" name="question" type="text" value="{{ old('question') }}" required
-                       class="mt-1.5 block w-full rounded-lg border border-white/[0.06] px-3.5 py-2.5 text-white placeholder-neutral-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-shadow sm:text-sm" placeholder="Contoh: Apa itu diet seimbang?">
+                       class="input" placeholder="Contoh: Apa itu diet seimbang?">
             </div>
             <div>
-                <label for="answer" class="block text-sm font-medium text-white/80">Jawapan</label>
+                <label for="answer" class="label">Jawapan</label>
                 <textarea id="answer" name="answer" rows="8" required
-                          class="mt-1.5 block w-full rounded-lg border border-white/[0.06] px-3.5 py-2.5 text-white placeholder-neutral-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-shadow sm:text-sm" placeholder="Tulis jawapan lengkap di sini...">{{ old('answer') }}</textarea>
+                          class="input" placeholder="Tulis jawapan lengkap di sini...">{{ old('answer') }}</textarea>
             </div>
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                    <label for="category" class="block text-sm font-medium text-white/80">Kategori</label>
+                    <label for="category" class="label">Kategori</label>
                     <input id="category" name="category" type="text" value="{{ old('category') }}"
-                           class="mt-1.5 block w-full rounded-lg border border-white/[0.06] px-3.5 py-2.5 text-white focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-shadow sm:text-sm" placeholder="Cth: Pemakanan">
+                           class="input" placeholder="Cth: Pemakanan">
                 </div>
                 <div>
-                    <label for="tags" class="block text-sm font-medium text-white/80">Tag (pisah dengan koma)</label>
+                    <label for="tags" class="label">Tag (pisah dengan koma)</label>
                     <input id="tags" name="tags" type="text" value="{{ old('tags') }}"
-                           class="mt-1.5 block w-full rounded-lg border border-white/[0.06] px-3.5 py-2.5 text-white focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-shadow sm:text-sm" placeholder="Cth: diet,kurus,protein">
+                           class="input" placeholder="Cth: diet,kurus,protein">
                 </div>
             </div>
             <div class="pt-2">
-                <button type="submit" class="bg-white text-[#050505] px-5 py-2.5 rounded-lg font-semibold text-sm hover:bg-white/90 transition">Tambah Item</button>
+                <button type="submit" class="btn btn-primary">Tambah Item</button>
             </div>
         </form>
-    </div>
+    </section>
 </div>
 @endsection

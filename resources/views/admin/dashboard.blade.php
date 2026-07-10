@@ -2,75 +2,81 @@
 @section('page-title', 'Panel Pentadbir')
 @section('title', 'Panel Pentadbir — ChatMe')
 @section('content')
-<div class="flex items-center justify-between mb-6">
+<header class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
     <div>
-        <h1 class="text-2xl font-bold text-white">Panel Pentadbir</h1>
-        <p class="text-sm text-white/25 mt-1">Selamat datang, {{ auth()->user()->name }}. Anda log masuk sebagai pentadbir.</p>
+        <h1 class="text-2xl font-bold text-neutral-950">Panel Pentadbir</h1>
+        <p class="text-sm text-neutral-600 mt-1">Selamat datang, {{ auth()->user()->name }}. Anda log masuk sebagai pentadbir.</p>
     </div>
-    <span class="bg-white/[0.03] text-white text-xs font-semibold px-3 py-1.5 rounded-full">Pentadbir</span>
-</div>
+    <span class="badge badge-admin self-start sm:self-auto">Pentadbir</span>
+</header>
 
-<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-    <div class="bg-white/[0.03] rounded-lg border border-white/[0.06] p-5">
-        <p class="text-xs font-medium text-white/25 uppercase tracking-wide mb-1">Jumlah Pengguna</p>
-        <p class="text-3xl font-bold text-white">{{ $stats['total_users'] }}</p>
+<dl class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
+    <div class="card p-5">
+        <dt class="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-1">Jumlah Pengguna</dt>
+        <dd class="text-3xl font-bold text-neutral-950">{{ $stats['total_users'] }}</dd>
     </div>
-    <div class="bg-white/[0.03] rounded-lg border border-white/[0.06] p-5">
-        <p class="text-xs font-medium text-white/25 uppercase tracking-wide mb-1">Jumlah Chatbot</p>
-        <p class="text-3xl font-bold text-white">{{ $stats['total_chatbots'] }}</p>
+    <div class="card p-5">
+        <dt class="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-1">Jumlah Chatbot</dt>
+        <dd class="text-3xl font-bold text-neutral-950">{{ $stats['total_chatbots'] }}</dd>
     </div>
-    <div class="bg-white/[0.03] rounded-lg border border-white/[0.06] p-5">
-        <p class="text-xs font-medium text-white/25 uppercase tracking-wide mb-1">Jumlah Mesej</p>
-        <p class="text-3xl font-bold text-white">{{ $stats['total_messages'] }}</p>
+    <div class="card p-5">
+        <dt class="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-1">Jumlah Mesej</dt>
+        <dd class="text-3xl font-bold text-neutral-950">{{ $stats['total_messages'] }}</dd>
     </div>
-    <div class="bg-white/[0.03] rounded-lg border border-white/[0.06] p-5">
-        <p class="text-xs font-medium text-white/25 uppercase tracking-wide mb-1">Hari Ini</p>
-        <p class="text-3xl font-bold text-white">{{ $stats['messages_today'] }}</p>
+    <div class="card p-5">
+        <dt class="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-1">Hari Ini</dt>
+        <dd class="text-3xl font-bold text-neutral-950">{{ $stats['messages_today'] }}</dd>
     </div>
-</div>
+</dl>
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    <div class="bg-white/[0.03] rounded-lg border border-white/[0.06] overflow-hidden">
-        <div class="px-6 py-4 border-b border-white/[0.06] flex items-center justify-between">
-            <h2 class="font-semibold text-white">Pengguna Terbaru</h2>
-            <a href="{{ route('admin.users') }}" class="text-sm text-white font-medium hover:underline">Lihat Semua</a>
+    <section class="card overflow-hidden" aria-labelledby="recent-users-heading">
+        <div class="px-5 sm:px-6 py-4 border-b border-neutral-200 flex items-center justify-between gap-4">
+            <h2 id="recent-users-heading" class="font-semibold text-neutral-950">Pengguna Terbaru</h2>
+            <a href="{{ route('admin.users') }}" class="text-sm text-brand-700 font-medium hover:underline">Lihat Semua</a>
         </div>
-        <table class="w-full">
-            <thead class="bg-white/[0.03] text-left text-xs font-medium text-white/25 uppercase tracking-wide">
-                <tr><th class="px-6 py-3">Nama</th><th class="px-6 py-3">Email</th><th class="px-6 py-3">Chatbot</th><th class="px-6 py-3">Tarikh</th></tr>
+        <div class="overflow-x-auto">
+        <table class="data-table min-w-[36rem]">
+            <caption class="sr-only">Senarai pengguna yang baru mendaftar</caption>
+            <thead>
+                <tr><th scope="col">Nama</th><th scope="col">Email</th><th scope="col">Chatbot</th><th scope="col">Tarikh</th></tr>
             </thead>
-            <tbody class="divide-y divide-white/[0.06]">
+            <tbody>
                 @foreach($recent_users as $u)
-                <tr class="hover:bg-white/[0.03] transition-colors">
-                    <td class="px-6 py-3 text-sm font-medium text-white">{{ $u->name }}</td>
-                    <td class="px-6 py-3 text-sm text-white/25">{{ $u->email }}</td>
-                    <td class="px-6 py-3 text-sm text-white/25">{{ $u->chatbots_count ?? 0 }}</td>
-                    <td class="px-6 py-3 text-xs text-white/25">{{ $u->created_at->format('d/m/Y') }}</td>
+                <tr>
+                    <th scope="row" class="font-medium text-neutral-950">{{ $u->name }}</th>
+                    <td>{{ $u->email }}</td>
+                    <td>{{ $u->chatbots_count ?? 0 }}</td>
+                    <td><time datetime="{{ $u->created_at->toDateString() }}">{{ $u->created_at->format('d/m/Y') }}</time></td>
                 </tr>
                 @endforeach
             </tbody>
         </table>
-    </div>
-    <div class="bg-white/[0.03] rounded-lg border border-white/[0.06] overflow-hidden">
-        <div class="px-6 py-4 border-b border-white/[0.06] flex items-center justify-between">
-            <h2 class="font-semibold text-white">Chatbot Terbaru</h2>
-            <a href="{{ route('admin.chatbots') }}" class="text-sm text-white font-medium hover:underline">Lihat Semua</a>
         </div>
-        <table class="w-full">
-            <thead class="bg-white/[0.03] text-left text-xs font-medium text-white/25 uppercase tracking-wide">
-                <tr><th class="px-6 py-3">Nama</th><th class="px-6 py-3">Pemilik</th><th class="px-6 py-3">Status</th><th class="px-6 py-3">Tarikh</th></tr>
+    </section>
+    <section class="card overflow-hidden" aria-labelledby="recent-chatbots-heading">
+        <div class="px-5 sm:px-6 py-4 border-b border-neutral-200 flex items-center justify-between gap-4">
+            <h2 id="recent-chatbots-heading" class="font-semibold text-neutral-950">Chatbot Terbaru</h2>
+            <a href="{{ route('admin.chatbots') }}" class="text-sm text-brand-700 font-medium hover:underline">Lihat Semua</a>
+        </div>
+        <div class="overflow-x-auto">
+        <table class="data-table min-w-[36rem]">
+            <caption class="sr-only">Senarai chatbot yang baru dicipta</caption>
+            <thead>
+                <tr><th scope="col">Nama</th><th scope="col">Pemilik</th><th scope="col">Status</th><th scope="col">Tarikh</th></tr>
             </thead>
-            <tbody class="divide-y divide-white/[0.06]">
+            <tbody>
                 @foreach($recent_chatbots as $bot)
-                <tr class="hover:bg-white/[0.03] transition-colors">
-                    <td class="px-6 py-3 text-sm font-medium text-white">{{ $bot->name }}</td>
-                    <td class="px-6 py-3 text-sm text-white/25">{{ $bot->user->name ?? 'N/A' }}</td>
-                    <td class="px-6 py-3"><span class="text-xs font-semibold px-2 py-0.5 rounded-full {{ $bot->is_active ? 'bg-emerald-500/10 text-emerald-400' : 'bg-white/[0.03] text-white/25' }}">{{ $bot->is_active ? 'Aktif' : 'Tidak Aktif' }}</span></td>
-                    <td class="px-6 py-3 text-xs text-white/25">{{ $bot->created_at->format('d/m/Y') }}</td>
+                <tr>
+                    <th scope="row" class="font-medium text-neutral-950">{{ $bot->name }}</th>
+                    <td>{{ $bot->user->name ?? 'N/A' }}</td>
+                    <td><span class="badge {{ $bot->is_active ? 'badge-active' : 'badge-inactive' }}">{{ $bot->is_active ? 'Aktif' : 'Tidak Aktif' }}</span></td>
+                    <td><time datetime="{{ $bot->created_at->toDateString() }}">{{ $bot->created_at->format('d/m/Y') }}</time></td>
                 </tr>
                 @endforeach
             </tbody>
         </table>
-    </div>
+        </div>
+    </section>
 </div>
 @endsection

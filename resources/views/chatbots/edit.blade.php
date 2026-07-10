@@ -3,57 +3,61 @@
 @section('title', 'Sunting — ' . $chatbot->name)
 @section('content')
 <div class="max-w-2xl">
-    <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-bold text-white">Sunting: {{ $chatbot->name }}</h1>
-        <div class="flex gap-2">
-            <a href="{{ route('chatbots.embed', $chatbot) }}" class="text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-emerald-100 transition">Dapatkan Kod Benam</a>
-            <a href="{{ route('knowledge.index', $chatbot) }}" class="text-purple-700 bg-purple-50 px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-purple-100 transition">Pangkalan Pengetahuan</a>
+    <header class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+        <h1 class="text-2xl font-bold text-neutral-950">Sunting: {{ $chatbot->name }}</h1>
+        <div class="flex flex-wrap gap-2">
+            <a href="{{ route('chatbots.embed', $chatbot) }}" class="btn btn-secondary btn-sm">Dapatkan Kod Benam</a>
+            <a href="{{ route('knowledge.index', $chatbot) }}" class="btn btn-secondary btn-sm">Pangkalan Pengetahuan</a>
         </div>
-    </div>
-    <form action="{{ route('chatbots.update', $chatbot) }}" method="POST" enctype="multipart/form-data" class="bg-white/[0.03] rounded-lg border border-white/[0.06] p-8 space-y-5">
+    </header>
+    <form action="{{ route('chatbots.update', $chatbot) }}" method="POST" class="card p-5 sm:p-8 space-y-5">
         @csrf @method('PUT')
         <div>
-            <label class="block text-sm font-semibold text-white/80 mb-1.5">Nama Chatbot</label>
-            <input type="text" name="name" value="{{ $chatbot->name }}" required class="w-full border border-white/[0.06] rounded-lg px-4 py-3 focus:ring-2 focus:ring-brand-500 outline-none text-sm">
+            <label for="name" class="label">Nama Chatbot</label>
+            <input id="name" type="text" name="name" value="{{ old('name', $chatbot->name) }}" required class="input">
         </div>
         <div>
-            <label class="block text-sm font-semibold text-white/80 mb-1.5">Nama Paparan Bot</label>
-            <input type="text" name="bot_name" value="{{ $chatbot->bot_name }}" required class="w-full border border-white/[0.06] rounded-lg px-4 py-3 focus:ring-2 focus:ring-brand-500 outline-none text-sm">
+            <label for="bot_name" class="label">Nama Paparan Bot</label>
+            <input id="bot_name" type="text" name="bot_name" value="{{ old('bot_name', $chatbot->bot_name) }}" required class="input">
         </div>
         <div>
-            <label class="block text-sm font-semibold text-white/80 mb-1.5">Mesej Alu-aluan</label>
-            <textarea name="welcome_message" rows="2" required class="w-full border border-white/[0.06] rounded-lg px-4 py-3 focus:ring-2 focus:ring-brand-500 outline-none text-sm">{{ $chatbot->welcome_message }}</textarea>
+            <label for="welcome_message" class="label">Mesej Alu-aluan</label>
+            <textarea id="welcome_message" name="welcome_message" rows="3" required class="input">{{ old('welcome_message', $chatbot->welcome_message) }}</textarea>
         </div>
         <div>
-            <label class="block text-sm font-semibold text-white/80 mb-1.5">Teks Placeholder</label>
-            <input type="text" name="placeholder_text" value="{{ $chatbot->placeholder_text }}" class="w-full border border-white/[0.06] rounded-lg px-4 py-3 focus:ring-2 focus:ring-brand-500 outline-none text-sm">
+            <label for="placeholder_text" class="label">Teks Placeholder</label>
+            <input id="placeholder_text" type="text" name="placeholder_text" value="{{ old('placeholder_text', $chatbot->placeholder_text) }}" class="input">
         </div>
-        <div class="grid grid-cols-2 gap-4">
+        <div>
+            <label for="avatar_url" class="label">URL Avatar (pilihan)</label>
+            <input id="avatar_url" type="url" name="avatar_url" value="{{ old('avatar_url', filter_var($chatbot->avatar_url, FILTER_VALIDATE_URL) ? $chatbot->avatar_url : '') }}" inputmode="url" autocomplete="url" class="input" placeholder="https://example.com/avatar.png">
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-                <label class="block text-sm font-semibold text-white/80 mb-1.5">Warna Utama</label>
-                <input type="color" name="primary_color" value="{{ $chatbot->primary_color }}" class="w-full h-11 rounded-lg border border-white/[0.06] cursor-pointer">
+                <label for="primary_color" class="label">Warna Utama</label>
+                <input id="primary_color" type="color" name="primary_color" value="{{ old('primary_color', $chatbot->primary_color) }}" class="input h-11 cursor-pointer p-1">
             </div>
             <div>
-                <label class="block text-sm font-semibold text-white/80 mb-1.5">Posisi</label>
-                <select name="position" class="w-full border border-white/[0.06] rounded-lg px-4 py-3 focus:ring-2 focus:ring-brand-500 outline-none text-sm">
-                    <option value="bottom-right" {{ $chatbot->position == 'bottom-right' ? 'selected' : '' }}>Kanan Bawah</option>
-                    <option value="bottom-left" {{ $chatbot->position == 'bottom-left' ? 'selected' : '' }}>Kiri Bawah</option>
+                <label for="position" class="label">Posisi</label>
+                <select id="position" name="position" class="input">
+                    <option value="bottom-right" @selected(old('position', $chatbot->position) === 'bottom-right')>Kanan Bawah</option>
+                    <option value="bottom-left" @selected(old('position', $chatbot->position) === 'bottom-left')>Kiri Bawah</option>
                 </select>
             </div>
         </div>
         <div>
-            <label class="block text-sm font-semibold text-white/80 mb-1.5">Arahan Sistem</label>
-            <textarea name="system_prompt" rows="2" class="w-full border border-white/[0.06] rounded-lg px-4 py-3 focus:ring-2 focus:ring-brand-500 outline-none text-sm">{{ $chatbot->system_prompt }}</textarea>
+            <label for="system_prompt" class="label">Arahan Sistem</label>
+            <textarea id="system_prompt" name="system_prompt" rows="3" class="input">{{ old('system_prompt', $chatbot->system_prompt) }}</textarea>
         </div>
         <div>
-            <label class="block text-sm font-semibold text-white/80 mb-1.5">Senarai Putih Domain</label>
-            <input type="text" name="domain_whitelist" value="{{ $chatbot->domain_whitelist }}" class="w-full border border-white/[0.06] rounded-lg px-4 py-3 focus:ring-2 focus:ring-brand-500 outline-none text-sm" placeholder="example.com, lamanweb.com">
+            <label for="domain_whitelist" class="label">Senarai Putih Domain</label>
+            <input id="domain_whitelist" type="text" name="domain_whitelist" value="{{ old('domain_whitelist', $chatbot->domain_whitelist) }}" class="input" placeholder="example.com, lamanweb.com">
         </div>
         <div class="flex items-center gap-3">
-            <input type="checkbox" name="is_active" value="1" {{ $chatbot->is_active ? 'checked' : '' }} class="rounded border-white/[0.06] text-white focus:ring-brand-500">
-            <label class="text-sm text-white/80 font-medium">Aktif (kelihatan di laman web)</label>
+            <input id="is_active" type="checkbox" name="is_active" value="1" @checked(old('is_active', $chatbot->is_active)) class="h-4 w-4 rounded border-neutral-300 text-brand-600 focus:ring-brand-500">
+            <label for="is_active" class="text-sm text-neutral-700 font-medium">Aktif (kelihatan di laman web)</label>
         </div>
-        <button type="submit" class="bg-white text-[#050505] px-6 py-3 rounded-lg font-semibold text-sm hover:bg-white/90 transition">Simpan Perubahan</button>
+        <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
     </form>
 </div>
 @endsection

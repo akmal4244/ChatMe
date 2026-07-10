@@ -3,37 +3,76 @@
 @section('title', 'Benam — ' . $chatbot->name)
 @section('content')
 <div class="max-w-2xl">
-    <h1 class="text-2xl font-bold text-white mb-2">Benam: {{ $chatbot->name }}</h1>
-    <p class="text-white/25 mb-6">Salin kod ini dan tampal ke dalam HTML laman web anda, sebelum tag &lt;/body&gt;.</p>
-    
-    <div class="bg-white rounded-lg p-6 mb-6 relative shadow-xl">
-        <pre class="text-sm font-mono overflow-x-auto leading-relaxed"><code class="text-blue-400">&lt;script</code> <code class="text-emerald-400">src</code><code class="text-white">=</code><code class="text-amber-300">"{{ url('/widget/' . $chatbot->api_key . '.js') }}"</code><code class="text-blue-400">&gt;&lt;/script&gt;</code></pre>
-        <button onclick="navigator.clipboard.writeText('&lt;script src=&quot;{{ url('/widget/' . $chatbot->api_key . '.js') }}&quot;&gt;&lt;/script&gt;')" class="absolute top-3 right-3 bg-neutral-700 hover:bg-neutral-600 text-white text-xs px-3 py-1.5 rounded-lg transition">Salin</button>
-    </div>
-    
-    <div class="bg-white/[0.03] rounded-lg border border-white/[0.06] p-6 mb-6">
-        <h2 class="font-semibold text-white mb-4">Kunci API</h2>
-        <div class="flex items-center gap-3 mb-3">
-            <code class="flex-1 bg-white/[0.03] rounded-lg px-4 py-3 text-sm font-mono text-white/80">{{ $chatbot->api_key }}</code>
-            <button onclick="navigator.clipboard.writeText('{{ $chatbot->api_key }}')" class="text-sm text-white font-medium hover:underline whitespace-nowrap">Salin</button>
-        </div>
-        <form action="{{ route('chatbots.regenerate-key', $chatbot) }}" method="POST" class="inline">
-            @csrf
-            <button type="submit" class="text-sm text-red-500 font-medium hover:underline" onclick="return confirm('Jana semula kunci API? Kunci lama akan berhenti berfungsi.')">Jana Semula Kunci</button>
-        </form>
-    </div>
+    <h1 class="text-2xl font-bold text-neutral-950 mb-2">Benam: {{ $chatbot->name }}</h1>
+    <p class="text-neutral-600 mb-6">Salin kod ini dan tampal ke dalam HTML laman web anda, sebelum tag &lt;/body&gt;.</p>
 
-    <div class="bg-white/[0.03] border border-brand-100 rounded-lg p-6">
-        <h2 class="font-semibold text-brand-900 mb-3">Pratonton</h2>
-        <p class="text-sm text-white mb-4">Beginilah rupa chatbot anda di laman web:</p>
-        <div class="bg-white/[0.03] rounded-lg border p-4 flex items-center gap-3">
-            <img src="{{ $chatbot->avatar_url ? asset('storage/'.$chatbot->avatar_url) : asset('akmal3d.png') }}" class="w-12 h-12 rounded-full object-cover ring-2 ring-white/[0.06]">
-            <div>
-                <p class="font-semibold text-white">{{ $chatbot->bot_name }}</p>
-                <p class="text-sm text-white/25">{{ $chatbot->welcome_message }}</p>
-            </div>
-            <div class="ml-auto w-3 h-3 rounded-full shadow" style="background:{{ $chatbot->primary_color }}"></div>
+    <section class="card p-5 sm:p-6 mb-6" aria-labelledby="embed-code-heading">
+        <div class="flex items-center justify-between gap-4 mb-3">
+            <h2 id="embed-code-heading" class="font-semibold text-neutral-950">Kod benam</h2>
+            <button type="button" class="btn btn-secondary btn-sm" data-copy-target="#embed-code">Salin</button>
         </div>
-    </div>
+        <pre class="overflow-x-auto rounded-lg bg-neutral-100 border border-neutral-200 p-4 text-sm font-mono leading-relaxed text-neutral-900"><code id="embed-code">&lt;script src="{{ url('/widget/' . $chatbot->api_key . '.js') }}"&gt;&lt;/script&gt;</code></pre>
+    </section>
+
+    <p id="copy-feedback" class="sr-only" role="status" aria-live="polite"></p>
+
+    <section class="card p-5 sm:p-6 mb-6" aria-labelledby="api-key-heading">
+        <h2 id="api-key-heading" class="font-semibold text-neutral-950 mb-4">Kunci API</h2>
+        <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-3">
+            <code id="api-key" class="flex-1 overflow-x-auto rounded-lg bg-neutral-100 border border-neutral-200 px-4 py-3 text-sm font-mono text-neutral-900">{{ $chatbot->api_key }}</code>
+            <button type="button" class="btn btn-secondary btn-sm self-start sm:self-auto" data-copy-target="#api-key">Salin</button>
+        </div>
+        <form action="{{ route('chatbots.regenerate-key', $chatbot) }}" method="POST" class="inline" data-confirm="Jana semula kunci API? Kunci lama akan berhenti berfungsi.">
+            @csrf
+            <button type="submit" class="btn btn-danger btn-sm">Jana Semula Kunci</button>
+        </form>
+    </section>
+
+    <section class="card p-5 sm:p-6" aria-labelledby="preview-heading">
+        <h2 id="preview-heading" class="font-semibold text-neutral-950 mb-3">Pratonton</h2>
+        <p class="text-sm text-neutral-600 mb-4">Beginilah rupa chatbot anda di laman web:</p>
+        <div class="rounded-lg border border-neutral-200 bg-neutral-50 p-4 flex items-center gap-3">
+            <img src="{{ $chatbot->resolvedAvatarUrl() }}" alt="Avatar {{ $chatbot->bot_name }}" class="w-12 h-12 rounded-full object-cover ring-1 ring-neutral-200">
+            <div class="min-w-0">
+                <p class="font-semibold text-neutral-950">{{ $chatbot->bot_name }}</p>
+                <p class="text-sm text-neutral-600">{{ $chatbot->welcome_message }}</p>
+            </div>
+            <span class="ml-auto w-3 h-3 shrink-0 rounded-full shadow-sm" role="img" aria-label="Warna utama: {{ $chatbot->primary_color }}" data-color-swatch="{{ $chatbot->primary_color }}"></span>
+        </div>
+    </section>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const feedback = document.getElementById('copy-feedback');
+
+    document.querySelectorAll('[data-copy-target]').forEach((button) => {
+        button.addEventListener('click', async () => {
+            const target = document.querySelector(button.dataset.copyTarget);
+            if (!target) return;
+
+            try {
+                await navigator.clipboard.writeText(target.textContent.trim());
+                feedback.textContent = 'Teks berjaya disalin.';
+                const originalLabel = button.textContent;
+                button.textContent = 'Disalin';
+                window.setTimeout(() => { button.textContent = originalLabel; }, 1500);
+            } catch (error) {
+                feedback.textContent = 'Teks tidak dapat disalin. Sila salin secara manual.';
+            }
+        });
+    });
+
+    document.querySelectorAll('form[data-confirm]').forEach((form) => {
+        form.addEventListener('submit', (event) => {
+            if (!window.confirm(form.dataset.confirm)) event.preventDefault();
+        });
+    });
+
+    const swatch = document.querySelector('[data-color-swatch]');
+    if (swatch && /^#[0-9a-f]{6}$/i.test(swatch.dataset.colorSwatch)) {
+        swatch.style.backgroundColor = swatch.dataset.colorSwatch;
+    }
+});
+</script>
 @endsection
