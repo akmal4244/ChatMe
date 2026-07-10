@@ -31,9 +31,7 @@ Route::middleware('guest')->group(function () {
 // ── Authenticated Routes ──
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/onboarding', function () {
-        return view('onboarding');
-    })->name('onboarding');
+    Route::view('/onboarding', 'onboarding')->name('onboarding');
 
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 

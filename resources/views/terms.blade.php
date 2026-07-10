@@ -23,7 +23,7 @@
 
             <section aria-labelledby="terms-use">
                 <h2 id="terms-use">Penggunaan yang dibenarkan</h2>
-                <p>Anda bertanggungjawab terhadap kandungan yang dimuat naik dan jawapan chatbot yang diterbitkan. Jangan gunakan ChatMe untuk kandungan yang menyalahi undang-undang, menipu, mengganggu, melanggar hak pihak lain atau menjejaskan keselamatan sistem.</p>
+                <p>Anda bertanggungjawab terhadap kandungan yang dimasukkan atau diimport dan jawapan chatbot yang diterbitkan. Jangan gunakan ChatMe untuk kandungan yang menyalahi undang-undang, menipu, mengganggu, melanggar hak pihak lain atau menjejaskan keselamatan sistem.</p>
             </section>
 
             <section aria-labelledby="terms-subscription">

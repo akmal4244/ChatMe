@@ -18,7 +18,7 @@
 
             <section aria-labelledby="privacy-data">
                 <h2 id="privacy-data">Data yang kami kumpul</h2>
-                <p>Kami mengumpul maklumat yang anda berikan secara langsung, termasuk nama, alamat e-mel, nombor telefon untuk bil, serta kandungan chatbot dan sumber pengetahuan yang anda muat naik. Kami juga boleh merekodkan data teknikal seperti alamat IP, jenis pelayar dan aktiviti penggunaan untuk keselamatan serta operasi perkhidmatan.</p>
+                <p>Kami mengumpul maklumat yang anda berikan secara langsung, termasuk nama, alamat e-mel, nombor telefon untuk bil, serta kandungan chatbot dan pengetahuan yang anda masukkan atau import. Kami juga boleh merekodkan data teknikal seperti alamat IP, jenis pelayar dan aktiviti penggunaan untuk keselamatan serta operasi perkhidmatan.</p>
             </section>
 
             <section aria-labelledby="privacy-use">
