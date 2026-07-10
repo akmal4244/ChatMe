@@ -242,14 +242,19 @@ class ToyyibPayReturnTest extends TestCase
         $this->actingAs($failedUser)
             ->get($this->resultUrl($failed))
             ->assertOk()
-            ->assertSeeText('Pembayaran belum berjaya');
+            ->assertSeeText('Pembayaran tidak berjaya')
+            ->assertSeeText('Kami akan mengemas kini status sebaik sahaja pengesahan diterima daripada ToyyibPay.')
+            ->assertSeeText('Cuba bayar semula');
 
         [$paid, $paidUser] = $this->order();
+        Carbon::setTestNow('2026-11-10 12:00:00');
         app(PaymentActivationService::class)->activate($paid, 'TP-PAID-VIEW');
         $this->actingAs($paidUser)
             ->get($this->resultUrl($paid))
             ->assertOk()
-            ->assertSeeText('Pembayaran berjaya');
+            ->assertSeeText('Pembayaran berjaya')
+            ->assertSeeText('Disember')
+            ->assertDontSeeText('Dec');
     }
 
     public function test_reconcile_route_is_throttled(): void

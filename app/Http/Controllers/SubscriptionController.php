@@ -186,7 +186,7 @@ class SubscriptionController extends Controller
         if ($paymentOrder->status === PaymentOrder::STATUS_FAILED) {
             return redirect()->route('subscription.return', $paymentOrder)
                 ->withErrors([
-                    'payment' => 'Pembayaran belum berjaya. Anda boleh cuba pembayaran baharu.',
+                    'payment' => 'Pembayaran tidak berjaya. Anda boleh cuba bayar semula.',
                 ]);
         }
 

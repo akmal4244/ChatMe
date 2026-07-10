@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
-@section('title', 'Status Pembayaran')
-@section('page-title', 'Status Pembayaran')
+@section('title', 'Status pembayaran')
+@section('page-title', 'Status pembayaran')
 
 @section('content')
 @php
@@ -9,7 +9,7 @@
     $isFailed = $paymentOrder->status === \App\Models\PaymentOrder::STATUS_FAILED;
     $statusClass = $isPaid ? 'is-success' : ($isFailed ? 'is-error' : 'is-pending');
     $statusIcon = $isPaid ? 'ph-check-circle' : ($isFailed ? 'ph-x-circle' : 'ph-clock');
-    $statusTitle = $isPaid ? 'Pembayaran berjaya' : ($isFailed ? 'Pembayaran belum berjaya' : 'Menunggu pembayaran');
+    $statusTitle = $isPaid ? 'Pembayaran berjaya' : ($isFailed ? 'Pembayaran tidak berjaya' : 'Menunggu pembayaran');
     $ringgit = intdiv($paymentOrder->amount_cents, 100).'.'.str_pad((string) ($paymentOrder->amount_cents % 100), 2, '0', STR_PAD_LEFT);
 @endphp
 
@@ -24,9 +24,9 @@
             @if($isPaid)
                 <p>Langganan {{ $paymentOrder->plan->name }} anda telah diaktifkan selama satu bulan.</p>
             @elseif($isFailed)
-                <p>ToyyibPay belum mengesahkan pembayaran ini. Langganan hanya diaktifkan selepas pengesahan diterima oleh server.</p>
+                <p>Kami akan mengemas kini status sebaik sahaja pengesahan diterima daripada ToyyibPay.</p>
             @else
-                <p>Kami masih menunggu pengesahan server ToyyibPay. Status ini tidak bergantung pada parameter pulangan pelayar.</p>
+                <p>Kami akan mengemas kini status sebaik sahaja pengesahan diterima daripada ToyyibPay.</p>
             @endif
         </header>
 
@@ -52,7 +52,7 @@
                     <dt>Akses sehingga</dt>
                     <dd>
                         <time datetime="{{ $paymentOrder->subscription->ends_at->toIso8601String() }}">
-                            {{ $paymentOrder->subscription->ends_at->format('d M Y, H:i') }}
+                            {{ $paymentOrder->subscription->ends_at->locale('ms')->translatedFormat('j F Y, H:i') }}
                         </time>
                     </dd>
                 </div>
@@ -70,7 +70,7 @@
                 </form>
 
                 @if($isFailed)
-                    <a class="button button-secondary" href="{{ route('subscription.plans') }}">Cuba pembayaran baharu</a>
+                    <a class="button button-secondary" href="{{ route('subscription.plans') }}">Cuba bayar semula</a>
                 @endif
             @endif
 

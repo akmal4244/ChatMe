@@ -141,7 +141,7 @@ class SubscriptionPlanTest extends TestCase
 
         $this->actingAs($user)->get(route('subscription.plans'))->assertOk()
             ->assertSeeText('Akses Lifetime lama anda kekal sebagai pelan sandaran.')
-            ->assertDontSeeText('Free akan kembali selepas akses berbayar tamat.');
+            ->assertDontSeeText('Akaun anda akan kembali kepada pelan Free selepas akses berbayar tamat.');
     }
 
     public function test_unlimited_limits_and_checkout_copy_are_rendered_correctly(): void
@@ -154,13 +154,13 @@ class SubscriptionPlanTest extends TestCase
 
         $response->assertOk()
             ->assertSeeText('Tanpa had chatbot')
-            ->assertSeeText('Tanpa had pengetahuan')
+            ->assertSeeText('Soal jawab tanpa had')
             ->assertSeeText('Tanpa had mesej')
             ->assertSeeText('Nombor telefon mudah alih')
             ->assertSeeText('FPX / DuitNow QR')
-            ->assertSeeText('bukan potongan automatik')
+            ->assertSeeText('Pembaharuan dibuat secara manual setiap bulan; tiada potongan automatik daripada akaun bank.')
             ->assertDontSeeText('-1 chatbot')
-            ->assertDontSeeText('-1 item pengetahuan')
+            ->assertDontSeeText('-1 soal jawab')
             ->assertDontSeeText('-1 mesej');
     }
 
@@ -176,7 +176,7 @@ class SubscriptionPlanTest extends TestCase
 
         $this->actingAs($user)->get(route('subscription.plans'))->assertOk()
             ->assertSeeText('melalui FPX')
-            ->assertSeeText('Langgan dengan FPX')
+            ->assertSeeText('Langgan melalui FPX')
             ->assertDontSeeText('DuitNow QR');
         $this->get('/terms')->assertOk()->assertDontSeeText('DuitNow QR');
         $this->get('/privacy')->assertOk()->assertDontSeeText('DuitNow QR');
@@ -208,9 +208,9 @@ class SubscriptionPlanTest extends TestCase
 
         $response->assertOk()
             ->assertSeeText('Pelan semasa')
-            ->assertSeeText('Perbaharui sebulan')
-            ->assertSeeText('nilai baki berbayar dikreditkan secara prorata')
-            ->assertSeeText('Free akan kembali selepas akses berbayar tamat');
+            ->assertSeeText('Perbaharui untuk sebulan')
+            ->assertSeeText('Nilai bagi baki tempoh pelan semasa akan digunakan sebagai kredit untuk pelan baharu.')
+            ->assertSeeText('Akaun anda akan kembali kepada pelan Free selepas akses berbayar tamat.');
 
         $html = $response->getContent();
         $this->assertSame(2, preg_match_all('/action="[^"]*\/subscription\/\d+\/checkout"/', $html));

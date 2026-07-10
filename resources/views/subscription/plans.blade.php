@@ -1,6 +1,6 @@
 @extends(auth()->check() ? 'layouts.app' : 'layouts.guest')
-@section('page-title', 'Pelan Langganan')
-@section('title', 'Pelan Harga')
+@section('page-title', 'Pelan langganan')
+@section('title', 'Pelan harga')
 
 @section('content')
 @php
@@ -23,9 +23,9 @@
         <p class="eyebrow">Langganan ChatMe</p>
         <h1 id="subscription-heading">Pelan yang jelas, bayaran yang selamat</h1>
         <p>Pilih pelan bulanan anda dan bayar melalui {{ $paymentChannels }} menggunakan ToyyibPay.</p>
-        <p class="subscription-renewal-note">Pembaharuan bulanan; bukan potongan automatik daripada akaun bank.</p>
+        <p class="subscription-renewal-note">Pembaharuan dibuat secara manual setiap bulan; tiada potongan automatik daripada akaun bank.</p>
         @if($activeSubscription && $activeSubscription->plan?->priceInCents() > 0)
-            <p class="subscription-renewal-note">Jika anda menukar pelan, nilai baki berbayar dikreditkan secara prorata mengikut harga pelan baharu.</p>
+            <p class="subscription-renewal-note">Nilai bagi baki tempoh pelan semasa akan digunakan sebagai kredit untuk pelan baharu.</p>
         @endif
     </header>
 
@@ -75,7 +75,7 @@
                     </li>
                     <li>
                         <span aria-hidden="true">&#10003;</span>
-                        {{ $plan->knowledge_limit === -1 ? 'Tanpa had pengetahuan' : number_format($plan->knowledge_limit).' item pengetahuan' }}
+                        {{ $plan->knowledge_limit === -1 ? 'Soal jawab tanpa had' : number_format($plan->knowledge_limit).' soal jawab' }}
                     </li>
                     <li>
                         <span aria-hidden="true">&#10003;</span>
@@ -97,7 +97,7 @@
                             <p class="plan-status-note">
                                 {{ $hasLegacyLifetimeBackup
                                     ? 'Akses Lifetime lama anda kekal sebagai pelan sandaran.'
-                                    : 'Free akan kembali selepas akses berbayar tamat.' }}
+                                    : 'Akaun anda akan kembali kepada pelan Free selepas akses berbayar tamat.' }}
                             </p>
                         @else
                             <button type="button" class="button button-secondary button-full" disabled>
@@ -126,7 +126,7 @@
                                 <p id="{{ $phoneId }}-error" class="field-error" role="alert">{{ $errors->first('phone') }}</p>
                             @endif
                             <button type="submit" class="button button-primary button-full">
-                                {{ $isCurrentPaid ? 'Perbaharui sebulan' : 'Langgan dengan '.$paymentChannels }}
+                                {{ $isCurrentPaid ? 'Perbaharui untuk sebulan' : 'Langgan melalui '.$paymentChannels }}
                             </button>
                         </form>
                     @endif
