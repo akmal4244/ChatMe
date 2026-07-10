@@ -9,9 +9,9 @@
   config.apiUrl = config.apiUrl || '';
   config.primaryColor = config.primaryColor || '#4F46E5';
   config.secondaryColor = config.secondaryColor || '#ffffff';
-  config.botName = config.botName || 'ChatBot';
-  config.welcomeMessage = config.welcomeMessage || 'Hello! How can I help you?';
-  config.placeholderText = config.placeholderText || 'Type your message...';
+  config.botName = config.botName || 'Pembantu ChatMe';
+  config.welcomeMessage = config.welcomeMessage || 'Helo! Bagaimana saya boleh membantu anda?';
+  config.placeholderText = config.placeholderText || 'Taip mesej anda...';
   config.avatarUrl = config.avatarUrl || '';
   config.position = config.position || 'bottom-right';
   
@@ -29,11 +29,11 @@
   root.id = 'chatme-root';
   root.innerHTML = '<button id="chatme-bubble" type="button" aria-label="Buka ruang sembang" aria-controls="chatme-window" aria-expanded="false"><img alt=""></button>' +
     '<div id="chatme-window" role="dialog" aria-label="Ruang sembang" aria-hidden="true">' +
-    '<div id="chatme-header"><img alt=""><div id="chatme-header-info"><div class="name"></div><div class="status">Online</div></div><button id="chatme-close" type="button" aria-label="Tutup ruang sembang">&times;</button></div>' +
+    '<div id="chatme-header"><img alt=""><div id="chatme-header-info"><div class="name"></div><div class="status">Sedia membantu</div></div><button id="chatme-close" type="button" aria-label="Tutup ruang sembang">&times;</button></div>' +
     '<div id="chatme-messages" role="log" aria-live="polite" aria-relevant="additions"></div>' +
     '<div id="chatme-typing"><span></span><span></span><span></span></div>' +
     '<div id="chatme-input-area"><input id="chatme-input" type="text" autocomplete="off" aria-label="Mesej"><button id="chatme-send" type="button" aria-label="Hantar mesej">↑</button></div>' +
-    '<div id="chatme-brand">Powered by <a href="https://chatme.akmalmarvis.com" target="_blank" rel="noopener noreferrer">ChatMe</a></div>' +
+    '<div id="chatme-brand">Disediakan oleh <a href="https://chatme.akmalmarvis.com" target="_blank" rel="noopener noreferrer">ChatMe</a></div>' +
     '</div>';
   document.body.appendChild(root);
 

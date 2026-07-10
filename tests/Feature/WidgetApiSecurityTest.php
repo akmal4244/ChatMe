@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\Chatbot;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Route;
+use RuntimeException;
 use Tests\TestCase;
 
 class WidgetApiSecurityTest extends TestCase
@@ -18,7 +20,7 @@ class WidgetApiSecurityTest extends TestCase
         $this->withHeader('Origin', 'https://trusted.example.attacker.test')
             ->getJson(route('api.widget.config', $chatbot->api_key))
             ->assertForbidden()
-            ->assertJson(['error' => 'Domain not allowed']);
+            ->assertJson(['error' => 'Domain ini tidak dibenarkan.']);
     }
 
     public function test_domain_whitelist_accepts_the_exact_host_and_its_subdomains(): void
@@ -44,7 +46,7 @@ class WidgetApiSecurityTest extends TestCase
                 'session_id' => 'test-session',
             ])
             ->assertForbidden()
-            ->assertJson(['error' => 'Domain not allowed']);
+            ->assertJson(['error' => 'Domain ini tidak dibenarkan.']);
 
         $this->assertDatabaseCount('chat_logs', 0);
     }
@@ -91,6 +93,37 @@ class WidgetApiSecurityTest extends TestCase
 
         $this->assertStringStartsWith('http://', $avatarUrl);
         $this->assertStringEndsWith('/akmal3d.png', $avatarUrl);
+    }
+
+    public function test_production_api_not_found_response_is_safe_and_in_malay(): void
+    {
+        config()->set('app.debug', false);
+
+        $response = $this->getJson('/api/sumber-yang-tidak-wujud')
+            ->assertNotFound()
+            ->assertExactJson(['error' => 'Sumber yang diminta tidak ditemui.']);
+
+        $json = $response->getContent();
+        $this->assertStringNotContainsString('NotFoundHttpException', $json);
+        $this->assertStringNotContainsString('vendor\\laravel', $json);
+        $this->assertStringNotContainsString('trace', $json);
+    }
+
+    public function test_production_api_server_error_response_hides_exception_details(): void
+    {
+        config()->set('app.debug', false);
+        Route::get('/api/ujian-ralat-selamat', function (): never {
+            throw new RuntimeException('Maklumat dalaman yang tidak boleh didedahkan.');
+        });
+
+        $response = $this->getJson('/api/ujian-ralat-selamat')
+            ->assertServerError()
+            ->assertExactJson(['error' => 'Sistem menghadapi masalah. Sila cuba lagi sebentar lagi.']);
+
+        $json = $response->getContent();
+        $this->assertStringNotContainsString('RuntimeException', $json);
+        $this->assertStringNotContainsString('Maklumat dalaman', $json);
+        $this->assertStringNotContainsString('trace', $json);
     }
 
     private function chatbotWithWhitelist(string $whitelist): Chatbot

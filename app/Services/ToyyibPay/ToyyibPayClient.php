@@ -29,7 +29,7 @@ final class ToyyibPayClient
         $payload = [
             'userSecretKey' => $secret,
             'categoryCode' => $categoryCode,
-            'billName' => $this->providerText('ChatMe '.$plan->name, 30, 'ChatMe Plan'),
+            'billName' => $this->providerText('ChatMe '.$plan->name, 30, 'Pelan ChatMe'),
             'billDescription' => $this->providerText(
                 'Langganan ChatMe '.$plan->name.' satu bulan',
                 100,

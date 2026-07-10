@@ -24,3 +24,12 @@ test('widget fits a 320px viewport and reports non-success API responses', () =>
   assert.match(source, /inputEl\.value = text/);
   assert.match(source, /closeBtn\.style\.color = primaryTextColor/);
 });
+
+test('widget defaults and status use clear Bahasa Melayu', () => {
+  assert.match(source, /Pembantu ChatMe/);
+  assert.match(source, /Helo! Bagaimana saya boleh membantu anda\?/);
+  assert.match(source, /Taip mesej anda\.\.\./);
+  assert.match(source, /Sedia membantu/);
+  assert.match(source, /Disediakan oleh/);
+  assert.doesNotMatch(source, /Powered by|Type your message|>Online</);
+});

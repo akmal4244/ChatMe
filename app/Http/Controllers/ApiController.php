@@ -15,7 +15,7 @@ class ApiController extends Controller
         $chatbot = Chatbot::where('api_key', $apiKey)->where('is_active', true)->firstOrFail();
 
         if (! $this->isOriginAllowed($request, $chatbot)) {
-            return response()->json(['error' => 'Domain not allowed'], 403);
+            return response()->json(['error' => __('chatme.api.domain_forbidden')], 403);
         }
 
         return response()->json([
@@ -36,11 +36,11 @@ class ApiController extends Controller
         $chatbot = Chatbot::where('api_key', $apiKey)->where('is_active', true)->firstOrFail();
 
         if (! $this->isOriginAllowed($request, $chatbot)) {
-            return response()->json(['error' => 'Domain not allowed'], 403);
+            return response()->json(['error' => __('chatme.api.domain_forbidden')], 403);
         }
 
         if (! $chatbot->user->canSendChatMessage()) {
-            return response()->json(['error' => 'Monthly message limit reached'], 429);
+            return response()->json(['error' => __('chatme.api.monthly_limit')], 429);
         }
 
         $data = $request->validate([
@@ -82,7 +82,7 @@ class ApiController extends Controller
         });
 
         if ($response === null) {
-            return response()->json(['error' => 'Monthly message limit reached'], 429);
+            return response()->json(['error' => __('chatme.api.monthly_limit')], 429);
         }
 
         return response()->json([
@@ -161,10 +161,10 @@ class ApiController extends Controller
     private function fallbackResponse()
     {
         $responses = [
-            'Maaf, saya tak pasti tentang soalan itu. Boleh cuba tanya dengan cara lain atau lebih spesifik?',
-            'Soalan yang bagus! Tapi saya perlukan lebih spesifik. Boleh cerita lebih lanjut?',
-            'Saya nak bantu! Tapi boleh jelaskan lebih detail apa yang awak nak tahu?',
-            'Hmm, saya tak jumpa jawapan tepat untuk soalan itu. Cuba tanya dengan perkataan berbeza?',
+            'Maaf, saya belum pasti jawapannya. Cuba tanya dengan cara lain atau berikan maklumat yang lebih khusus.',
+            'Soalan yang bagus! Boleh berikan sedikit lagi maklumat supaya saya dapat membantu?',
+            'Saya sedia membantu. Boleh jelaskan dengan lebih lanjut perkara yang anda ingin tahu?',
+            'Maaf, saya belum menemui jawapan yang tepat. Cuba gunakan perkataan lain.',
         ];
 
         return $responses[array_rand($responses)];

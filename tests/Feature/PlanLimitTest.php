@@ -119,7 +119,7 @@ class PlanLimitTest extends TestCase
             'session_id' => 'new-session',
         ])
             ->assertStatus(429)
-            ->assertJson(['error' => 'Monthly message limit reached']);
+            ->assertJson(['error' => 'Had mesej bulanan telah dicapai.']);
 
         $this->assertDatabaseCount('chat_logs', 1);
         $this->assertDatabaseMissing('chat_logs', [
@@ -159,7 +159,7 @@ class PlanLimitTest extends TestCase
             'session_id' => 'too-late-session',
         ])
             ->assertStatus(429)
-            ->assertJson(['error' => 'Monthly message limit reached']);
+            ->assertJson(['error' => 'Had mesej bulanan telah dicapai.']);
 
         $this->assertSame(2, $matchingOwnerRetrievals);
         $this->assertDatabaseCount('chat_logs', 1);
@@ -222,7 +222,7 @@ class PlanLimitTest extends TestCase
             'session_id' => 'admin-over-limit-session',
         ])
             ->assertStatus(429)
-            ->assertJson(['error' => 'Monthly message limit reached']);
+            ->assertJson(['error' => 'Had mesej bulanan telah dicapai.']);
 
         $this->assertDatabaseCount('chat_logs', 1);
     }
