@@ -26,6 +26,11 @@ test('widget fits a 320px viewport and reports non-success API responses', () =>
   assert.match(source, /closeBtn\.style\.color = primaryTextColor/);
 });
 
+test('message bubble padding overrides the widget reset so text is not clipped', () => {
+  assert.match(source, /#chatme-root \*\{[^}]*padding:0[^}]*\}/);
+  assert.match(source, /#chatme-root \.chatme-msg\{[^}]*padding:10px 14px[^}]*\}/);
+});
+
 test('widget defaults and status use clear Bahasa Melayu', () => {
   assert.match(source, /Pembantu ChatMe/);
   assert.match(source, /Helo! Bagaimana saya boleh membantu anda\?/);
