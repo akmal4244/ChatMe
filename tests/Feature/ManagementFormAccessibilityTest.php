@@ -82,6 +82,54 @@ class ManagementFormAccessibilityTest extends TestCase
         $this->assertFalse((bool) $target->is_admin);
     }
 
+    public function test_management_table_actions_use_named_icons(): void
+    {
+        $user = User::factory()->create();
+        $chatbot = Chatbot::create([
+            'user_id' => $user->id,
+            'name' => 'Chatbot Ikon',
+        ]);
+        KnowledgeItem::create([
+            'chatbot_id' => $chatbot->id,
+            'question' => 'Apakah waktu operasi?',
+            'answer' => 'Kami beroperasi setiap hari.',
+        ]);
+
+        $this->actingAs($user)->get(route('dashboard'))->assertOk()
+            ->assertSee('aria-label="Sunting chatbot Chatbot Ikon"', false)
+            ->assertSee('aria-label="Pasang Chatbot Ikon di laman web"', false)
+            ->assertSee('aria-label="Urus soal jawab Chatbot Ikon"', false)
+            ->assertSee('class="ph ph-pencil-simple"', false)
+            ->assertSee('class="ph ph-code"', false)
+            ->assertSee('class="ph ph-books"', false);
+
+        $this->get(route('chatbots.index'))->assertOk()
+            ->assertSee('aria-label="Sunting chatbot Chatbot Ikon"', false)
+            ->assertSee('aria-label="Urus soal jawab Chatbot Ikon"', false)
+            ->assertSee('aria-label="Pasang Chatbot Ikon di laman web"', false)
+            ->assertSee('aria-label="Padam chatbot Chatbot Ikon"', false)
+            ->assertSee('class="ph ph-trash"', false);
+
+        $this->get(route('knowledge.index', $chatbot))->assertOk()
+            ->assertSee('aria-label="Sunting soal jawab: Apakah waktu operasi?"', false)
+            ->assertSee('aria-label="Padam soal jawab: Apakah waktu operasi?"', false)
+            ->assertSee('class="ph ph-pencil-simple"', false)
+            ->assertSee('class="ph ph-trash"', false);
+
+        $admin = User::factory()->create(['is_admin' => true]);
+        $target = User::factory()->create(['name' => 'Pengguna Sasaran']);
+
+        $this->actingAs($admin)->get(route('admin.users'))->assertOk()
+            ->assertSee('aria-label="Jadikan Pengguna Sasaran sebagai pentadbir"', false)
+            ->assertSee('class="ph ph-shield-plus"', false);
+
+        $target->update(['is_admin' => true]);
+
+        $this->get(route('admin.users'))->assertOk()
+            ->assertSee('aria-label="Buang peranan pentadbir daripada Pengguna Sasaran"', false)
+            ->assertSee('class="ph ph-shield-slash"', false);
+    }
+
     public function test_management_views_use_consistent_plain_malay_terms(): void
     {
         $files = [

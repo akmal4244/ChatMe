@@ -60,10 +60,16 @@
                             <td>{{ $bot->knowledge_items_count }}</td>
                             <td><code class="text-xs font-mono text-neutral-600" aria-label="Lapan aksara pertama kunci API">{{ substr($bot->api_key, 0, 8) }}…</code></td>
                             <td>
-                                <div class="flex flex-wrap gap-x-3 gap-y-2 text-sm">
-                                    <a href="{{ route('chatbots.edit', $bot) }}" class="text-brand-700 font-medium hover:underline">Sunting</a>
-                                    <a href="{{ route('chatbots.embed', $bot) }}" class="text-brand-700 font-medium hover:underline">Pasang di laman web</a>
-                                    <a href="{{ route('knowledge.index', $bot) }}" class="text-brand-700 font-medium hover:underline">Soal jawab</a>
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <a href="{{ route('chatbots.edit', $bot) }}" class="table-action" aria-label="Sunting chatbot {{ $bot->name }}" title="Sunting chatbot">
+                                        <i class="ph ph-pencil-simple" aria-hidden="true"></i>
+                                    </a>
+                                    <a href="{{ route('chatbots.embed', $bot) }}" class="table-action" aria-label="Pasang {{ $bot->name }} di laman web" title="Pasang di laman web">
+                                        <i class="ph ph-code" aria-hidden="true"></i>
+                                    </a>
+                                    <a href="{{ route('knowledge.index', $bot) }}" class="table-action" aria-label="Urus soal jawab {{ $bot->name }}" title="Urus soal jawab">
+                                        <i class="ph ph-books" aria-hidden="true"></i>
+                                    </a>
                                 </div>
                             </td>
                         </tr>

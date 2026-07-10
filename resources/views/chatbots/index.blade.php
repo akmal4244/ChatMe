@@ -37,12 +37,20 @@
                     <td>{{ $bot->knowledge_items_count }} item</td>
                     <td>{{ $bot->chatLogs()->count() }}</td>
                     <td>
-                        <div class="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
-                            <a href="{{ route('chatbots.edit', $bot) }}" class="text-brand-700 font-medium hover:underline">Sunting</a>
-                            <a href="{{ route('knowledge.index', $bot) }}" class="text-brand-700 font-medium hover:underline">Soal jawab</a>
-                            <a href="{{ route('chatbots.embed', $bot) }}" class="text-brand-700 font-medium hover:underline">Pasang di laman web</a>
-                            <form action="{{ route('chatbots.destroy', $bot) }}" method="POST" onsubmit="return confirm({{ Illuminate\Support\Js::from('Padam chatbot "'.$bot->name.'"? Tindakan ini tidak boleh dibatalkan.') }})" class="inline">@csrf @method('DELETE')
-                                <button type="submit" class="text-red-700 font-medium hover:underline">Padam</button>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <a href="{{ route('chatbots.edit', $bot) }}" class="table-action" aria-label="Sunting chatbot {{ $bot->name }}" title="Sunting chatbot">
+                                <i class="ph ph-pencil-simple" aria-hidden="true"></i>
+                            </a>
+                            <a href="{{ route('knowledge.index', $bot) }}" class="table-action" aria-label="Urus soal jawab {{ $bot->name }}" title="Urus soal jawab">
+                                <i class="ph ph-books" aria-hidden="true"></i>
+                            </a>
+                            <a href="{{ route('chatbots.embed', $bot) }}" class="table-action" aria-label="Pasang {{ $bot->name }} di laman web" title="Pasang di laman web">
+                                <i class="ph ph-code" aria-hidden="true"></i>
+                            </a>
+                            <form action="{{ route('chatbots.destroy', $bot) }}" method="POST" onsubmit="return confirm({{ Illuminate\Support\Js::from('Padam chatbot "'.$bot->name.'"? Tindakan ini tidak boleh dibatalkan.') }})" class="inline-flex">@csrf @method('DELETE')
+                                <button type="submit" class="table-action table-action-danger" aria-label="Padam chatbot {{ $bot->name }}" title="Padam chatbot">
+                                    <i class="ph ph-trash" aria-hidden="true"></i>
+                                </button>
                             </form>
                         </div>
                     </td>

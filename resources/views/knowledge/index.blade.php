@@ -53,11 +53,15 @@
                         </th>
                         <td>{{ $item->category ?? 'Tiada maklumat' }}</td>
                         <td>
-                            <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
-                                <button type="button" class="text-brand-700 font-medium hover:underline" data-edit-knowledge="{{ $item->getKey() }}">Sunting</button>
-                                <form action="{{ route('knowledge.destroy', [$chatbot, $item]) }}" method="POST" onsubmit="return confirm('Padam soal jawab ini? Tindakan ini tidak boleh dibatalkan.')" class="inline">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <button type="button" class="table-action" data-edit-knowledge="{{ $item->getKey() }}" aria-label="Sunting soal jawab: {{ $item->question }}" title="Sunting soal jawab">
+                                    <i class="ph ph-pencil-simple" aria-hidden="true"></i>
+                                </button>
+                                <form action="{{ route('knowledge.destroy', [$chatbot, $item]) }}" method="POST" onsubmit="return confirm('Padam soal jawab ini? Tindakan ini tidak boleh dibatalkan.')" class="inline-flex">
                                     @csrf @method('DELETE')
-                                    <button type="submit" class="text-red-700 font-medium hover:underline">Padam</button>
+                                    <button type="submit" class="table-action table-action-danger" aria-label="Padam soal jawab: {{ $item->question }}" title="Padam soal jawab">
+                                        <i class="ph ph-trash" aria-hidden="true"></i>
+                                    </button>
                                 </form>
                             </div>
                         </td>

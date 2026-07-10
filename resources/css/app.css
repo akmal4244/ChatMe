@@ -156,6 +156,27 @@ textarea.form-control { min-height: 120px; resize: vertical; }
 .form-check { display: flex; align-items: flex-start; gap: 9px; color: var(--muted); }
 .form-check input { margin-top: 4px; accent-color: var(--accent); }
 .action-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.table-action {
+    display: inline-flex;
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--accent-hover);
+    cursor: pointer;
+    font-size: 17px;
+    line-height: 1;
+    text-decoration: none;
+    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+.table-action:hover { border-color: var(--border-strong); background: var(--accent-soft); color: var(--accent-hover); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+.table-action:active { transform: translateY(0); }
+.table-action-danger { color: var(--danger); }
+.table-action-danger:hover { border-color: #FECDCA; background: var(--danger-soft); color: var(--danger); }
 
 .card, .panel {
     border: 1px solid var(--border);
