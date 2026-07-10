@@ -21,14 +21,11 @@ class KnowledgeController extends Controller
         Gate::authorize('view', $chatbot);
 
         $items = $chatbot->knowledgeItems()
-            ->when($request->search, fn($q, $search) =>
-                $q->where(fn($searchQuery) =>
-                    $searchQuery->where('question', 'like', "%{$search}%")
-                        ->orWhere('answer', 'like', "%{$search}%")
-                )
+            ->when($request->search, fn ($q, $search) => $q->where(fn ($searchQuery) => $searchQuery->where('question', 'like', "%{$search}%")
+                ->orWhere('answer', 'like', "%{$search}%")
             )
-            ->when($request->category, fn($q, $cat) =>
-                $q->where('category', $cat)
+            )
+            ->when($request->category, fn ($q, $cat) => $q->where('category', $cat)
             )
             ->latest()
             ->paginate(15);

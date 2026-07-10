@@ -1,12 +1,12 @@
 <?php
+
 namespace App\Http\Controllers;
 
-use App\Models\User;
 use App\Models\Chatbot;
 use App\Models\ChatLog;
 use App\Models\KnowledgeItem;
 use App\Models\Plan;
-use Illuminate\Http\Request;
+use App\Models\User;
 
 class AdminController extends Controller
 {
@@ -32,12 +32,14 @@ class AdminController extends Controller
     public function users()
     {
         $users = User::withCount('chatbots')->latest()->paginate(20);
+
         return view('admin.users', compact('users'));
     }
 
     public function chatbots()
     {
         $chatbots = Chatbot::with('user')->withCount('knowledgeItems')->latest()->paginate(20);
+
         return view('admin.chatbots', compact('chatbots'));
     }
 
@@ -46,8 +48,9 @@ class AdminController extends Controller
         if ($user->id === auth()->id()) {
             return back()->with('error', 'Anda tidak boleh menukar status admin sendiri.');
         }
-        $user->is_admin = !$user->is_admin;
+        $user->is_admin = ! $user->is_admin;
         $user->save();
-        return back()->with('success', 'Status pentadbir ' . $user->name . ' dikemaskini.');
+
+        return back()->with('success', 'Status pentadbir '.$user->name.' dikemaskini.');
     }
 }
