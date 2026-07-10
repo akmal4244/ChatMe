@@ -78,7 +78,7 @@
                     </span>
                     <span id="embed-preview-title" class="embed-preview__label">Kod pemasangan ChatMe</span>
                 </div>
-                <pre class="embed-preview__code" tabindex="0"><code>&lt;script src="https://chatme.akmalmarvis.com/widget/cm_••••••••.js"&gt;&lt;/script&gt;</code></pre>
+                <pre class="embed-preview__code" tabindex="0"><code>&lt;script src="https://chatme.akmalmarvis.com/widget/KUNCI-API.js"&gt;&lt;/script&gt;</code></pre>
                 <figcaption class="embed-preview__caption">Salin kod unik chatbot, kemudian tampalkannya pada laman web anda.</figcaption>
             </figure>
         </div>
@@ -289,4 +289,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 </script>
+@if($homepageChatbot)
+<script defer src="{{ route('widget.script', ['chatbot' => $homepageChatbot->api_key]) }}"></script>
+@endif
 @endpush
