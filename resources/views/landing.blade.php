@@ -290,6 +290,6 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 @if($homepageChatbot)
-<script defer src="{{ route('widget.script', ['chatbot' => $homepageChatbot->api_key]) }}"></script>
+<script defer src="{{ route('widget.script', ['chatbot' => $homepageChatbot->api_key]) }}?v={{ substr(hash_file('sha256', public_path('widget.js')), 0, 12) }}"></script>
 @endif
 @endpush

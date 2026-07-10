@@ -52,7 +52,9 @@ class HomepageChatbotTest extends TestCase
         $this->seed(HomepageChatbotSeeder::class);
 
         $widgetUrl = route('widget.script', ['chatbot' => 'TEST_KEY']);
-        $this->get('/')->assertOk()->assertSee($widgetUrl, false);
+        $this->get('/')->assertOk()
+            ->assertSee($widgetUrl, false)
+            ->assertSee($widgetUrl.'?v=', false);
 
         $source = file_get_contents(resource_path('views/landing.blade.php'));
         $this->assertIsString($source);
