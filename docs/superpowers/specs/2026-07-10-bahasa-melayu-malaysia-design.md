@@ -81,16 +81,29 @@ Semua teks sistem yang dilihat pengguna ChatMe mesti menggunakan Bahasa Melayu M
 - Setiap halaman menerangkan masalah secara ringkas dan memberi tindakan pemulihan yang sesuai.
 - Production kekal dengan `APP_DEBUG=false` supaya butiran teknikal tidak terdedah.
 
+### 7. Chatbot rasmi pada homepage
+
+- Gunakan rekod production `ChatMe Assistant` yang sedia ada dan dimiliki akaun pentadbir; jangan gunakan chatbot pelanggan dan jangan cipta chatbot pendua.
+- Kekalkan rekod chatbot, kunci API dan sejarah sembang sedia ada supaya pautan lama tidak terputus.
+- Tukar slug kepada nilai tetap `chatme-homepage` dan gunakan slug tersebut untuk pencarian server-side; kunci API tidak boleh dihardkodkan dalam kod sumber repo.
+- Paparkan widget sebagai gelembung sembang di bahagian bawah kanan homepage dan jangan membukanya secara automatik.
+- Hadkan penggunaan chatbot kepada domain `chatme.akmalmarvis.com` melalui senarai domain yang dibenarkan.
+- Selaraskan 33 soal jawab rasmi kepada Bahasa Melayu Malaysia mesra-neutral dan betulkan maklumat lapuk tentang harga, pembaharuan manual ToyyibPay, kuota, pemasangan, keselamatan serta sokongan.
+- Anggap soal jawab chatbot ini sebagai kandungan sistem yang diurus oleh seeder idempoten. Seeder boleh menyegerakkan kandungan rasmi chatbot ini, tetapi tidak boleh mengubah chatbot atau soal jawab milik pengguna lain.
+- Jika chatbot rasmi tiada atau tidak aktif, homepage mesti terus dimuatkan tanpa ralat dan tidak memuatkan skrip widget yang rosak.
+- Kekalkan perlindungan kuota sedia ada. Deployment mesti mengesahkan pemilik chatbot mempunyai pelan dengan kuota mencukupi dan endpoint sembang boleh menjawab permintaan sebenar.
+
 ## Kaedah pelaksanaan
 
 1. Tambah ujian regresi yang membuktikan locale semasa masih `en` dan rentetan Inggeris masih wujud.
 2. Jalankan ujian terpilih dan sahkan ia gagal atas sebab yang dijangka.
 3. Tambah pek bahasa, salinan antaramuka, respons API, widget, halaman ralat dan migrasi data minimum.
 4. Kemas kini ujian sedia ada yang mengikat rentetan lama tanpa mengubah tujuan keselamatan atau logiknya.
-5. Jalankan suite PHP, ujian JavaScript, Pint, audit dependency dan build production.
-6. Jalankan audit statik untuk rentetan pengguna yang dilarang dan pemeriksaan browser pada 320px, 390px dan 1440px.
-7. Sandarkan production, deploy commit yang disahkan, jalankan migrasi dan cache semula konfigurasi.
-8. Sahkan locale, halaman, widget, API, log dan SHA production selepas deploy.
+5. Tambah seeder idempoten untuk chatbot rasmi, lookup homepage berasaskan slug dan pemuatan skrip widget bersyarat.
+6. Jalankan suite PHP, ujian JavaScript, Pint, audit dependency dan build production.
+7. Jalankan audit statik untuk rentetan pengguna yang dilarang dan pemeriksaan browser pada 320px, 390px dan 1440px.
+8. Sandarkan production, deploy commit yang disahkan, jalankan migrasi, seeder chatbot rasmi dan cache semula konfigurasi.
+9. Sahkan locale, halaman, widget, API, log dan SHA production selepas deploy.
 
 ## Batasan yang disengajakan
 
@@ -109,4 +122,7 @@ Semua teks sistem yang dilihat pengguna ChatMe mesti menggunakan Bahasa Melayu M
 - Widget menggunakan teks lalai Bahasa Melayu dan masih selamat pada skrin kecil.
 - API mengekalkan kontrak JSON dan status HTTP sambil memulangkan mesej Bahasa Melayu.
 - Rekod tersuai pengguna tidak berubah; hanya nilai lalai Inggeris yang sepadan tepat dibetulkan.
+- Homepage memuatkan widget `ChatMe Assistant` melalui slug tetap tanpa kunci API dihardkodkan dalam repo; widget tidak auto-buka dan selamat pada 320px.
+- Kesemua 33 soal jawab chatbot rasmi menggunakan Bahasa Melayu Malaysia mesra-neutral dan sepadan dengan harga, kuota serta aliran pembayaran production semasa.
+- Endpoint widget production menerima origin `https://chatme.akmalmarvis.com`, menolak origin lain dan berjaya memberi jawapan sebenar tanpa mendedahkan data sensitif.
 - Semua ujian dan audit lulus, worktree bersih, GitHub dan production berada pada commit yang sama, migrasi tiada yang tertangguh dan log production tiada ralat baharu.
