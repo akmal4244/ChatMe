@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <meta name="description" content="ChatMe — Urus chatbot AI dan pengetahuan anda.">
-    @php($documentTitle = trim($__env->yieldContent('title', 'Papan Pemuka')))
+    <meta name="description" content="ChatMe — Urus chatbot AI dan soal jawab anda.">
+    @php($documentTitle = trim($__env->yieldContent('title', 'Papan pemuka')))
     <title>{{ str_contains($documentTitle, 'ChatMe') ? $documentTitle : $documentTitle.' — ChatMe' }}</title>
 
     <link rel="icon" type="image/png" href="{{ asset('akmal3d.png') }}">
@@ -30,15 +30,15 @@
             <p class="nav-group-title">Utama</p>
             <ul class="nav-list">
                 <li class="nav-item">
-                    <a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" aria-label="Papan Pemuka" @if(request()->routeIs('dashboard')) aria-current="page" @endif>
+                    <a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" aria-label="Papan pemuka" @if(request()->routeIs('dashboard')) aria-current="page" @endif>
                         <i class="ph ph-gauge nav-icon" aria-hidden="true"></i>
-                        <span class="nav-text">Papan Pemuka</span>
+                        <span class="nav-text">Papan pemuka</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="{{ route('chatbots.index') }}" class="nav-link {{ request()->routeIs('chatbots.*', 'knowledge.*') ? 'active' : '' }}" aria-label="Chatbot Saya" @if(request()->routeIs('chatbots.*', 'knowledge.*')) aria-current="page" @endif>
+                    <a href="{{ route('chatbots.index') }}" class="nav-link {{ request()->routeIs('chatbots.*', 'knowledge.*') ? 'active' : '' }}" aria-label="Chatbot saya" @if(request()->routeIs('chatbots.*', 'knowledge.*')) aria-current="page" @endif>
                         <i class="ph ph-robot nav-icon" aria-hidden="true"></i>
-                        <span class="nav-text">Chatbot Saya</span>
+                        <span class="nav-text">Chatbot saya</span>
                     </a>
                 </li>
             </ul>
@@ -59,19 +59,19 @@
                     <li class="nav-item">
                         <a href="{{ route('admin.dashboard') }}" class="nav-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}" aria-label="Panel Pentadbir" @if(request()->routeIs('admin.dashboard')) aria-current="page" @endif>
                             <i class="ph ph-shield-check nav-icon" aria-hidden="true"></i>
-                            <span class="nav-text">Panel Pentadbir <span class="nav-badge-admin">Admin</span></span>
+                            <span class="nav-text">Panel pentadbir <span class="nav-badge-admin">Pentadbir</span></span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a href="{{ route('admin.users') }}" class="nav-link {{ request()->routeIs('admin.users') ? 'active' : '' }}" aria-label="Urus Pengguna" @if(request()->routeIs('admin.users')) aria-current="page" @endif>
                             <i class="ph ph-users nav-icon" aria-hidden="true"></i>
-                            <span class="nav-text">Urus Pengguna <span class="nav-badge-admin">Admin</span></span>
+                            <span class="nav-text">Urus pengguna <span class="nav-badge-admin">Pentadbir</span></span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a href="{{ route('admin.chatbots') }}" class="nav-link {{ request()->routeIs('admin.chatbots') ? 'active' : '' }}" aria-label="Semua Chatbot" @if(request()->routeIs('admin.chatbots')) aria-current="page" @endif>
                             <i class="ph ph-chats-circle nav-icon" aria-hidden="true"></i>
-                            <span class="nav-text">Semua Chatbot <span class="nav-badge-admin">Admin</span></span>
+                            <span class="nav-text">Semua chatbot <span class="nav-badge-admin">Pentadbir</span></span>
                         </a>
                     </li>
                 </ul>
@@ -85,7 +85,7 @@
             <button type="button" id="toggle-sidebar" class="icon-button" aria-label="Buka atau tutup navigasi" aria-controls="sidebar" aria-expanded="false">
                 <i class="ph ph-list" aria-hidden="true"></i>
             </button>
-            <span class="topbar-title">@yield('page-title', 'Papan Pemuka')</span>
+            <span class="topbar-title">@yield('page-title', 'Papan pemuka')</span>
 
             <div class="user-menu">
                 <button type="button" class="user-btn" id="user-btn" aria-label="Menu akaun untuk {{ auth()->user()->name ?? 'Pengguna' }}" aria-expanded="false" aria-controls="user-dropdown">
@@ -100,7 +100,7 @@
                         <small>{{ auth()->user()?->is_admin ? 'Pentadbir' : 'Pengguna' }}</small>
                     </div>
                     <ul>
-                        <li><a href="{{ route('dashboard') }}"><i class="ph ph-gauge" aria-hidden="true"></i>Papan Pemuka</a></li>
+                        <li><a href="{{ route('dashboard') }}"><i class="ph ph-gauge" aria-hidden="true"></i>Papan pemuka</a></li>
                         <li><a href="{{ route('subscription.plans') }}"><i class="ph ph-crown" aria-hidden="true"></i>Pelan Langganan</a></li>
                         @if(auth()->user()?->is_admin)
                             <li><a href="{{ route('admin.dashboard') }}"><i class="ph ph-shield-check" aria-hidden="true"></i>Panel Pentadbir</a></li>
@@ -109,7 +109,7 @@
                     <div class="user-dropdown-divider"></div>
                     <form method="POST" action="{{ route('logout') }}" id="form-logout-dropdown">
                         @csrf
-                        <button type="button" class="dropdown-danger" id="logout-trigger"><i class="ph ph-sign-out" aria-hidden="true"></i>Log Keluar</button>
+                        <button type="button" class="dropdown-danger" id="logout-trigger"><i class="ph ph-sign-out" aria-hidden="true"></i>Log keluar</button>
                     </form>
                 </div>
             </div>
@@ -136,10 +136,10 @@
     <div class="modal-backdrop" id="logout-modal" hidden>
         <section class="modal-box" role="dialog" aria-modal="true" aria-labelledby="logout-modal-title" aria-describedby="logout-modal-description">
             <div class="modal-icon-wrap"><i class="ph ph-sign-out" aria-hidden="true"></i></div>
-            <div class="modal-body"><h2 id="logout-modal-title">Log Keluar</h2><p id="logout-modal-description">Sesi anda akan ditamatkan.</p></div>
+            <div class="modal-body"><h2 id="logout-modal-title">Log keluar</h2><p id="logout-modal-description">Adakah anda pasti mahu log keluar? Sesi anda akan ditamatkan.</p></div>
             <div class="modal-actions">
                 <button type="button" class="modal-cancel" data-close-modal="logout-modal">Batal</button>
-                <button type="button" class="modal-confirm" id="logout-confirm">Log Keluar</button>
+                <button type="button" class="modal-confirm" id="logout-confirm">Log keluar</button>
             </div>
         </section>
     </div>
@@ -147,10 +147,10 @@
     <div class="modal-backdrop" id="confirm-modal" hidden>
         <section class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-desc">
             <div class="modal-icon-wrap"><i id="modal-icon" class="ph ph-warning" aria-hidden="true"></i></div>
-            <div class="modal-body"><h2 id="modal-title">Sahkan</h2><p id="modal-desc">Teruskan?</p></div>
+            <div class="modal-body"><h2 id="modal-title">Sahkan tindakan</h2><p id="modal-desc">Adakah anda pasti mahu meneruskan?</p></div>
             <div class="modal-actions">
                 <button type="button" class="modal-cancel" data-close-modal="confirm-modal">Batal</button>
-                <button type="button" id="modal-confirm-btn" class="modal-confirm">Ya</button>
+                <button type="button" id="modal-confirm-btn" class="modal-confirm">Teruskan</button>
             </div>
         </section>
     </div>
@@ -301,10 +301,10 @@
         window.sahkan = (config = {}) => {
             const modal = document.getElementById('confirm-modal');
             const confirmButton = document.getElementById('modal-confirm-btn');
-            document.getElementById('modal-title').textContent = config.title || 'Sahkan';
-            document.getElementById('modal-desc').textContent = config.desc || 'Teruskan?';
+            document.getElementById('modal-title').textContent = config.title || 'Sahkan tindakan';
+            document.getElementById('modal-desc').textContent = config.desc || 'Adakah anda pasti mahu meneruskan?';
             document.getElementById('modal-icon').className = config.type === 'danger' ? 'ph ph-warning' : 'ph ph-question';
-            confirmButton.textContent = config.confirmText || 'Ya';
+            confirmButton.textContent = config.confirmText || 'Teruskan';
             confirmButton.className = config.type === 'danger' ? 'modal-confirm-danger' : 'modal-confirm';
             confirmButton.onclick = () => {
                 closeModal(modal);

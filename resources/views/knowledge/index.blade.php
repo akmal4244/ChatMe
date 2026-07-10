@@ -1,6 +1,6 @@
 @extends('layouts.app')
-@section('page-title', 'Pengetahuan')
-@section('title', 'Pangkalan Pengetahuan — ' . $chatbot->name)
+@section('page-title', 'Soal jawab')
+@section('title', 'Soal jawab chatbot — ' . $chatbot->name)
 @section('content')
 @php
     $editableItems = $items->getCollection()->mapWithKeys(fn ($item) => [
@@ -17,26 +17,26 @@
 
 <header class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
     <div>
-        <h1 class="text-2xl font-bold text-neutral-950">Pangkalan Pengetahuan</h1>
+        <h1 class="text-2xl font-bold text-neutral-950">Soal jawab chatbot</h1>
         <p class="text-neutral-600 text-sm mt-1">Chatbot: {{ $chatbot->name }}</p>
     </div>
     <div class="flex flex-wrap gap-2">
-        <button type="button" class="btn btn-secondary" data-dialog-open="import-dialog">Import JSON</button>
-        <button type="button" class="btn btn-primary" data-dialog-open="add-dialog">+ Tambah Item</button>
+        <button type="button" class="btn btn-secondary" data-dialog-open="import-dialog">Import soal jawab</button>
+        <button type="button" class="btn btn-primary" data-dialog-open="add-dialog">+ Tambah soal jawab</button>
     </div>
 </header>
 
 <section class="card overflow-hidden" aria-labelledby="knowledge-list-heading">
-    <h2 id="knowledge-list-heading" class="sr-only">Senarai item pengetahuan</h2>
+    <h2 id="knowledge-list-heading" class="sr-only">Senarai soal jawab</h2>
     @if($items->isEmpty())
         <div class="px-5 py-14 sm:p-16 text-center">
-            <p class="font-medium text-neutral-950 mb-2">Tiada item pengetahuan lagi.</p>
-            <p class="text-sm text-neutral-600">Tambah pasangan Soal-Jawab supaya chatbot anda boleh menjawab soalan secara automatik.</p>
+            <p class="font-medium text-neutral-950 mb-2">Belum ada soal jawab.</p>
+            <p class="text-sm text-neutral-600">Tambah soalan dan jawapan supaya chatbot anda boleh membantu pengunjung.</p>
         </div>
     @else
         <div class="overflow-x-auto">
             <table class="data-table min-w-[42rem]">
-                <caption class="sr-only">Item pengetahuan untuk {{ $chatbot->name }}</caption>
+                <caption class="sr-only">Soal jawab untuk {{ $chatbot->name }}</caption>
                 <thead>
                     <tr>
                         <th scope="col">Soalan dan jawapan</th>
@@ -51,11 +51,11 @@
                             <span class="block text-sm font-semibold text-neutral-950">{{ $item->question }}</span>
                             <span class="block text-sm text-neutral-600 mt-1">{{ Str::limit($item->answer, 150) }}</span>
                         </th>
-                        <td>{{ $item->category ?? '-' }}</td>
+                        <td>{{ $item->category ?? 'Tiada maklumat' }}</td>
                         <td>
                             <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
                                 <button type="button" class="text-brand-700 font-medium hover:underline" data-edit-knowledge="{{ $item->getKey() }}">Sunting</button>
-                                <form action="{{ route('knowledge.destroy', [$chatbot, $item]) }}" method="POST" onsubmit="return confirm('Padam item pengetahuan ini?')" class="inline">
+                                <form action="{{ route('knowledge.destroy', [$chatbot, $item]) }}" method="POST" onsubmit="return confirm('Padam soal jawab ini? Tindakan ini tidak boleh dibatalkan.')" class="inline">
                                     @csrf @method('DELETE')
                                     <button type="submit" class="text-red-700 font-medium hover:underline">Padam</button>
                                 </form>
@@ -75,7 +75,7 @@
 <dialog id="add-dialog" class="w-[calc(100%-2rem)] max-w-lg rounded-xl border border-neutral-200 bg-white p-0 text-neutral-900 shadow-xl backdrop:bg-neutral-950/50" aria-labelledby="add-dialog-title">
     <div class="p-5 sm:p-6">
         <div class="flex justify-between items-center gap-4 mb-5">
-            <h2 id="add-dialog-title" class="text-lg font-semibold text-neutral-950">Tambah Item Pengetahuan</h2>
+            <h2 id="add-dialog-title" class="text-lg font-semibold text-neutral-950">Tambah soal jawab</h2>
             <button type="button" class="btn btn-ghost btn-sm" aria-label="Tutup dialog tambah item" data-dialog-close>&times;</button>
         </div>
         <form action="{{ route('knowledge.store', $chatbot) }}" method="POST" class="space-y-4">
@@ -103,7 +103,7 @@
                     @if($failedForm === 'add' && $errors->has('tags')) <p id="add-tags-error" class="field-error" role="alert">{{ $errors->first('tags') }}</p> @endif
                 </div>
             </div>
-            <button type="submit" class="btn btn-primary w-full justify-center">Tambah Item</button>
+            <button type="submit" class="btn btn-primary w-full justify-center">Tambah soal jawab</button>
         </form>
     </div>
 </dialog>
@@ -111,7 +111,7 @@
 <dialog id="edit-dialog" class="w-[calc(100%-2rem)] max-w-lg rounded-xl border border-neutral-200 bg-white p-0 text-neutral-900 shadow-xl backdrop:bg-neutral-950/50" aria-labelledby="edit-dialog-title">
     <div class="p-5 sm:p-6">
         <div class="flex justify-between items-center gap-4 mb-5">
-            <h2 id="edit-dialog-title" class="text-lg font-semibold text-neutral-950">Sunting Item Pengetahuan</h2>
+            <h2 id="edit-dialog-title" class="text-lg font-semibold text-neutral-950">Sunting soal jawab</h2>
             <button type="button" class="btn btn-ghost btn-sm" aria-label="Tutup dialog sunting item" data-dialog-close>&times;</button>
         </div>
         <form id="edit-form" method="POST" class="space-y-4">
@@ -140,7 +140,7 @@
                     @if($failedForm === 'edit' && $errors->has('tags')) <p id="edit-tags-error" class="field-error" role="alert">{{ $errors->first('tags') }}</p> @endif
                 </div>
             </div>
-            <button type="submit" class="btn btn-primary w-full justify-center">Simpan Perubahan</button>
+            <button type="submit" class="btn btn-primary w-full justify-center">Simpan perubahan</button>
         </form>
     </div>
 </dialog>
@@ -148,7 +148,7 @@
 <dialog id="import-dialog" class="w-[calc(100%-2rem)] max-w-lg rounded-xl border border-neutral-200 bg-white p-0 text-neutral-900 shadow-xl backdrop:bg-neutral-950/50" aria-labelledby="import-dialog-title">
     <div class="p-5 sm:p-6">
         <div class="flex justify-between items-center gap-4 mb-5">
-            <h2 id="import-dialog-title" class="text-lg font-semibold text-neutral-950">Import Pengetahuan (JSON)</h2>
+            <h2 id="import-dialog-title" class="text-lg font-semibold text-neutral-950">Import soal jawab (JSON)</h2>
             <button type="button" class="btn btn-ghost btn-sm" aria-label="Tutup dialog import" data-dialog-close>&times;</button>
         </div>
         <form action="{{ route('knowledge.import', $chatbot) }}" method="POST" class="space-y-4">
@@ -156,7 +156,7 @@
             <input type="hidden" name="knowledge_form" value="import">
             <div>
                 <label for="json-data" class="label">Data JSON</label>
-                <p id="json-data-help" class="text-sm text-neutral-600 mb-2">Tampal array JSON dengan medan "question" dan "answer".</p>
+                <p id="json-data-help" class="text-sm text-neutral-600 mb-2">Tampal senarai JSON yang mempunyai ruangan "question" dan "answer".</p>
                 <textarea id="json-data" name="json_data" rows="8" required class="input font-mono" aria-describedby="json-data-help{{ $failedForm === 'import' && $errors->has('json_data') ? ' json-data-error' : '' }}" @if($failedForm === 'import' && $errors->has('json_data')) aria-invalid="true" @endif placeholder='[{"question": "...", "answer": "...", "category": "...", "tags": "..."}]'>{{ $failedForm === 'import' ? old('json_data') : '' }}</textarea>
                 @if($failedForm === 'import' && $errors->has('json_data')) <p id="json-data-error" class="field-error" role="alert">{{ $errors->first('json_data') }}</p> @endif
             </div>

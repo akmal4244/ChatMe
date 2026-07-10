@@ -50,7 +50,7 @@ class ChatbotController extends Controller
 
         if (! $request->user()->canCreateChatbot()) {
             throw ValidationException::withMessages([
-                'name' => 'Had chatbot untuk pelan semasa anda telah dicapai.',
+                'name' => 'Anda telah mencapai had chatbot bagi pelan semasa.',
             ]);
         }
 
@@ -71,7 +71,7 @@ class ChatbotController extends Controller
 
         if (! $chatbot) {
             throw ValidationException::withMessages([
-                'name' => 'Had chatbot untuk pelan semasa anda telah dicapai.',
+                'name' => 'Anda telah mencapai had chatbot bagi pelan semasa.',
             ]);
         }
 
@@ -169,7 +169,7 @@ class ChatbotController extends Controller
         $chatbot->update($validated);
 
         return redirect()->route('chatbots.customize', $chatbot)
-            ->with('success', 'Rupa chatbot berjaya dikemas kini.');
+            ->with('success', 'Penampilan chatbot berjaya dikemas kini.');
     }
 
     public function toggle(Chatbot $chatbot)

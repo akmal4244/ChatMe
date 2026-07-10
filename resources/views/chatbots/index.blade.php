@@ -1,24 +1,24 @@
 @extends('layouts.app')
-@section('page-title', 'Chatbot Saya')
-@section('title', 'Chatbot Saya — ChatMe')
+@section('page-title', 'Chatbot saya')
+@section('title', 'Chatbot saya — ChatMe')
 @section('content')
 <header class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
-    <h1 class="text-2xl font-bold text-neutral-950">Chatbot Saya</h1>
-    <a href="{{ route('chatbots.create') }}" class="btn btn-primary self-start sm:self-auto">+ Chatbot Baru</a>
+    <h1 class="text-2xl font-bold text-neutral-950">Chatbot saya</h1>
+    <a href="{{ route('chatbots.create') }}" class="btn btn-primary self-start sm:self-auto">+ Cipta chatbot baharu</a>
 </header>
 <div class="card overflow-hidden">
     @if($chatbots->isEmpty())
         <div class="px-5 py-14 sm:p-16 text-center">
             <h2 class="text-lg font-semibold text-neutral-950 mb-2">Tiada chatbot lagi</h2>
             <p class="text-neutral-600 mb-5">Cipta chatbot AI pertama anda dalam masa kurang 2 minit.</p>
-            <a href="{{ route('chatbots.create') }}" class="btn btn-primary">Cipta Chatbot Pertama Anda</a>
+            <a href="{{ route('chatbots.create') }}" class="btn btn-primary">Cipta chatbot pertama</a>
         </div>
     @else
         <div class="overflow-x-auto">
         <table class="data-table min-w-[52rem]">
             <caption class="sr-only">Senarai chatbot milik anda</caption>
             <thead>
-                <tr><th scope="col">Chatbot</th><th scope="col">Status</th><th scope="col">Pengetahuan</th><th scope="col">Mesej</th><th scope="col">Tindakan</th></tr>
+                <tr><th scope="col">Chatbot</th><th scope="col">Status</th><th scope="col">Soal jawab</th><th scope="col">Mesej</th><th scope="col">Tindakan</th></tr>
             </thead>
             <tbody>
                 @foreach($chatbots as $bot)
@@ -39,9 +39,9 @@
                     <td>
                         <div class="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
                             <a href="{{ route('chatbots.edit', $bot) }}" class="text-brand-700 font-medium hover:underline">Sunting</a>
-                            <a href="{{ route('knowledge.index', $bot) }}" class="text-brand-700 font-medium hover:underline">Pengetahuan</a>
-                            <a href="{{ route('chatbots.embed', $bot) }}" class="text-brand-700 font-medium hover:underline">Benam</a>
-                            <form action="{{ route('chatbots.destroy', $bot) }}" method="POST" onsubmit="return confirm('Padam chatbot ini?')" class="inline">@csrf @method('DELETE')
+                            <a href="{{ route('knowledge.index', $bot) }}" class="text-brand-700 font-medium hover:underline">Soal jawab</a>
+                            <a href="{{ route('chatbots.embed', $bot) }}" class="text-brand-700 font-medium hover:underline">Pasang di laman web</a>
+                            <form action="{{ route('chatbots.destroy', $bot) }}" method="POST" onsubmit="return confirm({{ Illuminate\Support\Js::from('Padam chatbot "'.$bot->name.'"? Tindakan ini tidak boleh dibatalkan.') }})" class="inline">@csrf @method('DELETE')
                                 <button type="submit" class="text-red-700 font-medium hover:underline">Padam</button>
                             </form>
                         </div>

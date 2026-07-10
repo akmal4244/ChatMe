@@ -71,7 +71,7 @@ class KnowledgeController extends Controller
 
             if (! $lockedChatbot->user->canAddKnowledgeItems($lockedChatbot)) {
                 throw ValidationException::withMessages([
-                    'question' => 'Had pengetahuan untuk pelan anda telah dicapai.',
+                    'question' => 'Anda telah mencapai had soal jawab bagi pelan semasa.',
                 ]);
             }
 
@@ -82,7 +82,7 @@ class KnowledgeController extends Controller
         });
 
         return redirect()->route('knowledge.index', $chatbot)
-            ->with('success', 'Item pengetahuan berjaya ditambah.');
+            ->with('success', 'Soal jawab berjaya ditambah.');
     }
 
     /**
@@ -126,7 +126,7 @@ class KnowledgeController extends Controller
         $item->update($validated);
 
         return redirect()->route('knowledge.index', $chatbot)
-            ->with('success', 'Item pengetahuan berjaya dikemas kini.');
+            ->with('success', 'Soal jawab berjaya dikemas kini.');
     }
 
     /**
@@ -140,7 +140,7 @@ class KnowledgeController extends Controller
         $item->delete();
 
         return redirect()->route('knowledge.index', $chatbot)
-            ->with('success', 'Item pengetahuan berjaya dipadam.');
+            ->with('success', 'Soal jawab berjaya dipadam.');
     }
 
     /**
@@ -188,7 +188,7 @@ class KnowledgeController extends Controller
 
         if ($validator->fails()) {
             throw ValidationException::withMessages([
-                'json_data' => 'Data JSON mengandungi item pengetahuan yang tidak sah.',
+                'json_data' => 'Data JSON mengandungi soal jawab yang tidak sah.',
             ]);
         }
 
@@ -200,7 +200,7 @@ class KnowledgeController extends Controller
 
             if (! $lockedChatbot->user->canAddKnowledgeItems($lockedChatbot, count($rows))) {
                 throw ValidationException::withMessages([
-                    'json_data' => 'Import ini melebihi had pengetahuan pelan anda.',
+                    'json_data' => 'Import ini melebihi had soal jawab pelan anda.',
                 ]);
             }
 
@@ -218,7 +218,7 @@ class KnowledgeController extends Controller
         $imported = count($rows);
 
         return redirect()->route('knowledge.index', $chatbot)
-            ->with('success', "{$imported} item pengetahuan berjaya diimport.");
+            ->with('success', "{$imported} soal jawab berjaya diimport.");
     }
 
     private function ensureItemBelongsToChatbot(Chatbot $chatbot, KnowledgeItem $item): void

@@ -1,23 +1,23 @@
 @extends('layouts.app')
-@section('page-title', 'Urus Pengguna')
-@section('title', 'Pengurusan Pengguna — Panel Pentadbir')
+@section('page-title', 'Urus pengguna')
+@section('title', 'Pengurusan pengguna — Panel pentadbir')
 @section('content')
 <header class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
     <div>
-        <h1 class="text-2xl font-bold text-neutral-950">Pengurusan Pengguna</h1>
+        <h1 class="text-2xl font-bold text-neutral-950">Pengurusan pengguna</h1>
         <p class="text-sm text-neutral-600 mt-1">{{ $users->total() }} pengguna berdaftar</p>
     </div>
-    <a href="{{ route('admin.dashboard') }}" class="btn btn-ghost self-start sm:self-auto">&larr; Kembali ke Panel</a>
+    <a href="{{ route('admin.dashboard') }}" class="btn btn-ghost self-start sm:self-auto">&larr; Kembali ke panel</a>
 </header>
 <div class="card overflow-hidden">
     <div class="overflow-x-auto">
     <table class="data-table min-w-[52rem]">
         <caption class="sr-only">Senarai semua pengguna ChatMe</caption>
         <thead>
-            <tr><th scope="col">Pengguna</th><th scope="col">Email</th><th scope="col">Chatbot</th><th scope="col">Peranan</th><th scope="col">Tarikh Daftar</th><th scope="col">Tindakan</th></tr>
+            <tr><th scope="col">Pengguna</th><th scope="col">E-mel</th><th scope="col">Chatbot</th><th scope="col">Peranan</th><th scope="col">Tarikh daftar</th><th scope="col">Tindakan</th></tr>
         </thead>
         <tbody>
-            @foreach($users as $u)
+            @forelse($users as $u)
             <tr>
                 <th scope="row" class="font-semibold text-neutral-950">{{ $u->name }}</th>
                 <td>{{ $u->email }}</td>
@@ -26,10 +26,10 @@
                 <td><time datetime="{{ $u->created_at->toDateString() }}">{{ $u->created_at->format('d/m/Y') }}</time></td>
                 <td>
                     @if($u->id !== auth()->id())
-                    <form action="{{ route('admin.users.toggle-admin', $u) }}" method="POST" onsubmit="return confirm({{ Illuminate\Support\Js::from($u->is_admin ? 'Buang peranan pentadbir daripada '.$u->name.'?' : 'Jadikan '.$u->name.' sebagai pentadbir?') }});">
+                    <form action="{{ route('admin.users.toggle-admin', $u) }}" method="POST" onsubmit="return confirm({{ Illuminate\Support\Js::from($u->is_admin ? 'Tarik balik peranan pentadbir '.$u->name.'? Pengguna ini tidak lagi boleh mengakses panel pentadbir.' : 'Jadikan '.$u->name.' sebagai pentadbir? Pengguna ini akan mendapat akses ke panel pentadbir.') }});">
                         @csrf
                         <button type="submit" class="text-xs font-medium {{ $u->is_admin ? 'text-red-700 hover:text-red-800' : 'text-brand-700 hover:text-brand-800' }}" aria-label="{{ $u->is_admin ? 'Buang peranan pentadbir daripada '.$u->name : 'Jadikan '.$u->name.' sebagai pentadbir' }}">
-                            {{ $u->is_admin ? 'Buang Admin' : 'Jadikan Admin' }}
+                            {{ $u->is_admin ? 'Tarik balik pentadbir' : 'Jadikan pentadbir' }}
                         </button>
                     </form>
                     @else
@@ -37,7 +37,9 @@
                     @endif
                 </td>
             </tr>
-            @endforeach
+            @empty
+            <tr><td colspan="6" class="text-center text-neutral-600">Belum ada pengguna berdaftar.</td></tr>
+            @endforelse
         </tbody>
     </table>
     </div>

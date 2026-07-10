@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Chatbot;
+use App\Models\KnowledgeItem;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -76,8 +77,89 @@ class ManagementFormAccessibilityTest extends TestCase
 
         $this->actingAs($admin)->get(route('admin.users'))->assertOk()
             ->assertSee('onsubmit="return confirm(', false)
-            ->assertSee('Jadikan Pengguna Sasaran sebagai pentadbir?', false);
+            ->assertSee('Jadikan Pengguna Sasaran sebagai pentadbir? Pengguna ini akan mendapat akses ke panel pentadbir.', false);
 
         $this->assertFalse((bool) $target->is_admin);
+    }
+
+    public function test_management_views_use_consistent_plain_malay_terms(): void
+    {
+        $files = [
+            resource_path('views/layouts/app.blade.php'),
+            resource_path('views/dashboard.blade.php'),
+            ...glob(resource_path('views/chatbots/*.blade.php')),
+            ...glob(resource_path('views/knowledge/*.blade.php')),
+            ...glob(resource_path('views/admin/*.blade.php')),
+        ];
+        $source = implode("\n", array_map(fn (string $file): string => file_get_contents($file), $files));
+
+        foreach ([
+            'Papan Pemuka',
+            'Chatbot Baru',
+            'Edit Chatbot',
+            'Teks Placeholder',
+            'URL Avatar',
+            'Senarai Putih Domain',
+            'Kod Benam',
+            'Pangkalan Pengetahuan',
+            'Item Pengetahuan',
+            'Buang Admin',
+            'Jadikan Admin',
+            "'N/A'",
+        ] as $forbidden) {
+            $this->assertStringNotContainsString($forbidden, $source);
+        }
+
+        foreach ([
+            'Papan pemuka',
+            'Cipta chatbot baharu',
+            'Sunting chatbot',
+            'Teks petunjuk dalam kotak mesej',
+            'Pautan gambar profil',
+            'Laman web yang dibenarkan',
+            'Kod pemasangan',
+            'Soal jawab chatbot',
+            'Pentadbir',
+            'Tiada maklumat',
+        ] as $required) {
+            $this->assertStringContainsString($required, $source);
+        }
+    }
+
+    public function test_standalone_knowledge_forms_link_every_validation_error_to_its_field(): void
+    {
+        $user = User::factory()->create();
+        $chatbot = Chatbot::create(['user_id' => $user->id, 'name' => 'Accessible Bot']);
+        $item = KnowledgeItem::create([
+            'chatbot_id' => $chatbot->id,
+            'question' => 'Soalan asal',
+            'answer' => 'Jawapan asal',
+        ]);
+
+        $errors = [
+            'question' => ['Soalan diperlukan.'],
+            'answer' => ['Jawapan diperlukan.'],
+            'category' => ['Kategori terlalu panjang.'],
+            'tags' => ['Tag terlalu panjang.'],
+        ];
+        $create = $this->withViewErrors($errors)
+            ->view('knowledge.create', compact('chatbot'));
+
+        foreach (['question', 'answer', 'category', 'tags'] as $field) {
+            $create
+                ->assertSee('aria-invalid="true"', false)
+                ->assertSee('aria-describedby="'.$field.'-error"', false)
+                ->assertSee('id="'.$field.'-error"', false);
+        }
+
+        $edit = $this->withViewErrors($errors)
+            ->view('knowledge.edit', ['chatbot' => $chatbot, 'knowledge' => $item]);
+
+        foreach (['question', 'answer', 'category', 'tags'] as $field) {
+            $edit
+                ->assertSee('aria-invalid="true"', false)
+                ->assertSee('aria-describedby="'.$field.'-error"', false)
+                ->assertSee('id="'.$field.'-error"', false);
+        }
     }
 }

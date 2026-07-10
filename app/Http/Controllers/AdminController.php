@@ -46,7 +46,7 @@ class AdminController extends Controller
     public function toggleAdmin(User $user)
     {
         if ($user->id === auth()->id()) {
-            return back()->with('error', 'Anda tidak boleh menukar status admin sendiri.');
+            return back()->with('error', 'Anda tidak boleh menukar peranan pentadbir anda sendiri.');
         }
         $user->is_admin = ! $user->is_admin;
         $user->save();

@@ -1,8 +1,8 @@
 @extends('layouts.app')
-@section('page-title', 'Papan Pemuka')
-@section('title', 'Papan Pemuka — ChatMe')
+@section('page-title', 'Papan pemuka')
+@section('title', 'Papan pemuka — ChatMe')
 @section('content')
-<h1 class="text-2xl font-bold text-neutral-950 mb-6">Papan Pemuka</h1>
+<h1 class="text-2xl font-bold text-neutral-950 mb-6">Papan pemuka</h1>
 
 <dl class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
     <div class="card p-5">
@@ -21,8 +21,8 @@
 
 <section aria-labelledby="dashboard-chatbots-heading">
     <header class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-        <h2 id="dashboard-chatbots-heading" class="text-lg font-semibold text-neutral-950">Chatbot Anda</h2>
-        <a href="{{ route('chatbots.create') }}" class="btn btn-primary self-start sm:self-auto">+ Chatbot Baru</a>
+        <h2 id="dashboard-chatbots-heading" class="text-lg font-semibold text-neutral-950">Chatbot saya</h2>
+        <a href="{{ route('chatbots.create') }}" class="btn btn-primary self-start sm:self-auto">+ Cipta chatbot baharu</a>
     </header>
 
     <div class="card overflow-hidden">
@@ -33,14 +33,14 @@
                 </div>
                 <h3 class="font-semibold text-neutral-950 mb-1">Tiada chatbot lagi</h3>
                 <p class="text-sm text-neutral-600 mb-5">Cipta chatbot pertama anda sekarang.</p>
-                <a href="{{ route('chatbots.create') }}" class="btn btn-primary">Cipta Chatbot</a>
+                <a href="{{ route('chatbots.create') }}" class="btn btn-primary">Cipta chatbot</a>
             </div>
         @else
             <div class="overflow-x-auto">
                 <table class="data-table min-w-[50rem]">
                     <caption class="sr-only">Ringkasan chatbot anda</caption>
                     <thead>
-                        <tr><th scope="col">Chatbot</th><th scope="col">Status</th><th scope="col">Pengetahuan</th><th scope="col">Kunci API</th><th scope="col">Tindakan</th></tr>
+                        <tr><th scope="col">Chatbot</th><th scope="col">Status</th><th scope="col">Soal jawab</th><th scope="col">Kunci API</th><th scope="col">Tindakan</th></tr>
                     </thead>
                     <tbody>
                     @foreach($chatbots as $bot)
@@ -62,8 +62,8 @@
                             <td>
                                 <div class="flex flex-wrap gap-x-3 gap-y-2 text-sm">
                                     <a href="{{ route('chatbots.edit', $bot) }}" class="text-brand-700 font-medium hover:underline">Sunting</a>
-                                    <a href="{{ route('chatbots.embed', $bot) }}" class="text-brand-700 font-medium hover:underline">Benam</a>
-                                    <a href="{{ route('knowledge.index', $bot) }}" class="text-brand-700 font-medium hover:underline">Pengetahuan</a>
+                                    <a href="{{ route('chatbots.embed', $bot) }}" class="text-brand-700 font-medium hover:underline">Pasang di laman web</a>
+                                    <a href="{{ route('knowledge.index', $bot) }}" class="text-brand-700 font-medium hover:underline">Soal jawab</a>
                                 </div>
                             </td>
                         </tr>

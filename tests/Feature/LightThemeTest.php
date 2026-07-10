@@ -59,8 +59,8 @@ class LightThemeTest extends TestCase
             ->assertSee('id="main-content"', false)
             ->assertSee('css/app.css?v=', false)
             ->assertSee('aria-current="page"', false)
-            ->assertSee('aria-label="Papan Pemuka"', false)
-            ->assertSee('<title>Papan Pemuka — ChatMe</title>', false)
+            ->assertSee('aria-label="Papan pemuka"', false)
+            ->assertSee('<title>Papan pemuka — ChatMe</title>', false)
             ->assertSee('aria-label="Menu akaun untuk', false);
     }
 

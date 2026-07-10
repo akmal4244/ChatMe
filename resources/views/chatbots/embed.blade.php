@@ -1,14 +1,14 @@
 @extends('layouts.app')
-@section('page-title', 'Kod Benam')
-@section('title', 'Benam — ' . $chatbot->name)
+@section('page-title', 'Kod pemasangan')
+@section('title', 'Pasang di laman web — ' . $chatbot->name)
 @section('content')
 <div class="max-w-2xl">
-    <h1 class="text-2xl font-bold text-neutral-950 mb-2">Benam: {{ $chatbot->name }}</h1>
-    <p class="text-neutral-600 mb-6">Salin kod ini dan tampal ke dalam HTML laman web anda, sebelum tag &lt;/body&gt;.</p>
+    <h1 class="text-2xl font-bold text-neutral-950 mb-2">Kod pemasangan: {{ $chatbot->name }}</h1>
+    <p class="text-neutral-600 mb-6">Salin kod ini dan tampalkannya ke dalam kod laman web anda, sebelum &lt;/body&gt;.</p>
 
     <section class="card p-5 sm:p-6 mb-6" aria-labelledby="embed-code-heading">
         <div class="flex items-center justify-between gap-4 mb-3">
-            <h2 id="embed-code-heading" class="font-semibold text-neutral-950">Kod benam</h2>
+            <h2 id="embed-code-heading" class="font-semibold text-neutral-950">Kod pemasangan</h2>
             <button type="button" class="btn btn-secondary btn-sm" data-copy-target="#embed-code">Salin</button>
         </div>
         <pre class="overflow-x-auto rounded-lg bg-neutral-100 border border-neutral-200 p-4 text-sm font-mono leading-relaxed text-neutral-900"><code id="embed-code">&lt;script src="{{ url('/widget/' . $chatbot->api_key . '.js') }}"&gt;&lt;/script&gt;</code></pre>
@@ -22,9 +22,9 @@
             <code id="api-key" class="flex-1 overflow-x-auto rounded-lg bg-neutral-100 border border-neutral-200 px-4 py-3 text-sm font-mono text-neutral-900">{{ $chatbot->api_key }}</code>
             <button type="button" class="btn btn-secondary btn-sm self-start sm:self-auto" data-copy-target="#api-key">Salin</button>
         </div>
-        <form action="{{ route('chatbots.regenerate-key', $chatbot) }}" method="POST" class="inline" data-confirm="Jana semula kunci API? Kunci lama akan berhenti berfungsi.">
+        <form action="{{ route('chatbots.regenerate-key', $chatbot) }}" method="POST" class="inline" data-confirm="Jana semula kunci API? Kunci lama akan berhenti berfungsi serta-merta dan kod pemasangan di laman web perlu dikemas kini.">
             @csrf
-            <button type="submit" class="btn btn-danger btn-sm">Jana Semula Kunci</button>
+            <button type="submit" class="btn btn-danger btn-sm">Jana semula kunci</button>
         </form>
     </section>
 
