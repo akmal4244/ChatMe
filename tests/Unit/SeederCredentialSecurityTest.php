@@ -6,11 +6,11 @@ use PHPUnit\Framework\TestCase;
 
 class SeederCredentialSecurityTest extends TestCase
 {
-    public function test_demo_seeder_does_not_contain_a_literal_password(): void
+    public function test_homepage_seeder_generates_a_long_random_password(): void
     {
-        $source = file_get_contents(__DIR__.'/../../database/seeders/DietKnowledgeSeeder.php');
+        $source = file_get_contents(__DIR__.'/../../database/seeders/HomepageChatbotSeeder.php');
 
-        $this->assertDoesNotMatchRegularExpression("/Hash::make\('[^']+'\)/", $source);
-        $this->assertStringContainsString('Hash::make(Str::password(', $source);
+        $this->assertDoesNotMatchRegularExpression("/'password'\s*=>\s*'[^']+'/", $source);
+        $this->assertStringContainsString("'password' => Str::password(64)", $source);
     }
 }
