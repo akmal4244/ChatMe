@@ -16,7 +16,8 @@ test('untrusted widget configuration is not interpolated into innerHTML', () => 
 });
 
 test('widget fits a 320px viewport and reports non-success API responses', () => {
-  assert.match(source, /width:min\(370px,calc\(100vw - 24px\)\)/);
+  assert.match(source, /width:min\(370px,calc\(100% - 24px\)\)/);
+  assert.doesNotMatch(source, /calc\(100vw - 24px\)/);
   assert.match(source, /if\s*\(!r\.ok\)\s*throw new Error/);
   assert.match(source, /if\s*\(!d\.response\)\s*throw new Error/);
   assert.match(source, /Promise\.race\(\[fetch/);
