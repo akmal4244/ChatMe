@@ -37,10 +37,10 @@ class Chatbot extends Model
     {
         static::creating(function (Chatbot $chatbot) {
             if (empty($chatbot->slug)) {
-                $chatbot->slug = Str::slug($chatbot->name) . '-' . Str::random(6);
+                $chatbot->slug = Str::slug($chatbot->name).'-'.Str::random(6);
             }
             if (empty($chatbot->api_key)) {
-                $chatbot->api_key = 'cm_' . Str::random(32);
+                $chatbot->api_key = 'cm_'.Str::random(32);
             }
         });
     }
@@ -62,6 +62,31 @@ class Chatbot extends Model
 
     public function getEmbedCode(): string
     {
-        return '<script src="' . config('app.url') . '/widget/' . $this->api_key . '.js"></script>';
+        return '<script src="'.config('app.url').'/widget/'.$this->api_key.'.js"></script>';
+    }
+
+    public function resolvedAvatarUrl(): string
+    {
+        $avatar = trim((string) $this->avatar_url);
+
+        if ($avatar === '') {
+            return secure_asset('akmal3d.png');
+        }
+
+        if (filter_var($avatar, FILTER_VALIDATE_URL)) {
+            return $avatar;
+        }
+
+        $path = ltrim(str_replace('\\', '/', $avatar), '/');
+
+        if ($path === '' || str_contains($path, '..')) {
+            return secure_asset('akmal3d.png');
+        }
+
+        if (str_starts_with($path, 'storage/') || is_file(public_path($path))) {
+            return secure_asset($path);
+        }
+
+        return secure_asset('storage/'.$path);
     }
 }

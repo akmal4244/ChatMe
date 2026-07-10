@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\Chatbot;
@@ -13,7 +14,7 @@ class ApiController extends Controller
     {
         $chatbot = Chatbot::where('api_key', $apiKey)->where('is_active', true)->firstOrFail();
 
-        if (!$this->isOriginAllowed($request, $chatbot)) {
+        if (! $this->isOriginAllowed($request, $chatbot)) {
             return response()->json(['error' => 'Domain not allowed'], 403);
         }
 
@@ -21,7 +22,7 @@ class ApiController extends Controller
             'id' => $chatbot->id,
             'name' => $chatbot->name,
             'bot_name' => $chatbot->bot_name,
-            'avatar_url' => $chatbot->avatar_url ? secure_asset('storage/' . $chatbot->avatar_url) : secure_asset('akmal3d.png'),
+            'avatar_url' => $chatbot->resolvedAvatarUrl(),
             'primary_color' => $chatbot->primary_color,
             'secondary_color' => $chatbot->secondary_color,
             'position' => $chatbot->position,
@@ -34,11 +35,11 @@ class ApiController extends Controller
     {
         $chatbot = Chatbot::where('api_key', $apiKey)->where('is_active', true)->firstOrFail();
 
-        if (!$this->isOriginAllowed($request, $chatbot)) {
+        if (! $this->isOriginAllowed($request, $chatbot)) {
             return response()->json(['error' => 'Domain not allowed'], 403);
         }
 
-        if (!$chatbot->user->canSendChatMessage()) {
+        if (! $chatbot->user->canSendChatMessage()) {
             return response()->json(['error' => 'Monthly message limit reached'], 429);
         }
 
@@ -47,7 +48,7 @@ class ApiController extends Controller
             'session_id' => 'nullable|string|max:100',
         ]);
 
-        $sessionId = $data['session_id'] ?? 'session_' . uniqid();
+        $sessionId = $data['session_id'] ?? 'session_'.uniqid();
         $userMessage = trim($data['message']);
 
         $response = DB::transaction(function () use ($chatbot, $request, $sessionId, $userMessage): ?string {
@@ -121,7 +122,9 @@ class ApiController extends Controller
                 $overlap = array_intersect($messageWords, $questionWords);
                 if (count($questionWords) > 0) {
                     $score = count($overlap) / count($questionWords) * 60;
-                    if (count($questionWords) <= 5) $score += 5;
+                    if (count($questionWords) <= 5) {
+                        $score += 5;
+                    }
                 }
             }
 
@@ -135,8 +138,12 @@ class ApiController extends Controller
             }
 
             $answerLen = mb_strlen($item->answer);
-            if ($answerLen < 300) $score += 3;
-            if ($answerLen < 150) $score += 2;
+            if ($answerLen < 300) {
+                $score += 3;
+            }
+            if ($answerLen < 150) {
+                $score += 2;
+            }
 
             if ($score > $bestScore) {
                 $bestScore = $score;
@@ -154,11 +161,12 @@ class ApiController extends Controller
     private function fallbackResponse()
     {
         $responses = [
-            "Maaf, saya tak pasti tentang soalan itu. Boleh cuba tanya dengan cara lain atau lebih spesifik?",
-            "Soalan yang bagus! Tapi saya perlukan lebih spesifik. Boleh cerita lebih lanjut?",
-            "Saya nak bantu! Tapi boleh jelaskan lebih detail apa yang awak nak tahu?",
-            "Hmm, saya tak jumpa jawapan tepat untuk soalan itu. Cuba tanya dengan perkataan berbeza?",
+            'Maaf, saya tak pasti tentang soalan itu. Boleh cuba tanya dengan cara lain atau lebih spesifik?',
+            'Soalan yang bagus! Tapi saya perlukan lebih spesifik. Boleh cerita lebih lanjut?',
+            'Saya nak bantu! Tapi boleh jelaskan lebih detail apa yang awak nak tahu?',
+            'Hmm, saya tak jumpa jawapan tepat untuk soalan itu. Cuba tanya dengan perkataan berbeza?',
         ];
+
         return $responses[array_rand($responses)];
     }
 

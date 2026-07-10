@@ -1,8 +1,8 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\Chatbot;
-use Illuminate\Http\Request;
 
 class WidgetController extends Controller
 {
@@ -12,14 +12,14 @@ class WidgetController extends Controller
 
         $config = [
             'apiKey' => $chatbot->api_key,
-            'apiUrl' => secure_url('/api/chatbots/' . $chatbot->api_key),
+            'apiUrl' => secure_url('/api/chatbots/'.$chatbot->api_key),
             'primaryColor' => $chatbot->primary_color,
             'secondaryColor' => $chatbot->secondary_color,
             'position' => $chatbot->position,
             'botName' => $chatbot->bot_name,
             'welcomeMessage' => $chatbot->welcome_message,
             'placeholderText' => $chatbot->placeholder_text,
-            'avatarUrl' => $chatbot->avatar_url ? secure_asset('storage/' . $chatbot->avatar_url) : secure_asset('akmal3d.png'),
+            'avatarUrl' => $chatbot->resolvedAvatarUrl(),
         ];
 
         $js = file_get_contents(public_path('widget.js'));

@@ -45,15 +45,16 @@ class ChatbotController extends Controller
             'placeholder_text' => ['nullable', 'string', 'max:255'],
             'bot_name' => ['nullable', 'string', 'max:255'],
             'system_prompt' => ['nullable', 'string', 'max:5000'],
+            'domain_whitelist' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        if (!$request->user()->canCreateChatbot()) {
+        if (! $request->user()->canCreateChatbot()) {
             throw ValidationException::withMessages([
                 'name' => 'Your current plan chatbot limit has been reached.',
             ]);
         }
 
-        $validated['slug'] = Str::slug($request->name) . '-' . Str::random(6);
+        $validated['slug'] = Str::slug($request->name).'-'.Str::random(6);
         $validated['api_key'] = Str::random(40);
         $validated['is_active'] = true;
 
@@ -175,13 +176,15 @@ class ChatbotController extends Controller
     public function toggle(Chatbot $chatbot)
     {
         Gate::authorize('update', $chatbot);
-        $chatbot->update(['is_active' => !$chatbot->is_active]);
+        $chatbot->update(['is_active' => ! $chatbot->is_active]);
+
         return back()->with('success', 'Status chatbot dikemaskini.');
     }
 
     public function embed(Chatbot $chatbot)
     {
         Gate::authorize('view', $chatbot);
+
         return view('chatbots.embed', compact('chatbot'));
     }
 
@@ -189,6 +192,7 @@ class ChatbotController extends Controller
     {
         Gate::authorize('update', $chatbot);
         $chatbot->regenerateApiKey();
+
         return back()->with('success', 'Kunci API berjaya dijana semula.');
     }
 }

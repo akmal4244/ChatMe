@@ -29,6 +29,25 @@ class PlanLimitTest extends TestCase
         ]);
     }
 
+    public function test_chatbot_creation_persists_the_domain_whitelist_from_the_form(): void
+    {
+        $user = $this->freePlanUser();
+
+        $this->actingAs($user)
+            ->post(route('chatbots.store'), [
+                'name' => 'Restricted Bot',
+                'domain_whitelist' => 'example.com, support.example.com',
+            ])
+            ->assertRedirect(route('chatbots.index'))
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('chatbots', [
+            'user_id' => $user->id,
+            'name' => 'Restricted Bot',
+            'domain_whitelist' => 'example.com, support.example.com',
+        ]);
+    }
+
     public function test_free_plan_rejects_a_second_chatbot_with_name_validation_feedback(): void
     {
         $user = $this->freePlanUser();

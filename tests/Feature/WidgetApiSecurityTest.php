@@ -49,6 +49,36 @@ class WidgetApiSecurityTest extends TestCase
         $this->assertDatabaseCount('chat_logs', 0);
     }
 
+    public function test_external_avatar_url_is_not_prefixed_with_the_storage_path(): void
+    {
+        $chatbot = $this->chatbotWithWhitelist('*');
+        $chatbot->update(['avatar_url' => 'https://cdn.example.test/avatar.png']);
+
+        $this->withHeader('Origin', 'https://site.example.test')
+            ->getJson(route('api.widget.config', $chatbot->api_key))
+            ->assertOk()
+            ->assertJsonPath('avatar_url', 'https://cdn.example.test/avatar.png');
+
+        $this->get(route('widget.script', $chatbot->api_key))
+            ->assertOk()
+            ->assertSee('https://cdn.example.test/avatar.png', false)
+            ->assertDontSee('/storage/https://', false);
+    }
+
+    public function test_public_relative_avatar_uses_the_public_asset_url(): void
+    {
+        $chatbot = $this->chatbotWithWhitelist('*');
+        $chatbot->update(['avatar_url' => 'akmal3d.png']);
+
+        $avatarUrl = $this->withHeader('Origin', 'https://site.example.test')
+            ->getJson(route('api.widget.config', $chatbot->api_key))
+            ->assertOk()
+            ->json('avatar_url');
+
+        $this->assertStringEndsWith('/akmal3d.png', $avatarUrl);
+        $this->assertStringNotContainsString('/storage/akmal3d.png', $avatarUrl);
+    }
+
     private function chatbotWithWhitelist(string $whitelist): Chatbot
     {
         $user = User::factory()->create();
