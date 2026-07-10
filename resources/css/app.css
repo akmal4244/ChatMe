@@ -26,7 +26,7 @@
     --surface-strong: #EAE7DF;
     --text: #171717;
     --muted: #67655F;
-    --subtle: #8A877F;
+    --subtle: #67655F;
     --border: #E2DED5;
     --border-strong: #CFC9BD;
     --accent: #4F46E5;
@@ -96,7 +96,7 @@ img { max-width: 100%; }
 /* Shared controls */
 .button, .btn {
     display: inline-flex;
-    min-height: 42px;
+    min-height: 44px;
     align-items: center;
     justify-content: center;
     gap: 8px;

@@ -318,6 +318,10 @@ class PlanLimitTest extends TestCase
         Subscription::create([
             'user_id' => $user->id,
             'plan_id' => $plan->id,
+            'provider' => 'system',
+            'status' => 'active',
+            'starts_at' => now(),
+            'ends_at' => null,
         ]);
 
         return $user;

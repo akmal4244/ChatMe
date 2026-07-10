@@ -7,6 +7,7 @@ use App\Services\Payments\PaymentActivationService;
 use App\Services\ToyyibPay\ToyyibPayClient;
 use App\Services\ToyyibPay\ToyyibPayException;
 use App\Support\Ringgit;
+use App\Support\ToyyibPayTimestamp;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -30,6 +31,7 @@ class ToyyibPayCallbackController extends Controller
             'billcode',
             'order_id',
             'amount',
+            'transaction_time',
             'hash',
         ]);
 
@@ -56,6 +58,7 @@ class ToyyibPayCallbackController extends Controller
             'billcode' => ['required', 'string', 'max:100', 'regex:/^[A-Za-z0-9]+$/'],
             'order_id' => ['required', 'string', 'uuid'],
             'amount' => ['required', 'string', 'regex:/^\d{1,10}(?:\.\d{1,2})?$/'],
+            'transaction_time' => ['nullable', 'string', 'max:64', 'regex:/^[^\x00-\x1F\x7F]+$/u'],
             'hash' => ['required', 'string', 'size:32', 'regex:/^[a-f0-9]{32}$/'],
         ]);
 
@@ -68,8 +71,15 @@ class ToyyibPayCallbackController extends Controller
             return $this->plainResponse('INVALID', 422);
         }
 
-        /** @var array{refno:string,status:string,billcode:string,order_id:string,amount:string} $validated */
+        /** @var array{refno:string,status:string,billcode:string,order_id:string,amount:string,transaction_time?:string} $validated */
         $validated = $validator->validated();
+        $providerPaidAt = ToyyibPayTimestamp::parse($validated['transaction_time'] ?? null);
+
+        if (isset($validated['transaction_time']) && ! $providerPaidAt) {
+            Log::warning('Verified ToyyibPay callback contained an invalid transaction time.', [
+                'status' => $validated['status'],
+            ]);
+        }
 
         try {
             $amountCents = Ringgit::decimalToCents($validated['amount']);
@@ -77,6 +87,7 @@ class ToyyibPayCallbackController extends Controller
                 $validated,
                 $amountCents,
                 $activationService,
+                $providerPaidAt,
             ): bool {
                 $order = PaymentOrder::query()
                     ->where('external_reference', $validated['order_id'])
@@ -91,7 +102,11 @@ class ToyyibPayCallbackController extends Controller
                 }
 
                 if ($validated['status'] === '1') {
-                    $activationService->activate($order, $validated['refno']);
+                    $activationService->activate(
+                        $order,
+                        $validated['refno'],
+                        $providerPaidAt,
+                    );
 
                     return true;
                 }

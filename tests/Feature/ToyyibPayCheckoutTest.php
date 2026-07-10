@@ -23,7 +23,8 @@ class ToyyibPayCheckoutTest extends TestCase
 
         config()->set('app.url', 'https://chatme.test');
         config()->set('services.toyyibpay', [
-            'base_url' => 'https://dev.toyyibpay.test',
+            'base_url' => 'https://dev.toyyibpay.com',
+            'sandbox' => true,
             'secret_key' => 'checkout-test-secret',
             'category_code' => 'CHECKOUT1',
             'dnqr_enabled' => true,
@@ -79,7 +80,7 @@ class ToyyibPayCheckoutTest extends TestCase
                 'status' => 'paid',
                 'bill_code' => 'ATTACKER',
             ])
-            ->assertRedirect('https://dev.toyyibpay.test/CHECKOUTBILL1')
+            ->assertRedirect('https://dev.toyyibpay.com/CHECKOUTBILL1')
             ->assertSessionHasNoErrors();
 
         $this->assertTrue($observedCreatingOrder);
@@ -106,7 +107,7 @@ class ToyyibPayCheckoutTest extends TestCase
                 'phone' => '01123456789',
                 'amount_cents' => 49,
             ])
-            ->assertRedirect('https://dev.toyyibpay.test/ENTERPRISE1');
+            ->assertRedirect('https://dev.toyyibpay.com/ENTERPRISE1');
 
         $this->assertDatabaseHas('payment_orders', [
             'plan_id' => $plan->id,

@@ -5,6 +5,7 @@
 @php
     $pricingPlans = $plans ?? collect();
     $currentPlanId = auth()->check() ? auth()->user()->currentPlan()?->id : null;
+    $paymentChannels = config('services.toyyibpay.dnqr_enabled') ? 'FPX / DuitNow QR' : 'FPX';
 @endphp
 
 <header class="site-header landing-header" data-site-header>
@@ -138,7 +139,7 @@
             </header>
 
             <p class="pricing-payment-note">
-                Bayaran pelan Pro dan Enterprise menyokong FPX / DuitNow QR. Pembaharuan bulanan;
+                Bayaran pelan Pro dan Enterprise menyokong {{ $paymentChannels }}. Pembaharuan bulanan;
                 bukan potongan automatik daripada akaun bank.
             </p>
 
@@ -186,7 +187,7 @@
                         </ul>
 
                         <p class="pricing-card__payment-copy">
-                            {{ $isPaid ? 'Pembaharuan manual setiap bulan melalui FPX / DuitNow QR.' : 'Tiada bayaran diperlukan.' }}
+                            {{ $isPaid ? 'Pembaharuan manual setiap bulan melalui '.$paymentChannels.'.' : 'Tiada bayaran diperlukan.' }}
                         </p>
 
                         @auth

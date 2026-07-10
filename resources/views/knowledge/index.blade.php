@@ -12,6 +12,7 @@
             'tags' => $item->tags,
         ],
     ])->all();
+    $failedForm = old('knowledge_form');
 @endphp
 
 <header class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
@@ -79,22 +80,27 @@
         </div>
         <form action="{{ route('knowledge.store', $chatbot) }}" method="POST" class="space-y-4">
             @csrf
+            <input type="hidden" name="knowledge_form" value="add">
             <div>
                 <label for="add-question" class="label">Soalan</label>
-                <input id="add-question" type="text" name="question" value="{{ old('question') }}" required class="input" placeholder="Contoh: Apakah waktu operasi?">
+                <input id="add-question" type="text" name="question" value="{{ $failedForm === 'add' ? old('question') : '' }}" required class="input" placeholder="Contoh: Apakah waktu operasi?" @if($failedForm === 'add' && $errors->has('question')) aria-invalid="true" aria-describedby="add-question-error" @endif>
+                @if($failedForm === 'add' && $errors->has('question')) <p id="add-question-error" class="field-error" role="alert">{{ $errors->first('question') }}</p> @endif
             </div>
             <div>
                 <label for="add-answer" class="label">Jawapan</label>
-                <textarea id="add-answer" name="answer" required rows="4" class="input" placeholder="Tulis jawapan lengkap...">{{ old('answer') }}</textarea>
+                <textarea id="add-answer" name="answer" required rows="4" class="input" placeholder="Tulis jawapan lengkap..." @if($failedForm === 'add' && $errors->has('answer')) aria-invalid="true" aria-describedby="add-answer-error" @endif>{{ $failedForm === 'add' ? old('answer') : '' }}</textarea>
+                @if($failedForm === 'add' && $errors->has('answer')) <p id="add-answer-error" class="field-error" role="alert">{{ $errors->first('answer') }}</p> @endif
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                     <label for="add-category" class="label">Kategori</label>
-                    <input id="add-category" type="text" name="category" value="{{ old('category') }}" class="input" placeholder="Contoh: Operasi">
+                    <input id="add-category" type="text" name="category" value="{{ $failedForm === 'add' ? old('category') : '' }}" class="input" placeholder="Contoh: Operasi" @if($failedForm === 'add' && $errors->has('category')) aria-invalid="true" aria-describedby="add-category-error" @endif>
+                    @if($failedForm === 'add' && $errors->has('category')) <p id="add-category-error" class="field-error" role="alert">{{ $errors->first('category') }}</p> @endif
                 </div>
                 <div>
                     <label for="add-tags" class="label">Tag (pisah koma)</label>
-                    <input id="add-tags" type="text" name="tags" value="{{ old('tags') }}" class="input" placeholder="masa, pejabat">
+                    <input id="add-tags" type="text" name="tags" value="{{ $failedForm === 'add' ? old('tags') : '' }}" class="input" placeholder="masa, pejabat" @if($failedForm === 'add' && $errors->has('tags')) aria-invalid="true" aria-describedby="add-tags-error" @endif>
+                    @if($failedForm === 'add' && $errors->has('tags')) <p id="add-tags-error" class="field-error" role="alert">{{ $errors->first('tags') }}</p> @endif
                 </div>
             </div>
             <button type="submit" class="btn btn-primary w-full justify-center">Tambah Item</button>
@@ -110,22 +116,28 @@
         </div>
         <form id="edit-form" method="POST" class="space-y-4">
             @csrf @method('PUT')
+            <input type="hidden" name="knowledge_form" value="edit">
+            <input id="edit-item-id" type="hidden" name="edit_item" value="{{ $failedForm === 'edit' ? old('edit_item') : '' }}">
             <div>
                 <label for="edit-question" class="label">Soalan</label>
-                <input id="edit-question" type="text" name="question" required class="input">
+                <input id="edit-question" type="text" name="question" required class="input" @if($failedForm === 'edit' && $errors->has('question')) aria-invalid="true" aria-describedby="edit-question-error" @endif>
+                @if($failedForm === 'edit' && $errors->has('question')) <p id="edit-question-error" class="field-error" role="alert">{{ $errors->first('question') }}</p> @endif
             </div>
             <div>
                 <label for="edit-answer" class="label">Jawapan</label>
-                <textarea id="edit-answer" name="answer" required rows="4" class="input"></textarea>
+                <textarea id="edit-answer" name="answer" required rows="4" class="input" @if($failedForm === 'edit' && $errors->has('answer')) aria-invalid="true" aria-describedby="edit-answer-error" @endif></textarea>
+                @if($failedForm === 'edit' && $errors->has('answer')) <p id="edit-answer-error" class="field-error" role="alert">{{ $errors->first('answer') }}</p> @endif
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                     <label for="edit-category" class="label">Kategori</label>
-                    <input id="edit-category" type="text" name="category" class="input">
+                    <input id="edit-category" type="text" name="category" class="input" @if($failedForm === 'edit' && $errors->has('category')) aria-invalid="true" aria-describedby="edit-category-error" @endif>
+                    @if($failedForm === 'edit' && $errors->has('category')) <p id="edit-category-error" class="field-error" role="alert">{{ $errors->first('category') }}</p> @endif
                 </div>
                 <div>
                     <label for="edit-tags" class="label">Tag (pisah koma)</label>
-                    <input id="edit-tags" type="text" name="tags" class="input">
+                    <input id="edit-tags" type="text" name="tags" class="input" @if($failedForm === 'edit' && $errors->has('tags')) aria-invalid="true" aria-describedby="edit-tags-error" @endif>
+                    @if($failedForm === 'edit' && $errors->has('tags')) <p id="edit-tags-error" class="field-error" role="alert">{{ $errors->first('tags') }}</p> @endif
                 </div>
             </div>
             <button type="submit" class="btn btn-primary w-full justify-center">Simpan Perubahan</button>
@@ -141,10 +153,12 @@
         </div>
         <form action="{{ route('knowledge.import', $chatbot) }}" method="POST" class="space-y-4">
             @csrf
+            <input type="hidden" name="knowledge_form" value="import">
             <div>
                 <label for="json-data" class="label">Data JSON</label>
                 <p id="json-data-help" class="text-sm text-neutral-600 mb-2">Tampal array JSON dengan medan "question" dan "answer".</p>
-                <textarea id="json-data" name="json_data" rows="8" required class="input font-mono" aria-describedby="json-data-help" placeholder='[{"question": "...", "answer": "...", "category": "...", "tags": "..."}]'>{{ old('json_data') }}</textarea>
+                <textarea id="json-data" name="json_data" rows="8" required class="input font-mono" aria-describedby="json-data-help{{ $failedForm === 'import' && $errors->has('json_data') ? ' json-data-error' : '' }}" @if($failedForm === 'import' && $errors->has('json_data')) aria-invalid="true" @endif placeholder='[{"question": "...", "answer": "...", "category": "...", "tags": "..."}]'>{{ $failedForm === 'import' ? old('json_data') : '' }}</textarea>
+                @if($failedForm === 'import' && $errors->has('json_data')) <p id="json-data-error" class="field-error" role="alert">{{ $errors->first('json_data') }}</p> @endif
             </div>
             <button type="submit" class="btn btn-primary w-full justify-center">Import</button>
         </form>
@@ -155,6 +169,26 @@
 document.addEventListener('DOMContentLoaded', () => {
     const editableItems = {{ Illuminate\Support\Js::from($editableItems) }};
     const updateRouteTemplate = {{ Illuminate\Support\Js::from(route('knowledge.update', [$chatbot, '__ITEM__'])) }};
+    const failedForm = {{ Illuminate\Support\Js::from($failedForm) }};
+    const failedEdit = {{ Illuminate\Support\Js::from([
+        'id' => old('edit_item'),
+        'question' => old('question'),
+        'answer' => old('answer'),
+        'category' => old('category'),
+        'tags' => old('tags'),
+    ]) }};
+
+    const openEdit = (item) => {
+        if (!item?.id) return;
+
+        document.getElementById('edit-form').action = updateRouteTemplate.replace('__ITEM__', encodeURIComponent(item.id));
+        document.getElementById('edit-item-id').value = item.id;
+        document.getElementById('edit-question').value = item.question ?? '';
+        document.getElementById('edit-answer').value = item.answer ?? '';
+        document.getElementById('edit-category').value = item.category ?? '';
+        document.getElementById('edit-tags').value = item.tags ?? '';
+        document.getElementById('edit-dialog').showModal();
+    };
 
     document.querySelectorAll('[data-dialog-open]').forEach((button) => {
         button.addEventListener('click', () => {
@@ -172,14 +206,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const item = editableItems[button.dataset.editKnowledge];
             if (!item) return;
 
-            document.getElementById('edit-form').action = updateRouteTemplate.replace('__ITEM__', encodeURIComponent(item.id));
-            document.getElementById('edit-question').value = item.question ?? '';
-            document.getElementById('edit-answer').value = item.answer ?? '';
-            document.getElementById('edit-category').value = item.category ?? '';
-            document.getElementById('edit-tags').value = item.tags ?? '';
-            document.getElementById('edit-dialog').showModal();
+            openEdit(item);
         });
     });
+
+    if (failedForm === 'add') document.getElementById('add-dialog').showModal();
+    if (failedForm === 'import') document.getElementById('import-dialog').showModal();
+    if (failedForm === 'edit') openEdit(failedEdit);
 });
 </script>
 @endsection

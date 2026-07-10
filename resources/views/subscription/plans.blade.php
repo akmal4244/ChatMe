@@ -6,14 +6,27 @@
 @php
     $activeSubscription = auth()->check() ? auth()->user()->activeSubscription() : null;
     $currentPlan = auth()->check() ? auth()->user()->currentPlan() : null;
+    $hasLegacyLifetimeBackup = auth()->check() && auth()->user()->subscriptions()
+        ->where('provider', 'legacy_lifetime')
+        ->where('status', 'active')
+        ->whereNotNull('starts_at')
+        ->where('starts_at', '<=', now())
+        ->where(function ($query) {
+            $query->whereNull('ends_at')->orWhere('ends_at', '>', now());
+        })
+        ->exists();
+    $paymentChannels = config('services.toyyibpay.dnqr_enabled') ? 'FPX / DuitNow QR' : 'FPX';
 @endphp
 
 <section class="subscription-page" aria-labelledby="subscription-heading">
     <header class="subscription-header">
         <p class="eyebrow">Langganan ChatMe</p>
         <h1 id="subscription-heading">Pelan yang jelas, bayaran yang selamat</h1>
-        <p>Pilih pelan bulanan anda dan bayar melalui FPX / DuitNow QR menggunakan ToyyibPay.</p>
+        <p>Pilih pelan bulanan anda dan bayar melalui {{ $paymentChannels }} menggunakan ToyyibPay.</p>
         <p class="subscription-renewal-note">Pembaharuan bulanan; bukan potongan automatik daripada akaun bank.</p>
+        @if($activeSubscription && $activeSubscription->plan?->priceInCents() > 0)
+            <p class="subscription-renewal-note">Jika anda menukar pelan, nilai baki berbayar dikreditkan secara prorata mengikut harga pelan baharu.</p>
+        @endif
     </header>
 
     @if($errors->has('payment'))
@@ -81,7 +94,11 @@
                 @auth
                     @if($isFree)
                         @if($activeSubscription && $activeSubscription->plan_id !== $plan->id)
-                            <p class="plan-status-note">Free akan kembali selepas akses berbayar tamat.</p>
+                            <p class="plan-status-note">
+                                {{ $hasLegacyLifetimeBackup
+                                    ? 'Akses Lifetime lama anda kekal sebagai pelan sandaran.'
+                                    : 'Free akan kembali selepas akses berbayar tamat.' }}
+                            </p>
                         @else
                             <button type="button" class="button button-secondary button-full" disabled>
                                 {{ $isCurrent ? 'Pelan semasa' : 'Termasuk secara automatik' }}
@@ -109,7 +126,7 @@
                                 <p id="{{ $phoneId }}-error" class="field-error" role="alert">{{ $errors->first('phone') }}</p>
                             @endif
                             <button type="submit" class="button button-primary button-full">
-                                {{ $isCurrentPaid ? 'Perbaharui sebulan' : 'Langgan dengan FPX / DuitNow QR' }}
+                                {{ $isCurrentPaid ? 'Perbaharui sebulan' : 'Langgan dengan '.$paymentChannels }}
                             </button>
                         </form>
                     @endif

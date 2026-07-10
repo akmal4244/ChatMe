@@ -59,17 +59,15 @@ class User extends Authenticatable
         return $this->subscriptions()
             ->select('subscriptions.*')
             ->join('plans', 'plans.id', '=', 'subscriptions.plan_id')
-            ->where(function ($query) {
-                $query->where('subscriptions.status', 'active')
-                    ->orWhereNull('subscriptions.status');
-            })
+            ->where('subscriptions.status', 'active')
+            ->whereNotNull('subscriptions.starts_at')
+            ->where('subscriptions.starts_at', '<=', $now)
             ->where(function ($query) use ($now) {
-                $query->whereNull('subscriptions.starts_at')
-                    ->orWhere('subscriptions.starts_at', '<=', $now);
-            })
-            ->where(function ($query) use ($now) {
-                $query->whereNull('subscriptions.ends_at')
-                    ->orWhere('subscriptions.ends_at', '>', $now);
+                $query->where('subscriptions.ends_at', '>', $now)
+                    ->orWhere(function ($query): void {
+                        $query->where('plans.price', '<=', 0)
+                            ->whereNull('subscriptions.ends_at');
+                    });
             })
             ->orderByRaw('CASE WHEN plans.price > 0 THEN 1 ELSE 0 END DESC')
             ->orderByDesc('subscriptions.starts_at')
@@ -84,7 +82,11 @@ class User extends Authenticatable
             return $sub->plan;
         }
 
-        return Plan::where('slug', 'free')->first();
+        return Plan::query()
+            ->where('slug', 'free')
+            ->where('is_active', true)
+            ->where('price', 0)
+            ->first();
     }
 
     public function canCreateChatbot(): bool

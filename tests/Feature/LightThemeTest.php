@@ -19,6 +19,7 @@ class LightThemeTest extends TestCase
         $this->assertStringContainsString('--surface:#fff', $css);
         $this->assertStringContainsString('--text:#171717', $css);
         $this->assertStringContainsString('--muted:#67655f', $css);
+        $this->assertStringContainsString('--subtle:#67655f', $css);
         $this->assertStringContainsString('--border:#e2ded5', $css);
         $this->assertStringContainsString('--accent:#4f46e5', $css);
         $this->assertStringContainsString('prefers-reduced-motion:reduce', $css);
@@ -45,6 +46,7 @@ class LightThemeTest extends TestCase
             $response = $this->get($uri)->assertOk();
             $response->assertSee('id="main-content"', false)
                 ->assertSee('css/app.css', false);
+            $this->assertMatchesRegularExpression('/css\/app\.css\?v=[a-f0-9]{12}/', $response->getContent());
         }
     }
 
@@ -55,9 +57,21 @@ class LightThemeTest extends TestCase
 
         $this->actingAs($user)->get('/dashboard')->assertOk()
             ->assertSee('id="main-content"', false)
+            ->assertSee('css/app.css?v=', false)
             ->assertSee('aria-current="page"', false)
+            ->assertSee('aria-label="Papan Pemuka"', false)
             ->assertSee('<title>Papan Pemuka — ChatMe</title>', false)
             ->assertSee('aria-label="Menu akaun untuk', false);
+    }
+
+    public function test_mobile_navigation_source_manages_focus_background_and_escape(): void
+    {
+        $source = file_get_contents(resource_path('views/layouts/app.blade.php'));
+
+        $this->assertStringContainsString('appShell.inert = open', $source);
+        $this->assertStringContainsString("sidebar.querySelector('a[href]')?.focus()", $source);
+        $this->assertStringContainsString("sidebar.classList.contains('mobile-open')", $source);
+        $this->assertStringContainsString('setSidebarState(false, true)', $source);
     }
 
     public function test_landing_uses_real_plan_data_and_manual_renewal_copy(): void

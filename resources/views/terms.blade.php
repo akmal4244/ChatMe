@@ -28,7 +28,7 @@
 
             <section aria-labelledby="terms-subscription">
                 <h2 id="terms-subscription">Langganan dan pembayaran</h2>
-                <p>Setiap pembayaran pelan berbayar memberikan akses selama satu bulan bermula apabila pembayaran disahkan oleh server. Pembayaran dibuat melalui ToyyibPay menggunakan FPX atau DuitNow QR.</p>
+                <p>Setiap pembayaran pelan berbayar memberikan akses selama satu bulan bermula apabila pembayaran disahkan oleh server. Pembayaran dibuat melalui ToyyibPay menggunakan {{ config('services.toyyibpay.dnqr_enabled') ? 'FPX atau DuitNow QR' : 'FPX' }}.</p>
                 <p>Pembaharuan adalah manual dan bukan auto-debit atau potongan automatik daripada akaun bank. Untuk meneruskan pelan berbayar, anda perlu membuat pembayaran baharu bagi bulan seterusnya. Jika tidak diperbaharui, akses akan kembali kepada pelan Free selepas tempoh berbayar tamat.</p>
             </section>
 

@@ -128,6 +128,33 @@ class ToyyibPayCallbackTest extends TestCase
         $this->assertDatabaseCount('subscriptions', 1);
     }
 
+    public function test_fpx_callback_transaction_time_is_normalized_from_kuala_lumpur_to_utc(): void
+    {
+        [$order] = $this->order();
+        $payload = $this->payload($order, '1', 'TP-FPX-TIME');
+        $payload['transaction_time'] = '2026-07-10 17:45:00';
+
+        $this->post('/payments/toyyibpay/callback', $payload)->assertOk();
+
+        $this->assertSame(
+            '2026-07-10 09:45:00',
+            $order->fresh()->paid_at->utc()->format('Y-m-d H:i:s'),
+        );
+    }
+
+    public function test_malformed_optional_transaction_time_falls_back_to_verified_server_time(): void
+    {
+        [$order] = $this->order();
+        $payload = $this->payload($order, '1', 'TP-BAD-TIME');
+        $payload['transaction_time'] = '10/07/2026 17:45:00';
+
+        $this->post('/payments/toyyibpay/callback', $payload)->assertOk();
+
+        $this->assertSame(PaymentOrder::STATUS_PAID, $order->fresh()->status);
+        $this->assertSame('2026-07-10 12:00:00', $order->fresh()->paid_at->utc()->format('Y-m-d H:i:s'));
+        $this->assertDatabaseCount('subscriptions', 1);
+    }
+
     public function test_pending_and_failure_do_not_grant_access_but_later_success_does(): void
     {
         [$order] = $this->order(status: PaymentOrder::STATUS_CREATING);

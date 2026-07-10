@@ -37,6 +37,7 @@ return [
 
     'toyyibpay' => [
         'base_url' => env('TOYYIBPAY_BASE_URL', 'https://toyyibpay.com'),
+        'sandbox' => (bool) env('TOYYIBPAY_SANDBOX', false),
         'secret_key' => env('TOYYIBPAY_SECRET_KEY'),
         'category_code' => env('TOYYIBPAY_CATEGORY_CODE'),
         'dnqr_enabled' => env('TOYYIBPAY_DNQR_ENABLED', false),

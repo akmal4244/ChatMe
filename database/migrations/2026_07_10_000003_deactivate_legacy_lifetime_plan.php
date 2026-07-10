@@ -14,8 +14,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        DB::table('plans')
-            ->where('slug', 'lifetime')
-            ->update(['is_active' => true]);
+        // Irreversible data migration: the previous active state was not recorded.
     }
 };

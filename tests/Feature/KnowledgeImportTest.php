@@ -40,6 +40,10 @@ class KnowledgeImportTest extends TestCase
         Subscription::create([
             'user_id' => $this->user->id,
             'plan_id' => $this->plan->id,
+            'provider' => 'system',
+            'status' => 'active',
+            'starts_at' => now(),
+            'ends_at' => null,
         ]);
     }
 

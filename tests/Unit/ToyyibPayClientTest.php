@@ -22,7 +22,8 @@ class ToyyibPayClientTest extends TestCase
         parent::setUp();
 
         config()->set('services.toyyibpay', [
-            'base_url' => 'https://dev.toyyibpay.test/',
+            'base_url' => 'https://dev.toyyibpay.com/',
+            'sandbox' => true,
             'secret_key' => 'test-secret-key',
             'category_code' => 'CAT123',
             'dnqr_enabled' => true,
@@ -35,7 +36,7 @@ class ToyyibPayClientTest extends TestCase
     {
         [$order, $user] = $this->order('Pelan Pró! Sangat Panjang Melebihi Had', '49.99');
         Http::fake([
-            'https://dev.toyyibpay.test/index.php/api/createBill' => Http::response([
+            'https://dev.toyyibpay.com/index.php/api/createBill' => Http::response([
                 ['BillCode' => 'BILLabc123'],
             ]),
         ]);
@@ -75,7 +76,7 @@ class ToyyibPayClientTest extends TestCase
             $this->assertStringStartsWith('https://chatme.test/', $data['billReturnUrl']);
             $this->assertSame('https://chatme.test/payments/toyyibpay/callback', $data['billCallbackUrl']);
 
-            return $request->url() === 'https://dev.toyyibpay.test/index.php/api/createBill';
+            return $request->url() === 'https://dev.toyyibpay.com/index.php/api/createBill';
         });
     }
 
@@ -185,13 +186,13 @@ class ToyyibPayClientTest extends TestCase
     public function test_payment_url_and_transaction_query_use_only_the_configured_host_and_valid_bill_code(): void
     {
         Http::fake([
-            'https://dev.toyyibpay.test/index.php/api/getBillTransactions' => Http::response([
+            'https://dev.toyyibpay.com/index.php/api/getBillTransactions' => Http::response([
                 ['billpaymentStatus' => '1', 'billExternalReferenceNo' => 'ORDER-1'],
             ]),
         ]);
 
         $this->assertSame(
-            'https://dev.toyyibpay.test/BILL123',
+            'https://dev.toyyibpay.com/BILL123',
             $this->client()->paymentUrl('BILL123'),
         );
         $transactions = $this->client()->getBillTransactions('BILL123');
@@ -200,7 +201,7 @@ class ToyyibPayClientTest extends TestCase
         Http::assertSent(function ($request): bool {
             $this->assertSame(['billCode' => 'BILL123'], $request->data());
 
-            return $request->url() === 'https://dev.toyyibpay.test/index.php/api/getBillTransactions';
+            return $request->url() === 'https://dev.toyyibpay.com/index.php/api/getBillTransactions';
         });
     }
 
@@ -268,6 +269,25 @@ class ToyyibPayClientTest extends TestCase
 
         $this->expectException(ToyyibPayException::class);
         $this->client()->paymentUrl('BILL123');
+    }
+
+    public function test_client_rejects_unofficial_hosts_and_a_production_host_in_sandbox_mode(): void
+    {
+        foreach (['https://toyyibpay.example', 'https://toyyibpay.com.evil.test', 'https://toyyibpay.com'] as $baseUrl) {
+            config()->set('services.toyyibpay.base_url', $baseUrl);
+
+            try {
+                $this->client()->paymentUrl('BILL123');
+                $this->fail("Expected {$baseUrl} to be rejected in sandbox mode.");
+            } catch (ToyyibPayException $exception) {
+                $this->assertSame('configuration_error', $exception->reason);
+            }
+        }
+
+        config()->set('services.toyyibpay.sandbox', false);
+        config()->set('services.toyyibpay.base_url', 'https://toyyibpay.com');
+
+        $this->assertSame('https://toyyibpay.com/BILL123', $this->client()->paymentUrl('BILL123'));
     }
 
     public function test_callback_hash_verification_requires_bounded_lowercase_strings(): void

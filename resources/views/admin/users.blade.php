@@ -26,7 +26,7 @@
                 <td><time datetime="{{ $u->created_at->toDateString() }}">{{ $u->created_at->format('d/m/Y') }}</time></td>
                 <td>
                     @if($u->id !== auth()->id())
-                    <form action="{{ route('admin.users.toggle-admin', $u) }}" method="POST">
+                    <form action="{{ route('admin.users.toggle-admin', $u) }}" method="POST" onsubmit="return confirm({{ Illuminate\Support\Js::from($u->is_admin ? 'Buang peranan pentadbir daripada '.$u->name.'?' : 'Jadikan '.$u->name.' sebagai pentadbir?') }});">
                         @csrf
                         <button type="submit" class="text-xs font-medium {{ $u->is_admin ? 'text-red-700 hover:text-red-800' : 'text-brand-700 hover:text-brand-800' }}" aria-label="{{ $u->is_admin ? 'Buang peranan pentadbir daripada '.$u->name : 'Jadikan '.$u->name.' sebagai pentadbir' }}">
                             {{ $u->is_admin ? 'Buang Admin' : 'Jadikan Admin' }}

@@ -98,8 +98,55 @@ class SubscriptionPlanTest extends TestCase
             ->assertDontSeeText('Custom Paid');
     }
 
+    public function test_inactive_grandfathered_lifetime_entitlement_remains_usable_but_hidden_from_sale(): void
+    {
+        $this->seed(PlanSeeder::class);
+        $user = User::factory()->create();
+        $lifetime = Plan::create([
+            'name' => 'Lifetime',
+            'slug' => 'lifetime',
+            'price' => 0,
+            'chatbot_limit' => -1,
+            'knowledge_limit' => -1,
+            'monthly_messages' => -1,
+            'is_active' => false,
+        ]);
+        $entitlement = Subscription::create([
+            'user_id' => $user->id,
+            'plan_id' => $lifetime->id,
+            'provider' => 'legacy_lifetime',
+            'status' => 'active',
+            'starts_at' => now()->subYear(),
+            'ends_at' => null,
+        ]);
+
+        $this->assertSame($entitlement->id, $user->activeSubscription()->id);
+        $this->assertSame($lifetime->id, $user->currentPlan()->id);
+        $this->assertTrue($user->canCreateChatbot());
+
+        $this->actingAs($user)->get(route('subscription.plans'))->assertOk()
+            ->assertDontSee('id="plan-'.$lifetime->id.'-name"', false)
+            ->assertSeeText('Akses Lifetime lama anda kekal sebagai pelan sandaran.');
+
+        $pro = Plan::where('slug', 'pro')->firstOrFail();
+        Subscription::create([
+            'user_id' => $user->id,
+            'plan_id' => $pro->id,
+            'provider' => 'toyyibpay',
+            'provider_reference' => 'TP-GRANDFATHERED-BACKUP',
+            'status' => 'active',
+            'starts_at' => now(),
+            'ends_at' => now()->addMonth(),
+        ]);
+
+        $this->actingAs($user)->get(route('subscription.plans'))->assertOk()
+            ->assertSeeText('Akses Lifetime lama anda kekal sebagai pelan sandaran.')
+            ->assertDontSeeText('Free akan kembali selepas akses berbayar tamat.');
+    }
+
     public function test_unlimited_limits_and_checkout_copy_are_rendered_correctly(): void
     {
+        config()->set('services.toyyibpay.dnqr_enabled', true);
         $this->seed(PlanSeeder::class);
         $user = User::factory()->create();
 
@@ -115,6 +162,31 @@ class SubscriptionPlanTest extends TestCase
             ->assertDontSeeText('-1 chatbot')
             ->assertDontSeeText('-1 item pengetahuan')
             ->assertDontSeeText('-1 mesej');
+    }
+
+    public function test_payment_channel_copy_matches_the_dnqr_capability_flag(): void
+    {
+        config()->set('services.toyyibpay.dnqr_enabled', false);
+        $this->seed(PlanSeeder::class);
+        $user = User::factory()->create();
+
+        $this->get('/')->assertOk()
+            ->assertSeeText('melalui FPX')
+            ->assertDontSeeText('DuitNow QR');
+
+        $this->actingAs($user)->get(route('subscription.plans'))->assertOk()
+            ->assertSeeText('melalui FPX')
+            ->assertSeeText('Langgan dengan FPX')
+            ->assertDontSeeText('DuitNow QR');
+        $this->get('/terms')->assertOk()->assertDontSeeText('DuitNow QR');
+        $this->get('/privacy')->assertOk()->assertDontSeeText('DuitNow QR');
+
+        config()->set('services.toyyibpay.dnqr_enabled', true);
+
+        $this->get('/')->assertOk()->assertSeeText('FPX / DuitNow QR');
+        $this->get(route('subscription.plans'))->assertOk()->assertSeeText('FPX / DuitNow QR');
+        $this->get('/terms')->assertOk()->assertSeeText('DuitNow QR');
+        $this->get('/privacy')->assertOk()->assertSeeText('DuitNow QR');
     }
 
     public function test_paid_plan_can_be_renewed_and_free_never_posts_to_payment(): void
@@ -137,6 +209,7 @@ class SubscriptionPlanTest extends TestCase
         $response->assertOk()
             ->assertSeeText('Pelan semasa')
             ->assertSeeText('Perbaharui sebulan')
+            ->assertSeeText('nilai baki berbayar dikreditkan secara prorata')
             ->assertSeeText('Free akan kembali selepas akses berbayar tamat');
 
         $html = $response->getContent();
@@ -178,7 +251,7 @@ class SubscriptionPlanTest extends TestCase
         $this->assertStringNotContainsString('newSubscription', $controller);
     }
 
-    public function test_lifetime_data_migration_is_reversible_without_touching_other_plans(): void
+    public function test_lifetime_data_migration_rollback_does_not_reactivate_data(): void
     {
         $lifetime = Plan::create([
             'name' => 'Lifetime',
@@ -199,8 +272,28 @@ class SubscriptionPlanTest extends TestCase
         $this->assertTrue($pro->fresh()->is_active);
 
         $migration->down();
-        $this->assertTrue($lifetime->fresh()->is_active);
+        $this->assertFalse($lifetime->fresh()->is_active);
         $this->assertTrue($pro->fresh()->is_active);
+    }
+
+    public function test_free_fallback_must_be_active_and_zero_priced(): void
+    {
+        $user = User::factory()->create();
+        Plan::create([
+            'name' => 'Disabled Free',
+            'slug' => 'free',
+            'price' => 0,
+            'is_active' => false,
+        ]);
+
+        $this->assertNull($user->currentPlan());
+
+        Plan::where('slug', 'free')->update([
+            'price' => 10,
+            'is_active' => true,
+        ]);
+
+        $this->assertNull($user->fresh()->currentPlan());
     }
 
     public function test_admin_seeder_creates_a_system_free_entitlement(): void

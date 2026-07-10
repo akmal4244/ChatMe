@@ -123,6 +123,27 @@ class ChatbotAuthorizationTest extends TestCase
         $this->actingAs($attacker)->post(route('chatbots.regenerate-key', $chatbot))->assertForbidden();
     }
 
+    public function test_owner_can_regenerate_a_prefixed_api_key_and_the_old_widget_url_stops_working(): void
+    {
+        $owner = User::factory()->create();
+        $chatbot = Chatbot::create(['user_id' => $owner->id, 'name' => 'Rotating Bot']);
+        $oldKey = $chatbot->api_key;
+
+        $this->get(route('widget.script', $oldKey))->assertOk();
+
+        $this->actingAs($owner)
+            ->post(route('chatbots.regenerate-key', $chatbot))
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $newKey = $chatbot->fresh()->api_key;
+
+        $this->assertNotSame($oldKey, $newKey);
+        $this->assertMatchesRegularExpression('/^cm_[A-Za-z0-9]{32}$/', $newKey);
+        $this->get(route('widget.script', $oldKey))->assertNotFound();
+        $this->get(route('widget.script', $newKey))->assertOk();
+    }
+
     public function test_user_cannot_mutate_an_item_through_a_different_chatbot(): void
     {
         $user = User::factory()->create();

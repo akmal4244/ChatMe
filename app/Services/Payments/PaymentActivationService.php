@@ -27,7 +27,7 @@ class PaymentActivationService
 
         $activatedAt = CarbonImmutable::instance(now());
         $recordedPaidAt = $paidAt
-            ? CarbonImmutable::instance($paidAt)
+            ? CarbonImmutable::instance($paidAt)->utc()
             : $activatedAt;
 
         return DB::transaction(function () use (
@@ -56,18 +56,12 @@ class PaymentActivationService
             /** @var Collection<int, Subscription> $eligibleSubscriptions */
             $eligibleSubscriptions = $user->subscriptions()
                 ->with('plan')
-                ->where(function ($query): void {
-                    $query->where('status', 'active')
-                        ->orWhereNull('status');
-                })
-                ->where(function ($query) use ($activatedAt): void {
-                    $query->whereNull('starts_at')
-                        ->orWhere('starts_at', '<=', $activatedAt);
-                })
-                ->where(function ($query) use ($activatedAt): void {
-                    $query->whereNull('ends_at')
-                        ->orWhere('ends_at', '>', $activatedAt);
-                })
+                ->where('status', 'active')
+                ->whereNotNull('starts_at')
+                ->where('starts_at', '<=', $activatedAt)
+                ->whereNotNull('ends_at')
+                ->where('ends_at', '>', $activatedAt)
+                ->whereHas('plan', fn ($query) => $query->where('price', '>', 0))
                 ->orderByDesc('starts_at')
                 ->orderByDesc('id')
                 ->lockForUpdate()
@@ -76,9 +70,48 @@ class PaymentActivationService
             $paidSubscriptions = $eligibleSubscriptions
                 ->filter(fn (Subscription $subscription): bool => $this->isPaidEntitlement($subscription));
 
+            if ($lockedOrder->amount_cents <= 0) {
+                throw new LogicException('Paid payment order has an invalid amount.');
+            }
+
             /** @var Subscription|null $subscription */
             $subscription = $paidSubscriptions
                 ->first(fn (Subscription $candidate): bool => $candidate->plan_id === $lockedOrder->plan_id);
+
+            $samePlanBase = $paidSubscriptions
+                ->filter(fn (Subscription $candidate): bool => $candidate->plan_id === $lockedOrder->plan_id)
+                ->reduce(
+                    function (CarbonImmutable $latest, Subscription $candidate): CarbonImmutable {
+                        $candidateEnd = $candidate->ends_at->toImmutable();
+
+                        return $candidateEnd->gt($latest) ? $candidateEnd : $latest;
+                    },
+                    $activatedAt,
+                );
+            $proratedCreditSeconds = $paidSubscriptions
+                ->reject(fn (Subscription $candidate): bool => $candidate->plan_id === $lockedOrder->plan_id)
+                ->reduce(function (int $credit, Subscription $candidate) use ($activatedAt, $lockedOrder): int {
+                    $remainingSeconds = max(
+                        0,
+                        $candidate->ends_at->getTimestamp() - $activatedAt->getTimestamp(),
+                    );
+                    $sourceMonthlyCents = $candidate->plan->priceInCents();
+
+                    if ($remainingSeconds > intdiv(PHP_INT_MAX, $sourceMonthlyCents)) {
+                        throw new LogicException('Prorated subscription credit exceeds the supported range.');
+                    }
+
+                    $converted = intdiv(
+                        $remainingSeconds * $sourceMonthlyCents,
+                        $lockedOrder->amount_cents,
+                    );
+
+                    if ($credit > PHP_INT_MAX - $converted) {
+                        throw new LogicException('Prorated subscription credit exceeds the supported range.');
+                    }
+
+                    return $credit + $converted;
+                }, 0);
 
             foreach ($paidSubscriptions as $paidSubscription) {
                 if ($subscription && $paidSubscription->is($subscription)) {
@@ -92,16 +125,14 @@ class PaymentActivationService
             }
 
             if ($subscription) {
-                $base = $subscription->ends_at && $subscription->ends_at->gt($activatedAt)
-                    ? $subscription->ends_at->toImmutable()
-                    : $activatedAt;
-
                 $subscription->forceFill([
                     'provider' => 'toyyibpay',
                     'provider_reference' => $transactionReference,
                     'status' => 'active',
                     'starts_at' => $subscription->starts_at ?? $activatedAt,
-                    'ends_at' => $base->addMonthNoOverflow(),
+                    'ends_at' => $samePlanBase
+                        ->addMonthNoOverflow()
+                        ->addSeconds($proratedCreditSeconds),
                 ])->save();
             } else {
                 $subscription = $user->subscriptions()->create([
@@ -110,7 +141,9 @@ class PaymentActivationService
                     'provider_reference' => $transactionReference,
                     'status' => 'active',
                     'starts_at' => $activatedAt,
-                    'ends_at' => $activatedAt->addMonthNoOverflow(),
+                    'ends_at' => $activatedAt
+                        ->addMonthNoOverflow()
+                        ->addSeconds($proratedCreditSeconds),
                 ]);
             }
 

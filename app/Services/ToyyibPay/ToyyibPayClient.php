@@ -122,6 +122,7 @@ final class ToyyibPayClient
         try {
             $response = Http::asForm()
                 ->acceptJson()
+                ->withoutRedirecting()
                 ->timeout($this->timeout())
                 ->post($this->baseUrl().$path, $payload);
         } catch (ConnectionException) {
@@ -161,6 +162,8 @@ final class ToyyibPayClient
         if (! is_array($parts)
             || ($parts['scheme'] ?? null) !== 'https'
             || empty($parts['host'])
+            || strtolower($parts['host']) !== $this->expectedHost()
+            || ($parts['port'] ?? 443) !== 443
             || isset($parts['user'])
             || isset($parts['pass'])
             || isset($parts['query'])
@@ -170,6 +173,13 @@ final class ToyyibPayClient
         }
 
         return $baseUrl;
+    }
+
+    private function expectedHost(): string
+    {
+        return (bool) config('services.toyyibpay.sandbox', false)
+            ? 'dev.toyyibpay.com'
+            : 'toyyibpay.com';
     }
 
     private function secretKey(): string

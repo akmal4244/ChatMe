@@ -24,7 +24,8 @@ class ToyyibPayReturnTest extends TestCase
 
         config()->set('app.url', 'https://chatme.test');
         config()->set('services.toyyibpay', [
-            'base_url' => 'https://dev.toyyibpay.test',
+            'base_url' => 'https://dev.toyyibpay.com',
+            'sandbox' => true,
             'secret_key' => 'return-test-secret',
             'category_code' => 'RETURN1',
             'dnqr_enabled' => true,
@@ -98,7 +99,7 @@ class ToyyibPayReturnTest extends TestCase
         $paid = $order->fresh();
         $this->assertSame(PaymentOrder::STATUS_PAID, $paid->status);
         $this->assertSame('TP-RETURN-SUCCESS', $paid->transaction_reference);
-        $this->assertSame('2026-07-09 17:30:00', $paid->paid_at->format('Y-m-d H:i:s'));
+        $this->assertSame('2026-07-09 09:30:00', $paid->paid_at->utc()->format('Y-m-d H:i:s'));
         $this->assertNotNull($paid->subscription_id);
         $this->assertSame('2026-07-10 12:00:00', $paid->subscription->starts_at->format('Y-m-d H:i:s'));
         $this->assertDatabaseCount('subscriptions', 1);

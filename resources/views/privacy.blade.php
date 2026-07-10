@@ -28,7 +28,7 @@
 
             <section aria-labelledby="privacy-payment">
                 <h2 id="privacy-payment">Pembayaran</h2>
-                <p>Pembayaran FPX atau DuitNow QR diproses oleh ToyyibPay. ChatMe menyimpan rujukan pesanan, jumlah, pelan dan status pembayaran untuk mengurus akses langganan, tetapi tidak menyimpan kata laluan atau kelayakan perbankan anda.</p>
+                <p>Pembayaran {{ config('services.toyyibpay.dnqr_enabled') ? 'FPX atau DuitNow QR' : 'FPX' }} diproses oleh ToyyibPay. ChatMe menyimpan rujukan pesanan, jumlah, pelan dan status pembayaran untuk mengurus akses langganan, tetapi tidak menyimpan kata laluan atau kelayakan perbankan anda.</p>
             </section>
 
             <section aria-labelledby="privacy-protection">

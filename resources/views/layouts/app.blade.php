@@ -13,7 +13,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
-    <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+    @php($stylesheetVersion = substr(hash_file('sha256', public_path('css/app.css')), 0, 12))
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ $stylesheetVersion }}">
     @stack('styles')
 </head>
 <body class="app-body">
@@ -29,13 +30,13 @@
             <p class="nav-group-title">Utama</p>
             <ul class="nav-list">
                 <li class="nav-item">
-                    <a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" @if(request()->routeIs('dashboard')) aria-current="page" @endif>
+                    <a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" aria-label="Papan Pemuka" @if(request()->routeIs('dashboard')) aria-current="page" @endif>
                         <i class="ph ph-gauge nav-icon" aria-hidden="true"></i>
                         <span class="nav-text">Papan Pemuka</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="{{ route('chatbots.index') }}" class="nav-link {{ request()->routeIs('chatbots.*', 'knowledge.*') ? 'active' : '' }}" @if(request()->routeIs('chatbots.*', 'knowledge.*')) aria-current="page" @endif>
+                    <a href="{{ route('chatbots.index') }}" class="nav-link {{ request()->routeIs('chatbots.*', 'knowledge.*') ? 'active' : '' }}" aria-label="Chatbot Saya" @if(request()->routeIs('chatbots.*', 'knowledge.*')) aria-current="page" @endif>
                         <i class="ph ph-robot nav-icon" aria-hidden="true"></i>
                         <span class="nav-text">Chatbot Saya</span>
                     </a>
@@ -45,7 +46,7 @@
             <p class="nav-group-title">Akaun</p>
             <ul class="nav-list">
                 <li class="nav-item">
-                    <a href="{{ route('subscription.plans') }}" class="nav-link {{ request()->routeIs('subscription.*') ? 'active' : '' }}" @if(request()->routeIs('subscription.*')) aria-current="page" @endif>
+                    <a href="{{ route('subscription.plans') }}" class="nav-link {{ request()->routeIs('subscription.*') ? 'active' : '' }}" aria-label="Pelan Langganan" @if(request()->routeIs('subscription.*')) aria-current="page" @endif>
                         <i class="ph ph-crown nav-icon" aria-hidden="true"></i>
                         <span class="nav-text">Pelan Langganan</span>
                     </a>
@@ -56,19 +57,19 @@
                 <p class="nav-group-title">Pentadbir</p>
                 <ul class="nav-list">
                     <li class="nav-item">
-                        <a href="{{ route('admin.dashboard') }}" class="nav-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}" @if(request()->routeIs('admin.dashboard')) aria-current="page" @endif>
+                        <a href="{{ route('admin.dashboard') }}" class="nav-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}" aria-label="Panel Pentadbir" @if(request()->routeIs('admin.dashboard')) aria-current="page" @endif>
                             <i class="ph ph-shield-check nav-icon" aria-hidden="true"></i>
                             <span class="nav-text">Panel Pentadbir <span class="nav-badge-admin">Admin</span></span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="{{ route('admin.users') }}" class="nav-link {{ request()->routeIs('admin.users') ? 'active' : '' }}" @if(request()->routeIs('admin.users')) aria-current="page" @endif>
+                        <a href="{{ route('admin.users') }}" class="nav-link {{ request()->routeIs('admin.users') ? 'active' : '' }}" aria-label="Urus Pengguna" @if(request()->routeIs('admin.users')) aria-current="page" @endif>
                             <i class="ph ph-users nav-icon" aria-hidden="true"></i>
                             <span class="nav-text">Urus Pengguna <span class="nav-badge-admin">Admin</span></span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="{{ route('admin.chatbots') }}" class="nav-link {{ request()->routeIs('admin.chatbots') ? 'active' : '' }}" @if(request()->routeIs('admin.chatbots')) aria-current="page" @endif>
+                        <a href="{{ route('admin.chatbots') }}" class="nav-link {{ request()->routeIs('admin.chatbots') ? 'active' : '' }}" aria-label="Semua Chatbot" @if(request()->routeIs('admin.chatbots')) aria-current="page" @endif>
                             <i class="ph ph-chats-circle nav-icon" aria-hidden="true"></i>
                             <span class="nav-text">Semua Chatbot <span class="nav-badge-admin">Admin</span></span>
                         </a>
@@ -164,17 +165,30 @@
         const userDropdown = document.getElementById('user-dropdown');
         let collapsed = localStorage.getItem('sidebarCollapsed') === 'true';
         let lastFocused = null;
+        let sidebarReturnFocus = null;
 
         const isMobile = () => window.matchMedia('(max-width: 1024px)').matches;
-        const setSidebarState = (open) => {
+        const setSidebarState = (open, manageFocus = false) => {
             if (isMobile()) {
+                const wasOpen = sidebar.classList.contains('mobile-open');
                 sidebar.classList.toggle('mobile-open', open);
                 overlay.classList.toggle('visible', open);
                 sidebar.inert = !open;
+                appShell.inert = open;
+                document.querySelector('.skip-link').inert = open;
                 sidebar.setAttribute('aria-hidden', open ? 'false' : 'true');
                 overlay.disabled = !open;
                 overlay.setAttribute('aria-hidden', open ? 'false' : 'true');
                 toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+
+                if (manageFocus && open && !wasOpen) {
+                    sidebarReturnFocus = document.activeElement;
+                    requestAnimationFrame(() => sidebar.querySelector('a[href]')?.focus());
+                } else if (manageFocus && !open && wasOpen) {
+                    (sidebarReturnFocus || toggle)?.focus();
+                    sidebarReturnFocus = null;
+                }
+
                 return;
             }
             collapsed = !open;
@@ -199,6 +213,8 @@
                 sidebar.classList.remove('mobile-open');
                 overlay.classList.remove('visible');
                 sidebar.inert = false;
+                appShell.inert = false;
+                document.querySelector('.skip-link').inert = false;
                 sidebar.setAttribute('aria-hidden', 'false');
                 overlay.disabled = true;
                 overlay.setAttribute('aria-hidden', 'true');
@@ -206,8 +222,8 @@
             }
         });
 
-        toggle?.addEventListener('click', () => setSidebarState(isMobile() ? !sidebar.classList.contains('mobile-open') : collapsed));
-        overlay?.addEventListener('click', () => setSidebarState(false));
+        toggle?.addEventListener('click', () => setSidebarState(isMobile() ? !sidebar.classList.contains('mobile-open') : collapsed, true));
+        overlay?.addEventListener('click', () => setSidebarState(false, true));
         sidebar?.querySelectorAll('a[href]').forEach((link) => link.addEventListener('click', () => {
             if (isMobile()) setSidebarState(false);
         }));
@@ -256,6 +272,9 @@
             if (event.key === 'Escape') {
                 closeUserMenu();
                 if (activeModal) closeModal(activeModal);
+                if (isMobile() && sidebar.classList.contains('mobile-open')) {
+                    setSidebarState(false, true);
+                }
                 return;
             }
 

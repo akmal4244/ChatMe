@@ -168,7 +168,7 @@ class PaymentActivationTest extends TestCase
         $this->assertDatabaseCount('subscriptions', 1);
     }
 
-    public function test_switching_paid_plans_expires_only_the_old_paid_term(): void
+    public function test_switching_paid_plans_prorates_the_remaining_value_at_integer_precision(): void
     {
         $user = User::factory()->create();
         $free = Plan::create([
@@ -191,6 +191,11 @@ class PaymentActivationTest extends TestCase
             $this->paymentOrder($user, $pro),
             'TXN-PRO'
         );
+        $remainingSeconds = $oldPaid->ends_at->getTimestamp() - $this->now->getTimestamp();
+        $creditSeconds = intdiv(
+            $remainingSeconds * $pro->priceInCents(),
+            $enterprise->priceInCents(),
+        );
         $newPaid = $this->activationService()->activate(
             $this->paymentOrder($user, $enterprise),
             'TXN-ENTERPRISE'
@@ -200,10 +205,39 @@ class PaymentActivationTest extends TestCase
         $this->assertTrue($oldPaid->fresh()->ends_at->equalTo($this->now));
         $this->assertSame('active', $newPaid->status);
         $this->assertTrue($newPaid->starts_at->equalTo($this->now));
-        $this->assertTrue($newPaid->ends_at->equalTo(CarbonImmutable::parse('2026-02-28 10:15:00')));
+        $this->assertTrue($newPaid->ends_at->equalTo(
+            $this->now->addMonthNoOverflow()->addSeconds($creditSeconds),
+        ));
+        $this->assertTrue($newPaid->ends_at->lt(CarbonImmutable::parse('2026-03-28 10:15:00')));
         $this->assertSame('active', $systemEntitlement->fresh()->status);
         $this->assertNull($systemEntitlement->fresh()->ends_at);
         $this->assertSame($newPaid->id, $user->fresh()->activeSubscription()->id);
+    }
+
+    public function test_downgrading_converts_enterprise_value_into_the_equivalent_pro_time(): void
+    {
+        $user = User::factory()->create();
+        $enterprise = $this->paidPlan('enterprise-value', '149.00');
+        $pro = $this->paidPlan('pro-value', '49.00');
+        $enterpriseTerm = $this->activationService()->activate(
+            $this->paymentOrder($user, $enterprise),
+            'TXN-ENTERPRISE-VALUE',
+        );
+        $remainingSeconds = $enterpriseTerm->ends_at->getTimestamp() - $this->now->getTimestamp();
+        $creditSeconds = intdiv(
+            $remainingSeconds * $enterprise->priceInCents(),
+            $pro->priceInCents(),
+        );
+
+        $proTerm = $this->activationService()->activate(
+            $this->paymentOrder($user, $pro),
+            'TXN-PRO-VALUE',
+        );
+
+        $this->assertSame('expired', $enterpriseTerm->fresh()->status);
+        $this->assertTrue($proTerm->ends_at->equalTo(
+            $this->now->addMonthNoOverflow()->addSeconds($creditSeconds),
+        ));
     }
 
     public function test_pending_and_failed_orders_grant_no_access_but_a_later_verified_success_can_activate(): void
@@ -279,7 +313,7 @@ class PaymentActivationTest extends TestCase
             'ends_at' => $this->now->addMonth(),
         ]);
 
-        $this->assertTrue($legacy->isActive());
+        $this->assertFalse($legacy->isActive());
         $this->assertFalse($future->isActive());
         $this->assertFalse($expiredAtBoundary->isActive());
         $this->assertFalse($cancelled->isActive());
@@ -288,7 +322,7 @@ class PaymentActivationTest extends TestCase
 
         $current->delete();
 
-        $this->assertSame($legacy->id, $user->fresh()->activeSubscription()->id);
+        $this->assertNull($user->fresh()->activeSubscription());
     }
 
     public function test_active_subscription_breaks_equal_dates_by_newest_row_id(): void

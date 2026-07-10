@@ -27,6 +27,7 @@ Official references:
 `config/services.php` exposes a `toyyibpay` section backed by environment variables:
 
 - `TOYYIBPAY_BASE_URL` (default production URL; tests override it)
+- `TOYYIBPAY_SANDBOX` (must be enabled to use the official `dev.toyyibpay.com` host)
 - `TOYYIBPAY_SECRET_KEY`
 - `TOYYIBPAY_CATEGORY_CODE`
 - `TOYYIBPAY_DNQR_ENABLED`
@@ -61,18 +62,17 @@ Extend `subscriptions` without deleting legacy columns so existing installations
 
 - `provider` nullable (`toyyibpay` for new paid terms, `system` for free/admin provisioning)
 - `provider_reference` nullable and unique when present
-- `status` with `active`, `expired`, and `cancelled`
+- `status` with `active`, `inactive`, `expired`, and `cancelled`
 - `starts_at` nullable
 
-`activeSubscription()` must require `status = active` (while remaining compatible with legacy rows whose status is null), a start time not in the future, and an end time in the future or null. The newest eligible term wins.
+The migration audits legacy state before access is evaluated: only `active` Stripe rows and unexpired `trialing` rows are backfilled as active; unknown or cancelled rows fail closed. A legacy active Stripe row without an end date receives a one-month transition term. The exact historical pairing `plan.slug = lifetime` plus `stripe_status = lifetime` is grandfathered as an explicit `legacy_lifetime` entitlement while the plan itself becomes inactive for new sales. `activeSubscription()` then requires explicit `status = active`, a recorded start time, and a future end time for every paid plan. A zero-priced active Free or grandfathered Lifetime entitlement may remain open-ended.
 
 For each first successful paid order, the activation service captures one activation timestamp, then runs in a database transaction and row-locks the payment order, the user row, and the user's eligible subscription rows in that order. Locking the user row serializes two different successful orders even when no subscription row exists yet. Provider timestamps may be recorded as payment evidence, but entitlement time always starts or extends from the trusted server activation time:
 
 1. If the order is already `paid`, return its linked subscription without adding time.
-2. Expire any other active paid plan term for that user when switching plans.
-3. For the same active plan, extend that row from the later of `now()` or its current `ends_at`. For a different plan, expire the old paid row and create a new row starting at `now()`.
-4. Add one month with no overflow and store the ToyyibPay reference on the resulting entitlement.
-5. Mark the payment order paid in the same transaction.
+2. For the same plan, preserve the latest active end date. For a different plan, convert every remaining second into destination-plan seconds using integer-only value proration: `remaining_seconds * source_monthly_cents / destination_order_cents`.
+3. Add one calendar month with no overflow to the selected plan plus any prorated credit, expire the old paid term, and store the ToyyibPay reference on the resulting entitlement. This preserves paid value without allowing cheaper-plan time to become equal-duration access on a more expensive plan.
+4. Mark the payment order paid in the same transaction.
 
 This makes repeated callbacks and callback/reconciliation races idempotent.
 
@@ -134,7 +134,7 @@ Free-plan selection never goes through ToyyibPay. Existing paid access is not si
 - Provider/network errors return to the plan screen with a generic Malay message and a retry affordance.
 - Provider failure/pending responses never produce an active subscription.
 - Database exceptions roll back both order and subscription mutations.
-- All redirect targets are generated locally or from the configured ToyyibPay base URL; no request-provided redirect is used.
+- All redirect targets are generated locally or from the configured ToyyibPay base URL; no request-provided redirect is used. The client allows only `toyyibpay.com` in production mode or `dev.toyyibpay.com` when sandbox mode is explicit, and never follows provider redirects for API requests.
 
 ## Light Theme Design System
 
@@ -164,7 +164,7 @@ The visual direction is calm, editorial, and product-focused rather than glossy 
 
 ### Screen treatment
 
-- Landing: warm-white canvas, indigo hero action, editorial headline, three clear pricing cards, real FPX/DuitNow renewal copy.
+- Landing: warm-white canvas, indigo hero action, editorial headline, three clear pricing cards, and payment-channel copy derived from the same FPX/DuitNow capability flag used by checkout.
 - Guest auth: centered white card, persistent labels, visible validation, and an existing `main#main-content` skip target.
 - Application shell: white sidebar/topbar, indigo active state, charcoal content, warm-neutral page background.
 - Dashboard/admin/forms/tables: consistent surface, border, focus, success, and danger tokens; no remaining white-on-dark utility combinations.

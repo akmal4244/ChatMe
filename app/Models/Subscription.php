@@ -43,15 +43,19 @@ class Subscription extends Model
     {
         $now = now();
 
-        if ($this->status !== null && $this->status !== 'active') {
+        if ($this->status !== 'active') {
             return false;
         }
 
-        if ($this->starts_at && $this->starts_at->gt($now)) {
+        if (! $this->starts_at || $this->starts_at->gt($now)) {
             return false;
         }
 
         if ($this->ends_at && $this->ends_at->lte($now)) {
+            return false;
+        }
+
+        if (! $this->ends_at && (! $this->plan || $this->plan->priceInCents() > 0)) {
             return false;
         }
 

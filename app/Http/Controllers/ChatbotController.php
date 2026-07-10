@@ -38,12 +38,12 @@ class ChatbotController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'avatar_url' => ['nullable', 'url', 'max:2048'],
-            'primary_color' => ['nullable', 'string', 'max:7'],
-            'secondary_color' => ['nullable', 'string', 'max:7'],
+            'primary_color' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'secondary_color' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'position' => ['nullable', 'string', 'in:bottom-right,bottom-left'],
-            'welcome_message' => ['nullable', 'string', 'max:1000'],
+            'welcome_message' => ['sometimes', 'required', 'string', 'max:1000'],
             'placeholder_text' => ['nullable', 'string', 'max:255'],
-            'bot_name' => ['nullable', 'string', 'max:255'],
+            'bot_name' => ['sometimes', 'required', 'string', 'max:255'],
             'system_prompt' => ['nullable', 'string', 'max:5000'],
             'domain_whitelist' => ['nullable', 'string', 'max:2000'],
         ]);
@@ -55,7 +55,6 @@ class ChatbotController extends Controller
         }
 
         $validated['slug'] = Str::slug($request->name).'-'.Str::random(6);
-        $validated['api_key'] = Str::random(40);
         $validated['is_active'] = true;
 
         $chatbot = DB::transaction(function () use ($request, $validated): ?Chatbot {
@@ -110,12 +109,12 @@ class ChatbotController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'avatar_url' => ['nullable', 'url', 'max:2048'],
-            'primary_color' => ['nullable', 'string', 'max:7'],
-            'secondary_color' => ['nullable', 'string', 'max:7'],
+            'primary_color' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'secondary_color' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'position' => ['nullable', 'string', 'in:bottom-right,bottom-left'],
-            'welcome_message' => ['nullable', 'string', 'max:1000'],
+            'welcome_message' => ['sometimes', 'required', 'string', 'max:1000'],
             'placeholder_text' => ['nullable', 'string', 'max:255'],
-            'bot_name' => ['nullable', 'string', 'max:255'],
+            'bot_name' => ['sometimes', 'required', 'string', 'max:255'],
             'system_prompt' => ['nullable', 'string', 'max:5000'],
             'domain_whitelist' => ['nullable', 'string', 'max:2000'],
             'is_active' => ['boolean'],
@@ -158,8 +157,8 @@ class ChatbotController extends Controller
         Gate::authorize('update', $chatbot);
 
         $validated = $request->validate([
-            'primary_color' => ['required', 'string', 'max:7'],
-            'secondary_color' => ['required', 'string', 'max:7'],
+            'primary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'secondary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'position' => ['required', 'string', 'in:bottom-right,bottom-left'],
             'welcome_message' => ['nullable', 'string', 'max:1000'],
             'placeholder_text' => ['nullable', 'string', 'max:255'],

@@ -40,9 +40,26 @@ class Chatbot extends Model
                 $chatbot->slug = Str::slug($chatbot->name).'-'.Str::random(6);
             }
             if (empty($chatbot->api_key)) {
-                $chatbot->api_key = 'cm_'.Str::random(32);
+                $chatbot->api_key = self::newApiKey();
             }
         });
+    }
+
+    public static function newApiKey(): string
+    {
+        return 'cm_'.Str::random(32);
+    }
+
+    public function regenerateApiKey(): void
+    {
+        do {
+            $apiKey = self::newApiKey();
+        } while (self::query()
+            ->where('api_key', $apiKey)
+            ->where('id', '!=', $this->getKey())
+            ->exists());
+
+        $this->forceFill(['api_key' => $apiKey])->save();
     }
 
     public function user(): BelongsTo
