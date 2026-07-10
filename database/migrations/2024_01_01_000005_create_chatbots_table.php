@@ -17,8 +17,8 @@ return new class extends Migration
             $table->string('primary_color')->default('#4F46E5');
             $table->string('secondary_color')->default('#ffffff');
             $table->string('position')->default('bottom-right');
-            $table->text('welcome_message')->default('Hello! How can I help you today?');
-            $table->text('placeholder_text')->default('Type your message...');
+            $table->text('welcome_message')->default('Helo! Bagaimana saya boleh membantu anda?');
+            $table->text('placeholder_text')->default('Taip mesej anda...');
             $table->string('bot_name')->default('ChatMe Bot');
             $table->text('system_prompt')->nullable();
             $table->boolean('is_active')->default(true);
