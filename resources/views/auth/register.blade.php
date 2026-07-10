@@ -17,7 +17,7 @@
         <div class="auth-card">
             @if($errors->any())
                 <div class="alert alert-error" role="alert">
-                    Sila betulkan medan yang ditandakan di bawah.
+                    Sila semak dan betulkan ruangan berikut.
                 </div>
             @endif
 

@@ -14,36 +14,36 @@
         </header>
 
         <div class="legal-content">
-            <p>ChatMe mengendalikan platform chatbot di chatme.akmalmarvis.com. Dasar ini menerangkan data yang kami kumpul, tujuan penggunaannya dan pilihan anda.</p>
+            <p>ChatMe menyediakan perkhidmatan chatbot di chatme.akmalmarvis.com. Dasar ini menerangkan maklumat yang kami kumpul, sebab maklumat itu digunakan dan pilihan yang anda ada.</p>
 
             <section aria-labelledby="privacy-data">
                 <h2 id="privacy-data">Data yang kami kumpul</h2>
-                <p>Kami mengumpul maklumat yang anda berikan secara langsung, termasuk nama, alamat e-mel, nombor telefon untuk bil, serta kandungan chatbot dan pengetahuan yang anda masukkan atau import. Kami juga boleh merekodkan data teknikal seperti alamat IP, jenis pelayar dan aktiviti penggunaan untuk keselamatan serta operasi perkhidmatan.</p>
+                <p>Kami mengumpul maklumat yang anda berikan, termasuk nama, alamat e-mel dan maklumat yang anda masukkan ke dalam chatbot. Kami juga boleh merekodkan alamat IP, jenis pelayar dan aktiviti penggunaan untuk menjaga keselamatan dan memastikan perkhidmatan berjalan dengan baik.</p>
             </section>
 
             <section aria-labelledby="privacy-use">
                 <h2 id="privacy-use">Cara data digunakan</h2>
-                <p>Data digunakan untuk menyediakan dan melindungi akaun anda, memproses fungsi chatbot, mengurus langganan, menyelesaikan masalah, menambah baik produk dan memenuhi kewajipan undang-undang.</p>
+                <p>Maklumat ini digunakan untuk menyediakan dan melindungi akaun anda, menjalankan chatbot, mengurus langganan, menyelesaikan masalah, menambah baik ChatMe dan mematuhi undang-undang.</p>
             </section>
 
             <section aria-labelledby="privacy-payment">
                 <h2 id="privacy-payment">Pembayaran</h2>
-                <p>Pembayaran {{ config('services.toyyibpay.dnqr_enabled') ? 'FPX atau DuitNow QR' : 'FPX' }} diproses oleh ToyyibPay. ChatMe menyimpan rujukan pesanan, jumlah, pelan dan status pembayaran untuk mengurus akses langganan, tetapi tidak menyimpan kata laluan atau kelayakan perbankan anda.</p>
+                <p>Pembayaran {{ config('services.toyyibpay.dnqr_enabled') ? 'FPX atau DuitNow QR' : 'FPX' }} diuruskan oleh ToyyibPay. ChatMe menyimpan nombor rujukan, jumlah, pelan dan status pembayaran untuk mengurus langganan anda. Kami tidak menyimpan kata laluan perbankan anda.</p>
             </section>
 
             <section aria-labelledby="privacy-protection">
                 <h2 id="privacy-protection">Perlindungan dan perkongsian data</h2>
-                <p>Kami menggunakan kawalan teknikal dan organisasi yang munasabah untuk melindungi data. Data hanya dikongsi dengan penyedia yang diperlukan untuk mengendalikan perkhidmatan, atau apabila diwajibkan oleh undang-undang.</p>
+                <p>Kami mengambil langkah yang munasabah untuk melindungi maklumat anda. Maklumat hanya dikongsi dengan pihak yang membantu kami menyediakan perkhidmatan, atau apabila undang-undang mewajibkannya.</p>
             </section>
 
             <section aria-labelledby="privacy-rights">
                 <h2 id="privacy-rights">Pilihan anda</h2>
-                <p>Anda boleh meminta akses, pembetulan atau pemadaman data peribadi anda, tertakluk pada rekod yang perlu disimpan bagi tujuan keselamatan, pembayaran atau undang-undang.</p>
+                <p>Anda boleh meminta untuk melihat, membetulkan atau memadamkan maklumat peribadi anda. Sesetengah rekod mungkin perlu disimpan untuk tujuan keselamatan, pembayaran atau undang-undang.</p>
             </section>
 
             <section aria-labelledby="privacy-contact">
                 <h2 id="privacy-contact">Hubungi kami</h2>
-                <p>Untuk pertanyaan privasi, e-mel <a href="mailto:akmal4244@gmail.com">akmal4244@gmail.com</a>.</p>
+                <p>Untuk pertanyaan privasi, e-mel <a href="mailto:hello@akmalmarvis.com">hello@akmalmarvis.com</a>.</p>
             </section>
         </div>
 </article>

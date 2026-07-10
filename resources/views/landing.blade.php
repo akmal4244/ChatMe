@@ -37,7 +37,7 @@
 
             <div class="site-nav__actions">
                 @auth
-                    <a href="{{ route('dashboard') }}" class="button button--primary button--compact">Buka dashboard</a>
+                    <a href="{{ route('dashboard') }}" class="button button--primary button--compact">Buka papan pemuka</a>
                 @else
                     <a href="{{ route('login') }}" class="button button--text button--compact">Log masuk</a>
                     <a href="{{ route('register') }}" class="button button--primary button--compact">Daftar percuma</a>
@@ -53,13 +53,13 @@
             <div class="landing-hero__copy">
                 <h1 id="landing-title" class="landing-hero__title">Cipta chatbot untuk laman web anda.</h1>
                 <p class="landing-hero__description">
-                    Susun jawapan daripada pengetahuan anda sendiri, sesuaikan widget mengikut jenama,
-                    kemudian pasang dengan satu baris kod.
+                    Masukkan maklumat anda sendiri, sesuaikan rupa chatbot mengikut jenama anda,
+                    kemudian pasangkannya pada laman web dengan satu baris kod.
                 </p>
 
                 <div class="landing-hero__actions">
                     @auth
-                        <a href="{{ route('dashboard') }}" class="button button--primary button--large">Buka dashboard</a>
+                        <a href="{{ route('dashboard') }}" class="button button--primary button--large">Buka papan pemuka</a>
                     @else
                         <a href="{{ route('register') }}" class="button button--primary button--large">Mulakan percuma</a>
                     @endauth
@@ -76,10 +76,10 @@
                         <span></span>
                         <span></span>
                     </span>
-                    <span id="embed-preview-title" class="embed-preview__label">Kod benam ChatMe</span>
+                    <span id="embed-preview-title" class="embed-preview__label">Kod pemasangan ChatMe</span>
                 </div>
                 <pre class="embed-preview__code" tabindex="0"><code>&lt;script src="https://chatme.akmalmarvis.com/widget/cm_••••••••.js"&gt;&lt;/script&gt;</code></pre>
-                <figcaption class="embed-preview__caption">Salin kod unik chatbot dan tampal sebelum penutup halaman anda.</figcaption>
+                <figcaption class="embed-preview__caption">Salin kod unik chatbot, kemudian tampalkannya pada laman web anda.</figcaption>
             </figure>
         </div>
     </section>
@@ -87,42 +87,42 @@
     <section id="ciri" class="landing-section features-section" aria-labelledby="features-title">
         <div class="landing-shell">
             <header class="section-heading">
-                <h2 id="features-title" class="section-heading__title">Semua asas untuk chatbot laman web anda</h2>
+                <h2 id="features-title" class="section-heading__title">Semua yang anda perlukan untuk chatbot laman web anda</h2>
                 <p class="section-heading__description">
-                    Bina pengetahuan, kawal rupa dan terbitkan widget tanpa menukar struktur laman web sedia ada.
+                    Tambah maklumat, sesuaikan rupa dan pasang chatbot tanpa perlu mengubah struktur laman web anda.
                 </p>
             </header>
 
             <div class="feature-grid">
                 <article class="feature-card feature-card--wide">
                     <span class="feature-card__icon" aria-hidden="true"><i class="ph ph-books"></i></span>
-                    <h3 class="feature-card__title">Pengetahuan yang anda kawal</h3>
+                    <h3 class="feature-card__title">Maklumat yang anda tentukan</h3>
                     <p class="feature-card__description">
-                        Tambah soalan dan jawapan satu demi satu, susun dengan kategori dan tag, atau import senarai JSON.
+                        Tambah soalan dan jawapan satu demi satu, susun dengan kategori dan tag, atau tampal senarai dalam format JSON.
                     </p>
                 </article>
 
                 <article class="feature-card">
                     <span class="feature-card__icon" aria-hidden="true"><i class="ph ph-paint-brush"></i></span>
-                    <h3 class="feature-card__title">Widget mengikut jenama</h3>
+                    <h3 class="feature-card__title">Rupa chatbot mengikut jenama</h3>
                     <p class="feature-card__description">
-                        Tetapkan nama bot, warna, avatar, mesej alu-aluan dan kedudukan widget.
+                        Tetapkan nama chatbot, warna, gambar profil, mesej alu-aluan dan kedudukannya pada skrin.
                     </p>
                 </article>
 
                 <article class="feature-card">
                     <span class="feature-card__icon" aria-hidden="true"><i class="ph ph-code"></i></span>
-                    <h3 class="feature-card__title">Pasang dengan satu skrip</h3>
+                    <h3 class="feature-card__title">Pasang dengan satu kod ringkas</h3>
                     <p class="feature-card__description">
-                        Salin kod benam unik dan tampal ke dalam HTML laman web yang mahu menggunakan chatbot.
+                        Salin kod pemasangan unik dan tampalkannya pada laman web anda.
                     </p>
                 </article>
 
                 <article class="feature-card feature-card--wide">
                     <span class="feature-card__icon" aria-hidden="true"><i class="ph ph-shield-check"></i></span>
-                    <h3 class="feature-card__title">Kawalan penerbitan</h3>
+                    <h3 class="feature-card__title">Kawal tempat chatbot digunakan</h3>
                     <p class="feature-card__description">
-                        Hadkan domain yang dibenarkan, aktifkan atau matikan chatbot, dan jana semula kunci API apabila perlu.
+                        Tentukan laman web yang dibenarkan, hidupkan atau matikan chatbot, dan tukar kunci API apabila perlu.
                     </p>
                 </article>
             </div>
@@ -134,13 +134,13 @@
             <header class="section-heading section-heading--centered">
                 <h2 id="pricing-title" class="section-heading__title">Pilih pelan mengikut penggunaan anda</h2>
                 <p class="section-heading__description">
-                    Bermula dengan Free. Pelan berbayar diperbaharui sebulan pada satu masa melalui ToyyibPay.
+                    Mulakan dengan pelan Free. Pelan berbayar perlu diperbaharui setiap bulan melalui ToyyibPay.
                 </p>
             </header>
 
             <p class="pricing-payment-note">
-                Bayaran pelan Pro dan Enterprise menyokong {{ $paymentChannels }}. Pembaharuan bulanan;
-                bukan potongan automatik daripada akaun bank.
+                Bayar pelan Pro dan Enterprise melalui {{ $paymentChannels }}. Pelan perlu diperbaharui secara manual
+                setiap bulan; tiada potongan automatik daripada akaun bank.
             </p>
 
             <div class="pricing-grid">
@@ -174,20 +174,20 @@
                         <ul class="pricing-card__features">
                             <li>
                                 <i class="ph ph-check" aria-hidden="true"></i>
-                                {{ $plan->chatbot_limit === -1 ? 'Tanpa had chatbot' : number_format($plan->chatbot_limit).' chatbot' }}
+                                {{ $plan->chatbot_limit === -1 ? 'Chatbot tanpa had' : 'Sehingga '.number_format($plan->chatbot_limit).' chatbot' }}
                             </li>
                             <li>
                                 <i class="ph ph-check" aria-hidden="true"></i>
-                                {{ $plan->knowledge_limit === -1 ? 'Tanpa had pengetahuan' : number_format($plan->knowledge_limit).' item pengetahuan' }}
+                                {{ $plan->knowledge_limit === -1 ? 'Soal jawab tanpa had' : 'Sehingga '.number_format($plan->knowledge_limit).' soal jawab' }}
                             </li>
                             <li>
                                 <i class="ph ph-check" aria-hidden="true"></i>
-                                {{ $plan->monthly_messages === -1 ? 'Tanpa had mesej' : number_format($plan->monthly_messages).' mesej sebulan' }}
+                                {{ $plan->monthly_messages === -1 ? 'Mesej tanpa had' : 'Sehingga '.number_format($plan->monthly_messages).' mesej sebulan' }}
                             </li>
                         </ul>
 
                         <p class="pricing-card__payment-copy">
-                            {{ $isPaid ? 'Pembaharuan manual setiap bulan melalui '.$paymentChannels.'.' : 'Tiada bayaran diperlukan.' }}
+                            {{ $isPaid ? 'Perbaharui secara manual setiap bulan melalui '.$paymentChannels.'.' : 'Tiada bayaran diperlukan.' }}
                         </p>
 
                         @auth
@@ -209,12 +209,12 @@
                                 href="{{ route('register') }}"
                                 class="button {{ $isFeatured ? 'button--primary' : 'button--secondary' }} button--block"
                             >
-                                {{ $isPaid ? 'Daftar untuk pilih' : 'Mulakan percuma' }}
+                                {{ $isPaid ? 'Daftar dan pilih pelan' : 'Mulakan percuma' }}
                             </a>
                         @endauth
                     </article>
                 @empty
-                    <p class="pricing-empty" role="status">Pelan sedang tidak tersedia. Sila cuba lagi kemudian.</p>
+                    <p class="pricing-empty" role="status">Tiada pelan tersedia buat masa ini. Sila cuba lagi kemudian.</p>
                 @endforelse
             </div>
         </div>
@@ -224,13 +224,13 @@
         <div class="landing-shell">
             <div class="landing-cta__panel">
                 <div class="landing-cta__copy">
-                    <h2 id="cta-title" class="landing-cta__title">Sedia membina chatbot anda?</h2>
+                    <h2 id="cta-title" class="landing-cta__title">Sudah bersedia untuk membina chatbot anda?</h2>
                     <p class="landing-cta__description">
-                        Daftar dengan pelan Free, tambah pengetahuan anda dan pasang widget apabila sudah bersedia.
+                        Daftar dengan pelan Free, masukkan maklumat untuk chatbot anda dan pasangkannya apabila anda bersedia.
                     </p>
                 </div>
                 @auth
-                    <a href="{{ route('dashboard') }}" class="button button--primary button--large">Buka dashboard</a>
+                    <a href="{{ route('dashboard') }}" class="button button--primary button--large">Buka papan pemuka</a>
                 @else
                     <a href="{{ route('register') }}" class="button button--primary button--large">Daftar percuma</a>
                 @endauth

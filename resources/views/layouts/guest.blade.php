@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <meta name="description" content="ChatMe — Cipta chatbot AI untuk laman web anda. Platform SaaS buatan Malaysia.">
+    <meta name="description" content="ChatMe — Cipta chatbot AI untuk laman web anda. Platform chatbot buatan Malaysia.">
     <meta property="og:title" content="@yield('title', 'ChatMe — Chatbot AI untuk Laman Web')">
-    <meta property="og:description" content="Latih chatbot dengan pengetahuan sendiri dan benamkan di laman web anda.">
+    <meta property="og:description" content="Bina chatbot menggunakan maklumat anda sendiri dan pasangkannya pada laman web anda.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="{{ config('app.url') }}">
     <meta name="twitter:card" content="summary">

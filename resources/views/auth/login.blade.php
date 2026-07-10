@@ -61,7 +61,7 @@
                 <div class="form-options">
                     <label for="remember" class="checkbox-field">
                         <input id="remember" name="remember" type="checkbox" value="1" @checked(old('remember'))>
-                        <span>Ingat saya</span>
+                        <span>Teruskan log masuk pada peranti ini</span>
                     </label>
                 </div>
 
@@ -72,7 +72,7 @@
             </form>
 
             <p class="auth-switch">
-                Tiada akaun? <a href="{{ route('register') }}">Daftar percuma</a>
+                Belum ada akaun? <a href="{{ route('register') }}">Daftar percuma</a>
             </p>
         </div>
     </div>

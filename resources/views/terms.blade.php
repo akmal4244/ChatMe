@@ -23,13 +23,13 @@
 
             <section aria-labelledby="terms-use">
                 <h2 id="terms-use">Penggunaan yang dibenarkan</h2>
-                <p>Anda bertanggungjawab terhadap kandungan yang dimasukkan atau diimport dan jawapan chatbot yang diterbitkan. Jangan gunakan ChatMe untuk kandungan yang menyalahi undang-undang, menipu, mengganggu, melanggar hak pihak lain atau menjejaskan keselamatan sistem.</p>
+                <p>Anda bertanggungjawab terhadap maklumat yang diberikan kepada chatbot dan jawapan yang disiarkan. Jangan gunakan ChatMe untuk perkara yang menyalahi undang-undang, menipu, mengganggu, melanggar hak pihak lain atau menjejaskan keselamatan sistem.</p>
             </section>
 
             <section aria-labelledby="terms-subscription">
                 <h2 id="terms-subscription">Langganan dan pembayaran</h2>
-                <p>Setiap pembayaran pelan berbayar memberikan akses selama satu bulan bermula apabila pembayaran disahkan oleh server. Pembayaran dibuat melalui ToyyibPay menggunakan {{ config('services.toyyibpay.dnqr_enabled') ? 'FPX atau DuitNow QR' : 'FPX' }}.</p>
-                <p>Pembaharuan adalah manual dan bukan auto-debit atau potongan automatik daripada akaun bank. Untuk meneruskan pelan berbayar, anda perlu membuat pembayaran baharu bagi bulan seterusnya. Jika tidak diperbaharui, akses akan kembali kepada pelan Free selepas tempoh berbayar tamat.</p>
+                <p>Setiap pembayaran pelan berbayar memberikan akses selama satu bulan bermula selepas pembayaran disahkan. Pembayaran dibuat melalui ToyyibPay menggunakan {{ config('services.toyyibpay.dnqr_enabled') ? 'FPX atau DuitNow QR' : 'FPX' }}.</p>
+                <p>Tiada potongan automatik daripada akaun bank anda. Untuk meneruskan pelan berbayar, anda perlu membuat pembayaran baharu bagi bulan seterusnya. Jika tidak diperbaharui, akaun akan kembali kepada pelan Free selepas tempoh berbayar tamat.</p>
             </section>
 
             <section aria-labelledby="terms-availability">
@@ -39,12 +39,12 @@
 
             <section aria-labelledby="terms-liability">
                 <h2 id="terms-liability">Had tanggungjawab</h2>
-                <p>ChatMe disediakan “sebagaimana adanya” setakat yang dibenarkan undang-undang. Anda perlu menyemak jawapan chatbot sebelum bergantung padanya untuk keputusan penting.</p>
+                <p>Kami menyediakan ChatMe sebaik mungkin setakat yang dibenarkan undang-undang. Sila semak jawapan chatbot sebelum menggunakannya untuk membuat keputusan penting.</p>
             </section>
 
             <section aria-labelledby="terms-contact">
                 <h2 id="terms-contact">Hubungi kami</h2>
-                <p>Untuk pertanyaan tentang terma ini, e-mel <a href="mailto:akmal4244@gmail.com">akmal4244@gmail.com</a>.</p>
+                <p>Untuk pertanyaan tentang terma ini, e-mel <a href="mailto:hello@akmalmarvis.com">hello@akmalmarvis.com</a>.</p>
             </section>
         </div>
 </article>

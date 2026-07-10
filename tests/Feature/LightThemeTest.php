@@ -83,7 +83,7 @@ class LightThemeTest extends TestCase
         $this->assertStringNotContainsString('messages_limit', $source);
         $this->assertStringContainsString('FPX', $source);
         $this->assertStringContainsString('DuitNow QR', $source);
-        $this->assertStringContainsString('bukan potongan automatik', $source);
+        $this->assertStringContainsString('tiada potongan automatik', $source);
     }
 
     public function test_authentication_fields_have_programmatic_labels_and_error_links(): void
