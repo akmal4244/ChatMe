@@ -26,7 +26,11 @@
                 <td><time datetime="{{ $u->created_at->toDateString() }}">{{ $u->created_at->format('d/m/Y') }}</time></td>
                 <td>
                     @if($u->id !== auth()->id())
-                    <form action="{{ route('admin.users.toggle-admin', $u) }}" method="POST" onsubmit="return confirm({{ Illuminate\Support\Js::from($u->is_admin ? 'Tarik balik peranan pentadbir '.$u->name.'? Pengguna ini tidak lagi boleh mengakses panel pentadbir.' : 'Jadikan '.$u->name.' sebagai pentadbir? Pengguna ini akan mendapat akses ke panel pentadbir.') }});" class="inline-flex">
+                    <form action="{{ route('admin.users.toggle-admin', $u) }}" method="POST" class="inline-flex"
+                          data-confirm-title="{{ $u->is_admin ? 'Tarik balik peranan pentadbir?' : 'Jadikan pentadbir?' }}"
+                          data-confirm-description="{{ $u->is_admin ? 'Tarik balik peranan pentadbir '.$u->name.'? Pengguna ini tidak lagi boleh mengakses panel pentadbir.' : 'Jadikan '.$u->name.' sebagai pentadbir? Pengguna ini akan mendapat akses ke panel pentadbir.' }}"
+                          data-confirm-text="{{ $u->is_admin ? 'Tarik balik' : 'Jadikan pentadbir' }}"
+                          data-confirm-type="{{ $u->is_admin ? 'danger' : 'default' }}">
                         @csrf
                         <button type="submit" class="table-action {{ $u->is_admin ? 'table-action-danger' : '' }}" aria-label="{{ $u->is_admin ? 'Buang peranan pentadbir daripada '.$u->name : 'Jadikan '.$u->name.' sebagai pentadbir' }}" title="{{ $u->is_admin ? 'Tarik balik pentadbir' : 'Jadikan pentadbir' }}">
                             <i class="ph {{ $u->is_admin ? 'ph-shield-slash' : 'ph-shield-plus' }}" aria-hidden="true"></i>

@@ -22,7 +22,11 @@
             <code id="api-key" class="flex-1 overflow-x-auto rounded-lg bg-neutral-100 border border-neutral-200 px-4 py-3 text-sm font-mono text-neutral-900">{{ $chatbot->api_key }}</code>
             <button type="button" class="btn btn-secondary btn-sm self-start sm:self-auto" data-copy-target="#api-key">Salin</button>
         </div>
-        <form action="{{ route('chatbots.regenerate-key', $chatbot) }}" method="POST" class="inline" data-confirm="Jana semula kunci API? Kunci lama akan berhenti berfungsi serta-merta dan kod pemasangan di laman web perlu dikemas kini.">
+        <form action="{{ route('chatbots.regenerate-key', $chatbot) }}" method="POST" class="inline"
+              data-confirm-title="Jana semula kunci API?"
+              data-confirm-description="Kunci lama akan berhenti berfungsi serta-merta dan kod pemasangan di laman web perlu dikemas kini."
+              data-confirm-text="Jana semula kunci"
+              data-confirm-type="danger">
             @csrf
             <button type="submit" class="btn btn-danger btn-sm">Jana semula kunci</button>
         </form>
@@ -60,12 +64,6 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (error) {
                 feedback.textContent = 'Teks tidak dapat disalin. Sila salin secara manual.';
             }
-        });
-    });
-
-    document.querySelectorAll('form[data-confirm]').forEach((form) => {
-        form.addEventListener('submit', (event) => {
-            if (!window.confirm(form.dataset.confirm)) event.preventDefault();
         });
     });
 

@@ -76,7 +76,7 @@ class ManagementFormAccessibilityTest extends TestCase
         $target = User::factory()->create(['name' => 'Pengguna Sasaran']);
 
         $this->actingAs($admin)->get(route('admin.users'))->assertOk()
-            ->assertSee('onsubmit="return confirm(', false)
+            ->assertSee('data-confirm-title="Jadikan pentadbir?"', false)
             ->assertSee('Jadikan Pengguna Sasaran sebagai pentadbir? Pengguna ini akan mendapat akses ke panel pentadbir.', false);
 
         $this->assertFalse((bool) $target->is_admin);
@@ -99,9 +99,13 @@ class ManagementFormAccessibilityTest extends TestCase
             ->assertSee('aria-label="Sunting chatbot Chatbot Ikon"', false)
             ->assertSee('aria-label="Pasang Chatbot Ikon di laman web"', false)
             ->assertSee('aria-label="Urus soal jawab Chatbot Ikon"', false)
+            ->assertSee('aria-label="Padam chatbot Chatbot Ikon"', false)
+            ->assertSee('data-confirm-title="Padam chatbot?"', false)
+            ->assertSee('data-confirm-text="Padam chatbot"', false)
             ->assertSee('class="ph ph-pencil-simple"', false)
             ->assertSee('class="ph ph-code"', false)
-            ->assertSee('class="ph ph-books"', false);
+            ->assertSee('class="ph ph-books"', false)
+            ->assertSee('class="ph ph-trash"', false);
 
         $this->get(route('chatbots.index'))->assertOk()
             ->assertSee('aria-label="Sunting chatbot Chatbot Ikon"', false)
@@ -128,6 +132,27 @@ class ManagementFormAccessibilityTest extends TestCase
         $this->get(route('admin.users'))->assertOk()
             ->assertSee('aria-label="Buang peranan pentadbir daripada Pengguna Sasaran"', false)
             ->assertSee('class="ph ph-shield-slash"', false);
+    }
+
+    public function test_risky_management_actions_use_the_shared_confirmation_contract(): void
+    {
+        $sources = implode("\n", array_map('file_get_contents', [
+            resource_path('views/dashboard.blade.php'),
+            resource_path('views/chatbots/index.blade.php'),
+            resource_path('views/knowledge/index.blade.php'),
+            resource_path('views/admin/users.blade.php'),
+            resource_path('views/chatbots/embed.blade.php'),
+        ]));
+
+        $this->assertStringNotContainsString('window.confirm(', $sources);
+        $this->assertStringNotContainsString('onsubmit="return confirm(', $sources);
+        $this->assertGreaterThanOrEqual(5, substr_count($sources, 'data-confirm-title='));
+
+        $layout = file_get_contents(resource_path('views/layouts/app.blade.php'));
+        $this->assertStringContainsString("document.addEventListener('submit'", $layout);
+        $this->assertStringContainsString("form.matches('form[data-confirm-title]')", $layout);
+        $this->assertStringContainsString("form.dataset.confirmed = 'true'", $layout);
+        $this->assertStringContainsString('form.requestSubmit()', $layout);
     }
 
     public function test_management_views_use_consistent_plain_malay_terms(): void

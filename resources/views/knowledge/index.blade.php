@@ -57,7 +57,11 @@
                                 <button type="button" class="table-action" data-edit-knowledge="{{ $item->getKey() }}" aria-label="Sunting soal jawab: {{ $item->question }}" title="Sunting soal jawab">
                                     <i class="ph ph-pencil-simple" aria-hidden="true"></i>
                                 </button>
-                                <form action="{{ route('knowledge.destroy', [$chatbot, $item]) }}" method="POST" onsubmit="return confirm('Padam soal jawab ini? Tindakan ini tidak boleh dibatalkan.')" class="inline-flex">
+                                <form action="{{ route('knowledge.destroy', [$chatbot, $item]) }}" method="POST" class="inline-flex"
+                                      data-confirm-title="Padam soal jawab?"
+                                      data-confirm-description="Padam soal jawab ini? Tindakan ini tidak boleh dibatalkan."
+                                      data-confirm-text="Padam soal jawab"
+                                      data-confirm-type="danger">
                                     @csrf @method('DELETE')
                                     <button type="submit" class="table-action table-action-danger" aria-label="Padam soal jawab: {{ $item->question }}" title="Padam soal jawab">
                                         <i class="ph ph-trash" aria-hidden="true"></i>

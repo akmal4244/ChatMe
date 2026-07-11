@@ -47,7 +47,11 @@
                             <a href="{{ route('chatbots.embed', $bot) }}" class="table-action" aria-label="Pasang {{ $bot->name }} di laman web" title="Pasang di laman web">
                                 <i class="ph ph-code" aria-hidden="true"></i>
                             </a>
-                            <form action="{{ route('chatbots.destroy', $bot) }}" method="POST" onsubmit="return confirm({{ Illuminate\Support\Js::from('Padam chatbot "'.$bot->name.'"? Tindakan ini tidak boleh dibatalkan.') }})" class="inline-flex">@csrf @method('DELETE')
+                            <form action="{{ route('chatbots.destroy', $bot) }}" method="POST" class="inline-flex"
+                                  data-confirm-title="Padam chatbot?"
+                                  data-confirm-description="Padam chatbot {{ $bot->name }}? Semua soal jawab dan sejarah sembang berkaitan akan dipadam. Tindakan ini tidak boleh dibatalkan."
+                                  data-confirm-text="Padam chatbot"
+                                  data-confirm-type="danger">@csrf @method('DELETE')
                                 <button type="submit" class="table-action table-action-danger" aria-label="Padam chatbot {{ $bot->name }}" title="Padam chatbot">
                                     <i class="ph ph-trash" aria-hidden="true"></i>
                                 </button>

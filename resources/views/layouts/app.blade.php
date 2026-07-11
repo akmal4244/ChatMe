@@ -292,12 +292,37 @@
             document.getElementById('modal-icon').className = config.type === 'danger' ? 'ph ph-warning' : 'ph ph-question';
             confirmButton.textContent = config.confirmText || 'Teruskan';
             confirmButton.className = config.type === 'danger' ? 'modal-confirm-danger' : 'modal-confirm';
+            confirmButton.disabled = false;
             confirmButton.onclick = () => {
+                if (confirmButton.disabled) return;
+                confirmButton.disabled = true;
                 closeModal(modal);
                 config.onConfirm?.();
             };
             openModal(modal);
         };
+
+        document.addEventListener('submit', (event) => {
+            const form = event.target;
+            if (!(form instanceof HTMLFormElement) || !form.matches('form[data-confirm-title]')) return;
+            if (form.dataset.confirmed === 'true') {
+                delete form.dataset.confirmed;
+                return;
+            }
+
+            event.preventDefault();
+            window.sahkan({
+                title: form.dataset.confirmTitle,
+                desc: form.dataset.confirmDescription,
+                confirmText: form.dataset.confirmText,
+                type: form.dataset.confirmType,
+                onConfirm: () => {
+                    form.dataset.confirmed = 'true';
+                    form.requestSubmit();
+                },
+            });
+        });
+
         window.closeConfirm = () => closeModal(document.getElementById('confirm-modal'));
         window.confirmLogout = () => openModal(document.getElementById('logout-modal'));
         window.handleLogout = () => document.getElementById('form-logout-dropdown')?.submit();
