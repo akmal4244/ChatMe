@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'timezone' => env('CHATME_TIMEZONE', 'Asia/Kuala_Lumpur'),
+
     'admin' => [
         'name' => env('ADMIN_NAME'),
         'email' => env('ADMIN_EMAIL'),

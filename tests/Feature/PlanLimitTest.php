@@ -7,6 +7,7 @@ use App\Models\ChatLog;
 use App\Models\Plan;
 use App\Models\Subscription;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
@@ -279,6 +280,42 @@ class PlanLimitTest extends TestCase
             'role' => 'bot',
         ]);
         $this->assertFalse($user->canSendChatMessage());
+    }
+
+    public function test_monthly_quota_resets_at_midnight_in_kuala_lumpur(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-31 16:30:00', 'UTC'));
+
+        try {
+            $user = $this->subscribedUserWithMonthlyMessageLimit(1);
+            $chatbot = $this->chatbotFor($user);
+
+            $previousMonthLog = ChatLog::create([
+                'chatbot_id' => $chatbot->id,
+                'session_id' => 'july-business-month',
+                'message' => 'Mesej bulan Julai',
+                'role' => 'user',
+            ]);
+            $previousMonthLog->forceFill([
+                'created_at' => Carbon::parse('2026-07-15 12:00:00', 'UTC'),
+            ])->saveQuietly();
+
+            $this->assertTrue($user->canSendChatMessage());
+
+            $currentMonthLog = ChatLog::create([
+                'chatbot_id' => $chatbot->id,
+                'session_id' => 'august-business-month',
+                'message' => 'Mesej bulan Ogos',
+                'role' => 'user',
+            ]);
+            $currentMonthLog->forceFill([
+                'created_at' => Carbon::parse('2026-07-31 16:15:00', 'UTC'),
+            ])->saveQuietly();
+
+            $this->assertFalse($user->canSendChatMessage());
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_unlimited_message_plan_allows_chat_and_writes_one_user_and_one_bot_row(): void

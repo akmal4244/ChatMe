@@ -113,10 +113,14 @@ class User extends Authenticatable
             return true;
         }
 
+        $businessNow = now((string) config('chatme.timezone'));
+        $monthStartsAt = $businessNow->copy()->startOfMonth()->utc();
+        $monthEndsAt = $businessNow->copy()->endOfMonth()->utc();
+
         $messagesThisMonth = ChatLog::query()
             ->where('role', 'user')
             ->whereHas('chatbot', fn ($query) => $query->where('user_id', $this->id))
-            ->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])
+            ->whereBetween('created_at', [$monthStartsAt, $monthEndsAt])
             ->count();
 
         return $messagesThisMonth < $plan->monthly_messages;
