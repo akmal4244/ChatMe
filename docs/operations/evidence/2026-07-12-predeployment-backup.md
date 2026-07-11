@@ -44,4 +44,12 @@ Tiga database kosong yang terhasil semasa pembetulan parser status UAPI telah di
 
 ## Had semasa
 
-Backup ini ialah salinan terhad dalam akaun hosting yang sama. Salinan off-host terenkripsi dan retention automatik masih perlu disediakan sebelum penutupan production-readiness penuh. Backup ini tidak akan dipadam sehingga release baharu stabil dan recovery point pengganti telah disahkan.
+Salinan kedua telah dimuat turun ke PC operator dan disimpan sebagai:
+
+- `C:\Users\User\.codex\secure-backups\ChatMe\chatme-20260711T172307Z-ccd62ed4.tar.gz.aesgcm`
+- kunci terbungkus: fail pasangan `.key.dpapi`;
+- metadata bukan rahsia: fail pasangan `.offhost.json`.
+
+Archive menggunakan AES-256-GCM. Kunci rawak 256-bit dilindungi oleh Windows DPAPI `CurrentUser`; decrypt dan inventori archive telah diuji selepas penulisan. ACL direktori hanya memberi kawalan penuh kepada akaun Windows semasa. Semakan selepas proses menunjukkan `RawStagingCount=0`, jadi tiada salinan mentah tertinggal dalam direktori sementara.
+
+Backup hosting dan off-host ini tidak akan dipadam sehingga release baharu stabil dan recovery point pengganti telah disahkan. Retention automatik serta salinan immutable pada provider ketiga masih perlu disediakan sebelum penutupan production-readiness penuh.
