@@ -3,6 +3,7 @@
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChatbotController;
+use App\Http\Controllers\ChatbotTestController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\KnowledgeController;
 use App\Http\Controllers\LandingController;
@@ -38,6 +39,7 @@ Route::middleware('auth')->group(function () {
     // Chatbots
     Route::resource('chatbots', ChatbotController::class);
     Route::post('/chatbots/{chatbot}/toggle', [ChatbotController::class, 'toggle'])->name('chatbots.toggle');
+    Route::post('/chatbots/{chatbot}/test-message', ChatbotTestController::class)->name('chatbots.test-message');
     Route::get('/chatbots/{chatbot}/embed', [ChatbotController::class, 'embed'])->name('chatbots.embed');
     Route::post('/chatbots/{chatbot}/regenerate-key', [ChatbotController::class, 'regenerateKey'])->name('chatbots.regenerate-key');
 
