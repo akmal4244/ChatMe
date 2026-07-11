@@ -44,7 +44,8 @@ class ChatbotController extends Controller
             'welcome_message' => ['sometimes', 'required', 'string', 'max:1000'],
             'placeholder_text' => ['nullable', 'string', 'max:255'],
             'bot_name' => ['sometimes', 'required', 'string', 'max:255'],
-            'system_prompt' => ['nullable', 'string', 'max:5000'],
+            'system_prompt' => ['nullable', 'string', 'max:1000'],
+            'fallback_message' => ['nullable', 'string', 'max:500'],
             'domain_whitelist' => ['nullable', 'string', 'max:2000'],
         ]);
 
@@ -115,7 +116,8 @@ class ChatbotController extends Controller
             'welcome_message' => ['sometimes', 'required', 'string', 'max:1000'],
             'placeholder_text' => ['nullable', 'string', 'max:255'],
             'bot_name' => ['sometimes', 'required', 'string', 'max:255'],
-            'system_prompt' => ['nullable', 'string', 'max:5000'],
+            'system_prompt' => ['nullable', 'string', 'max:1000'],
+            'fallback_message' => ['nullable', 'string', 'max:500'],
             'domain_whitelist' => ['nullable', 'string', 'max:2000'],
             'is_active' => ['boolean'],
         ]);

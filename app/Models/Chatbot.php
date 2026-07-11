@@ -21,6 +21,7 @@ class Chatbot extends Model
         'placeholder_text',
         'bot_name',
         'system_prompt',
+        'fallback_message',
         'is_active',
         'api_key',
         'domain_whitelist',
@@ -105,5 +106,12 @@ class Chatbot extends Model
         }
 
         return asset('storage/'.$path);
+    }
+
+    public function fallbackResponse(): string
+    {
+        return filled($this->fallback_message)
+            ? trim((string) $this->fallback_message)
+            : 'Maaf, saya belum menemui jawapan yang tepat. Cuba gunakan perkataan lain.';
     }
 }

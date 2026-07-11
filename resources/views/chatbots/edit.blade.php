@@ -53,9 +53,16 @@
             </div>
         </div>
         <div>
-            <label for="system_prompt" class="label">Cara chatbot perlu menjawab</label>
-            <textarea id="system_prompt" name="system_prompt" rows="3" class="input" @error('system_prompt') aria-invalid="true" aria-describedby="system-prompt-error" @enderror>{{ old('system_prompt', $chatbot->system_prompt) }}</textarea>
+            <label for="system_prompt" class="label">Gaya jawapan AI (pilihan)</label>
+            <p id="system-prompt-hint" class="field-hint">Arahan ini mengawal nada jawapan AI. Fakta tetap terhad kepada soal jawab aktif.</p>
+            <textarea id="system_prompt" name="system_prompt" rows="3" class="input" maxlength="1000" aria-describedby="system-prompt-hint @error('system_prompt') system-prompt-error @enderror" @error('system_prompt') aria-invalid="true" @enderror>{{ old('system_prompt', $chatbot->system_prompt) }}</textarea>
             @error('system_prompt') <p id="system-prompt-error" class="field-error" role="alert">{{ $message }}</p> @enderror
+        </div>
+        <div>
+            <label for="fallback_message" class="label">Jawapan apabila tiada padanan (pilihan)</label>
+            <p id="fallback-message-hint" class="field-hint">Mesej ini dipaparkan apabila maklumat yang diperlukan belum ada dalam soal jawab aktif.</p>
+            <textarea id="fallback_message" name="fallback_message" rows="3" class="input" maxlength="500" aria-describedby="fallback-message-hint @error('fallback_message') fallback-message-error @enderror" @error('fallback_message') aria-invalid="true" @enderror>{{ old('fallback_message', $chatbot->fallback_message) }}</textarea>
+            @error('fallback_message') <p id="fallback-message-error" class="field-error" role="alert">{{ $message }}</p> @enderror
         </div>
         <div>
             <label for="domain_whitelist" class="label">Laman web yang dibenarkan</label>

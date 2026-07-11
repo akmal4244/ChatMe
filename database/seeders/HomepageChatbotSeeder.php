@@ -76,7 +76,8 @@ class HomepageChatbotSeeder extends Seeder
                 'welcome_message' => 'Helo! Selamat datang ke ChatMe. Apakah yang boleh saya bantu?',
                 'placeholder_text' => 'Taip mesej anda...',
                 'bot_name' => 'Pembantu ChatMe',
-                'system_prompt' => 'Jawab dalam Bahasa Melayu Malaysia yang jelas, sopan dan mudah difahami berdasarkan soal jawab yang disediakan.',
+                'system_prompt' => 'Gunakan Bahasa Melayu Malaysia yang jelas, sopan dan ringkas.',
+                'fallback_message' => 'Maaf, maklumat itu belum tersedia. Cuba tanya tentang pelan, pembayaran atau fungsi ChatMe.',
                 'is_active' => true,
                 'domain_whitelist' => $allowedDomains,
             ]);
