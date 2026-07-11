@@ -58,11 +58,13 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 await navigator.clipboard.writeText(target.textContent.trim());
                 feedback.textContent = 'Teks berjaya disalin.';
+                window.showToast('Teks berjaya disalin.', 'success');
                 const originalLabel = button.textContent;
                 button.textContent = 'Disalin';
                 window.setTimeout(() => { button.textContent = originalLabel; }, 1500);
             } catch (error) {
                 feedback.textContent = 'Teks tidak dapat disalin. Sila salin secara manual.';
+                window.showToast('Teks tidak dapat disalin. Sila salin secara manual.', 'error');
             }
         });
     });

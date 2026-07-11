@@ -155,6 +155,14 @@ class ManagementFormAccessibilityTest extends TestCase
         $this->assertStringContainsString('form.requestSubmit()', $layout);
     }
 
+    public function test_embed_copy_feedback_uses_global_popup_notifications(): void
+    {
+        $source = file_get_contents(resource_path('views/chatbots/embed.blade.php'));
+
+        $this->assertStringContainsString("window.showToast('Teks berjaya disalin.', 'success')", $source);
+        $this->assertStringContainsString("window.showToast('Teks tidak dapat disalin. Sila salin secara manual.', 'error')", $source);
+    }
+
     public function test_management_views_use_consistent_plain_malay_terms(): void
     {
         $files = [
