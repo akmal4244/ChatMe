@@ -74,12 +74,12 @@ class ToyyibPayCheckoutTest extends TestCase
         });
 
         $this->actingAs($user)
-            ->post("/subscription/{$plan->id}/checkout", [
+            ->post("/subscription/{$plan->id}/checkout", $this->checkoutPayload([
                 'phone' => '+60 12-345 6789',
                 'amount_cents' => 1,
                 'status' => 'paid',
                 'bill_code' => 'ATTACKER',
-            ])
+            ]))
             ->assertRedirect('https://dev.toyyibpay.com/CHECKOUTBILL1')
             ->assertSessionHasNoErrors();
 
@@ -96,6 +96,57 @@ class ToyyibPayCheckoutTest extends TestCase
         Http::assertSentCount(1);
     }
 
+    public function test_checkout_form_issues_a_unique_idempotency_key_for_each_paid_plan(): void
+    {
+        $user = User::factory()->create();
+        $this->plan('pro', '49.00');
+        $this->plan('enterprise', '149.00');
+
+        $html = $this->actingAs($user)
+            ->get(route('subscription.plans'))
+            ->assertOk()
+            ->getContent();
+
+        preg_match_all('/name="checkout_key" value="([^"]+)"/', $html, $matches);
+
+        $this->assertCount(2, $matches[1]);
+        $this->assertCount(2, array_unique($matches[1]));
+        foreach ($matches[1] as $key) {
+            $this->assertTrue(Str::isUuid($key));
+        }
+    }
+
+    public function test_duplicate_checkout_key_reuses_the_existing_bill_without_a_second_provider_request(): void
+    {
+        $user = User::factory()->create();
+        $plan = $this->plan('pro', '49.00');
+        $checkoutKey = (string) Str::uuid();
+        Http::fake(['*' => Http::response([['BillCode' => 'IDEMPOTENT1']])]);
+
+        $payload = [
+            'phone' => '0123456789',
+            'checkout_key' => $checkoutKey,
+        ];
+
+        $this->actingAs($user)
+            ->post(route('subscription.checkout', $plan), $payload)
+            ->assertRedirect('https://dev.toyyibpay.com/IDEMPOTENT1');
+
+        $this->actingAs($user)
+            ->post(route('subscription.checkout', $plan), $payload)
+            ->assertRedirect('https://dev.toyyibpay.com/IDEMPOTENT1');
+
+        $this->assertDatabaseCount('payment_orders', 1);
+        $this->assertDatabaseHas('payment_orders', [
+            'user_id' => $user->id,
+            'plan_id' => $plan->id,
+            'checkout_key' => $checkoutKey,
+            'bill_code' => 'IDEMPOTENT1',
+            'status' => PaymentOrder::STATUS_PENDING,
+        ]);
+        Http::assertSentCount(1);
+    }
+
     public function test_enterprise_checkout_uses_its_server_price(): void
     {
         $user = User::factory()->create();
@@ -103,10 +154,10 @@ class ToyyibPayCheckoutTest extends TestCase
         Http::fake(['*' => Http::response([['BillCode' => 'ENTERPRISE1']])]);
 
         $this->actingAs($user)
-            ->post("/subscription/{$plan->id}/checkout", [
+            ->post("/subscription/{$plan->id}/checkout", $this->checkoutPayload([
                 'phone' => '01123456789',
                 'amount_cents' => 49,
-            ])
+            ]))
             ->assertRedirect('https://dev.toyyibpay.com/ENTERPRISE1');
 
         $this->assertDatabaseHas('payment_orders', [
@@ -144,7 +195,9 @@ class ToyyibPayCheckoutTest extends TestCase
         Http::fake();
 
         $this->actingAs($user)
-            ->post("/subscription/{$plan->id}/checkout", ['phone' => '0151234567'])
+            ->post("/subscription/{$plan->id}/checkout", $this->checkoutPayload([
+                'phone' => '0151234567',
+            ]))
             ->assertSessionHasErrors('phone');
 
         $this->assertDatabaseCount('payment_orders', 0);
@@ -167,7 +220,7 @@ class ToyyibPayCheckoutTest extends TestCase
 
         $this->actingAs($user)
             ->from(route('subscription.plans'))
-            ->post("/subscription/{$plan->id}/checkout", ['phone' => '0123456789'])
+            ->post("/subscription/{$plan->id}/checkout", $this->checkoutPayload())
             ->assertRedirect(route('subscription.plans'))
             ->assertSessionHasErrors('payment');
 
@@ -213,7 +266,7 @@ class ToyyibPayCheckoutTest extends TestCase
 
         $this->actingAs($user)
             ->from(route('subscription.plans'))
-            ->post("/subscription/{$plan->id}/checkout", ['phone' => '0123456789'])
+            ->post("/subscription/{$plan->id}/checkout", $this->checkoutPayload())
             ->assertRedirect(route('subscription.plans'))
             ->assertSessionHasErrors('payment');
 
@@ -235,7 +288,7 @@ class ToyyibPayCheckoutTest extends TestCase
 
         $this->actingAs($user)
             ->from(route('subscription.plans'))
-            ->post("/subscription/{$plan->id}/checkout", ['phone' => '0123456789'])
+            ->post("/subscription/{$plan->id}/checkout", $this->checkoutPayload())
             ->assertRedirect(route('subscription.plans'))
             ->assertSessionHasErrors('payment');
 
@@ -265,7 +318,7 @@ class ToyyibPayCheckoutTest extends TestCase
 
         $this->actingAs($user)
             ->from(route('subscription.plans'))
-            ->post("/subscription/{$plan->id}/checkout", ['phone' => '0123456789'])
+            ->post("/subscription/{$plan->id}/checkout", $this->checkoutPayload())
             ->assertRedirect(route('subscription.plans'))
             ->assertSessionHasErrors('payment');
 
@@ -302,5 +355,14 @@ class ToyyibPayCheckoutTest extends TestCase
             'price' => $price,
             'is_active' => $active,
         ]);
+    }
+
+    /** @return array<string, mixed> */
+    private function checkoutPayload(array $overrides = []): array
+    {
+        return array_merge([
+            'phone' => '0123456789',
+            'checkout_key' => (string) Str::uuid(),
+        ], $overrides);
     }
 }

@@ -11,6 +11,7 @@ use App\Support\MalaysianPhone;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use InvalidArgumentException;
@@ -19,11 +20,14 @@ use UnexpectedValueException;
 
 class SubscriptionController extends Controller
 {
-    public function plans()
+    public function plans(): View
     {
         $plans = Plan::visibleForSale()->get();
+        $checkoutKeys = $plans
+            ->reject(fn (Plan $plan): bool => $plan->slug === 'free')
+            ->mapWithKeys(fn (Plan $plan): array => [$plan->id => (string) Str::uuid()]);
 
-        return view('subscription.plans', compact('plans'));
+        return view('subscription.plans', compact('checkoutKeys', 'plans'));
     }
 
     public function checkout(
@@ -33,12 +37,13 @@ class SubscriptionController extends Controller
     ): RedirectResponse {
         $amountCents = $this->purchasableAmount($plan);
 
-        $request->validate([
+        $validated = $request->validate([
             'phone' => ['required', 'string', 'max:30'],
+            'checkout_key' => ['required', 'uuid'],
         ]);
 
         try {
-            $phone = MalaysianPhone::normalize((string) $request->input('phone'));
+            $phone = MalaysianPhone::normalize((string) $validated['phone']);
         } catch (InvalidArgumentException) {
             throw ValidationException::withMessages([
                 'phone' => 'Masukkan nombor telefon mudah alih Malaysia yang sah.',
@@ -48,7 +53,9 @@ class SubscriptionController extends Controller
         $user = $request->user();
 
         try {
-            $order = $user->paymentOrders()->create([
+            $order = $user->paymentOrders()->firstOrCreate([
+                'checkout_key' => $validated['checkout_key'],
+            ], [
                 'plan_id' => $plan->id,
                 'provider' => 'toyyibpay',
                 'amount_cents' => $amountCents,
@@ -60,6 +67,32 @@ class SubscriptionController extends Controller
                 'plan_id' => $plan->id,
                 'exception_class' => $exception::class,
             ]);
+
+            return $this->checkoutFailureResponse($request);
+        }
+
+        if (! $order->wasRecentlyCreated) {
+            if ($order->plan_id !== $plan->id
+                || $order->provider !== 'toyyibpay'
+                || $order->amount_cents !== $amountCents) {
+                throw ValidationException::withMessages([
+                    'payment' => 'Permintaan pembayaran ini tidak sepadan dengan pelan yang dipilih.',
+                ]);
+            }
+
+            if ($order->status === PaymentOrder::STATUS_PAID) {
+                return redirect()->route('subscription.return', $order)
+                    ->with('success', 'Pembayaran telah disahkan dan langganan anda aktif.');
+            }
+
+            if ($order->status === PaymentOrder::STATUS_PENDING && filled($order->bill_code)) {
+                return redirect()->away($client->paymentUrl((string) $order->bill_code));
+            }
+
+            if ($order->status === PaymentOrder::STATUS_CREATING) {
+                return redirect()->route('subscription.return', $order)
+                    ->with('info', 'Permintaan pembayaran sedang diproses. Sila semak semula sebentar lagi.');
+            }
 
             return $this->checkoutFailureResponse($request);
         }

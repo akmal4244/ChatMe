@@ -10,6 +10,7 @@ use Database\Seeders\PlanSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class SubscriptionPlanTest extends TestCase
@@ -227,6 +228,7 @@ class SubscriptionPlanTest extends TestCase
             ->from(route('subscription.plans'))
             ->post(route('subscription.checkout', $pro), [
                 'checkout_plan' => $pro->id,
+                'checkout_key' => (string) Str::uuid(),
                 'phone' => '123',
             ])
             ->assertRedirect(route('subscription.plans'))

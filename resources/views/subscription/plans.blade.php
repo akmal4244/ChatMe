@@ -108,6 +108,7 @@
                         <form action="{{ route('subscription.checkout', $plan) }}" method="POST" class="checkout-form">
                             @csrf
                             <input type="hidden" name="checkout_plan" value="{{ $plan->id }}">
+                            <input type="hidden" name="checkout_key" value="{{ $checkoutKeys[$plan->id] }}">
                             <label for="{{ $phoneId }}">Nombor telefon mudah alih</label>
                             <p id="{{ $phoneId }}-hint" class="field-hint">Digunakan untuk bil ToyyibPay dan pengesahan pembayaran.</p>
                             <input

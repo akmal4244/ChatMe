@@ -22,6 +22,7 @@ class PaymentOrder extends Model
         'user_id',
         'plan_id',
         'subscription_id',
+        'checkout_key',
         'bill_code',
         'provider',
         'amount_cents',
