@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Chatbot;
-use App\Services\ChatbotResponseMatcher;
+use App\Services\ChatbotResponseService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -13,7 +13,7 @@ class ChatbotTestController extends Controller
     public function __invoke(
         Request $request,
         Chatbot $chatbot,
-        ChatbotResponseMatcher $matcher,
+        ChatbotResponseService $responses,
     ): JsonResponse {
         Gate::authorize('view', $chatbot);
 
@@ -22,7 +22,7 @@ class ChatbotTestController extends Controller
         ]);
 
         return response()->json([
-            'response' => $matcher->respond($chatbot, trim($validated['message'])),
+            'response' => $responses->respond($chatbot, trim($validated['message']))->answer,
         ]);
     }
 }

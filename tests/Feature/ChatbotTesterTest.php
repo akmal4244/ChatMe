@@ -6,7 +6,7 @@ use App\Models\Chatbot;
 use App\Models\ChatLog;
 use App\Models\KnowledgeItem;
 use App\Models\User;
-use App\Services\ChatbotResponseMatcher;
+use App\Services\ChatbotResponseService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -14,23 +14,18 @@ class ChatbotTesterTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_shared_matcher_returns_the_existing_best_match_and_fallback(): void
+    public function test_shared_response_service_returns_the_best_match_and_stable_fallback(): void
     {
         $chatbot = $this->chatbotWithKnowledge();
-        $matcher = app(ChatbotResponseMatcher::class);
+        $responses = app(ChatbotResponseService::class);
 
         $this->assertSame(
             'Kami buka setiap hari.',
-            $matcher->respond($chatbot, 'waktu operasi'),
+            $responses->respond($chatbot, 'waktu operasi')->answer,
         );
-        $this->assertContains(
-            $matcher->respond($chatbot, 'soalan yang tiada padanan'),
-            [
-                'Maaf, saya belum pasti jawapannya. Cuba tanya dengan cara lain atau berikan maklumat yang lebih khusus.',
-                'Soalan yang bagus! Boleh berikan sedikit lagi maklumat supaya saya dapat membantu?',
-                'Saya sedia membantu. Boleh jelaskan dengan lebih lanjut perkara yang anda ingin tahu?',
-                'Maaf, saya belum menemui jawapan yang tepat. Cuba gunakan perkataan lain.',
-            ],
+        $this->assertSame(
+            $chatbot->fallbackResponse(),
+            $responses->respond($chatbot, 'soalan yang tiada padanan')->answer,
         );
     }
 

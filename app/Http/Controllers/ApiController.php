@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Chatbot;
 use App\Models\ChatLog;
 use App\Models\User;
-use App\Services\ChatbotResponseMatcher;
+use App\Services\ChatbotResponseService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -32,7 +32,7 @@ class ApiController extends Controller
         ])->header('Access-Control-Allow-Origin', '*');
     }
 
-    public function chat(Request $request, $apiKey, ChatbotResponseMatcher $matcher)
+    public function chat(Request $request, $apiKey, ChatbotResponseService $responses)
     {
         $chatbot = Chatbot::where('api_key', $apiKey)->where('is_active', true)->firstOrFail();
 
@@ -51,8 +51,9 @@ class ApiController extends Controller
 
         $sessionId = $data['session_id'] ?? 'session_'.uniqid();
         $userMessage = trim($data['message']);
+        $preparedResponse = $responses->respond($chatbot, $userMessage)->answer;
 
-        $response = DB::transaction(function () use ($chatbot, $request, $sessionId, $userMessage, $matcher): ?string {
+        $response = DB::transaction(function () use ($chatbot, $preparedResponse, $request, $sessionId, $userMessage): ?string {
             $owner = User::query()
                 ->lockForUpdate()
                 ->findOrFail($chatbot->user_id);
@@ -70,16 +71,14 @@ class ApiController extends Controller
                 'user_agent' => $request->userAgent(),
             ]);
 
-            $response = $matcher->respond($chatbot, $userMessage);
-
             ChatLog::create([
                 'chatbot_id' => $chatbot->id,
                 'session_id' => $sessionId,
-                'message' => $response,
+                'message' => $preparedResponse,
                 'role' => 'bot',
             ]);
 
-            return $response;
+            return $preparedResponse;
         });
 
         if ($response === null) {
