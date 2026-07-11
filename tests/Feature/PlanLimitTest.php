@@ -8,6 +8,7 @@ use App\Models\Plan;
 use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
 class PlanLimitTest extends TestCase
@@ -113,6 +114,7 @@ class PlanLimitTest extends TestCase
             'message' => 'Already counted',
             'role' => 'user',
         ]);
+        Log::spy();
 
         $this->postJson(route('api.chat', $targetChatbot->api_key), [
             'message' => 'Over limit',
@@ -125,6 +127,13 @@ class PlanLimitTest extends TestCase
         $this->assertDatabaseMissing('chat_logs', [
             'session_id' => 'new-session',
         ]);
+        Log::shouldHaveReceived('notice')
+            ->once()
+            ->with('Monthly message quota exceeded.', [
+                'user_id' => $user->id,
+                'chatbot_id' => $targetChatbot->id,
+                'channel' => 'widget',
+            ]);
     }
 
     public function test_message_limit_is_rechecked_after_the_owner_lock_is_acquired(): void
@@ -293,6 +302,25 @@ class PlanLimitTest extends TestCase
             'session_id' => 'unlimited-session',
             'role' => 'bot',
         ]);
+    }
+
+    public function test_widget_chat_bounds_untrusted_user_agent_before_persisting(): void
+    {
+        $user = $this->subscribedUserWithMonthlyMessageLimit(-1);
+        $chatbot = $this->chatbotFor($user);
+
+        $this->withHeader('User-Agent', str_repeat('A', 1000))
+            ->postJson(route('api.chat', $chatbot->api_key), [
+                'message' => 'Metadata bounded',
+                'session_id' => 'bounded-widget-agent',
+            ])->assertOk();
+
+        $userLog = ChatLog::query()
+            ->where('session_id', 'bounded-widget-agent')
+            ->where('role', 'user')
+            ->firstOrFail();
+
+        $this->assertSame(255, strlen((string) $userLog->user_agent));
     }
 
     private function freePlanUser(): User

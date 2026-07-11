@@ -7,6 +7,7 @@ use App\Models\ChatLog;
 use App\Models\KnowledgeItem;
 use App\Models\Plan;
 use App\Models\User;
+use Illuminate\Support\Facades\Log;
 
 class AdminController extends Controller
 {
@@ -50,6 +51,11 @@ class AdminController extends Controller
         }
         $user->is_admin = ! $user->is_admin;
         $user->save();
+        Log::notice('Administrator role changed.', [
+            'actor_user_id' => auth()->id(),
+            'target_user_id' => $user->id,
+            'is_admin' => (bool) $user->is_admin,
+        ]);
 
         return back()->with('success', 'Status pentadbir '.$user->name.' berjaya dikemas kini.');
     }

@@ -7,6 +7,8 @@ use App\Models\Chatbot;
 use App\Services\Ai\CloudflareWorkersAiProvider;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -25,6 +27,18 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Gate::after(function ($user, string $ability, ?bool $result): void {
+            if ($result !== false) {
+                return;
+            }
+
+            Log::warning('Authorization denied.', [
+                'user_id' => $user->getAuthIdentifier(),
+                'route' => request()->route()?->getName(),
+                'ip_address' => request()->ip() ?: 'unknown',
+            ]);
+        });
+
         RateLimiter::for('developer-api', function (Request $request): Limit {
             $chatbot = $request->attributes->get('developer_chatbot');
             $tokenKey = $chatbot instanceof Chatbot

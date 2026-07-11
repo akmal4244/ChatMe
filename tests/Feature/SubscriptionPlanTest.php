@@ -91,6 +91,11 @@ class SubscriptionPlanTest extends TestCase
             ->assertDontSeeText('Lifetime')
             ->assertDontSeeText('Custom Paid');
 
+        $this->actingAs($user)->get('/pricing')->assertOk()
+            ->assertSee('name="checkout_key"', false)
+            ->assertDontSeeText('Lifetime')
+            ->assertDontSeeText('Custom Paid');
+
         $this->actingAs($user)->get(route('subscription.plans'))->assertOk()
             ->assertSeeText('Free')
             ->assertSeeText('Pro')

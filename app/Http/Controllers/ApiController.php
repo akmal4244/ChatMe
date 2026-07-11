@@ -8,6 +8,8 @@ use App\Models\User;
 use App\Services\ChatbotResponseService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class ApiController extends Controller
 {
@@ -41,6 +43,8 @@ class ApiController extends Controller
         }
 
         if (! $chatbot->user->canSendChatMessage()) {
+            $this->logQuotaExceeded($chatbot);
+
             return response()->json(['error' => __('chatme.api.monthly_limit')], 429);
         }
 
@@ -52,8 +56,10 @@ class ApiController extends Controller
         $sessionId = $data['session_id'] ?? 'session_'.uniqid();
         $userMessage = trim($data['message']);
         $preparedResponse = $responses->respond($chatbot, $userMessage)->answer;
+        $ipAddress = is_string($request->ip()) ? Str::substr($request->ip(), 0, 255) : null;
+        $userAgent = is_string($request->userAgent()) ? Str::substr($request->userAgent(), 0, 255) : null;
 
-        $response = DB::transaction(function () use ($chatbot, $preparedResponse, $request, $sessionId, $userMessage): ?string {
+        $response = DB::transaction(function () use ($chatbot, $ipAddress, $preparedResponse, $sessionId, $userAgent, $userMessage): ?string {
             $owner = User::query()
                 ->lockForUpdate()
                 ->findOrFail($chatbot->user_id);
@@ -67,8 +73,8 @@ class ApiController extends Controller
                 'session_id' => $sessionId,
                 'message' => $userMessage,
                 'role' => 'user',
-                'ip_address' => $request->ip(),
-                'user_agent' => $request->userAgent(),
+                'ip_address' => $ipAddress,
+                'user_agent' => $userAgent,
             ]);
 
             ChatLog::create([
@@ -82,6 +88,8 @@ class ApiController extends Controller
         });
 
         if ($response === null) {
+            $this->logQuotaExceeded($chatbot);
+
             return response()->json(['error' => __('chatme.api.monthly_limit')], 429);
         }
 
@@ -122,5 +130,14 @@ class ApiController extends Controller
         }
 
         return false;
+    }
+
+    private function logQuotaExceeded(Chatbot $chatbot): void
+    {
+        Log::notice('Monthly message quota exceeded.', [
+            'user_id' => $chatbot->user_id,
+            'chatbot_id' => $chatbot->id,
+            'channel' => 'widget',
+        ]);
     }
 }

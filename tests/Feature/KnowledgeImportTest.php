@@ -9,6 +9,7 @@ use App\Models\Plan;
 use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
@@ -331,6 +332,14 @@ class KnowledgeImportTest extends TestCase
             'id' => $item->id,
             'question' => 'Original question',
         ]);
+    }
+
+    public function test_import_route_is_rate_limited(): void
+    {
+        $route = Route::getRoutes()->getByName('knowledge.import');
+
+        $this->assertNotNull($route);
+        $this->assertContains('throttle:10,1', $route->gatherMiddleware());
     }
 
     private function postImport(string $json, ?User $actor = null): TestResponse

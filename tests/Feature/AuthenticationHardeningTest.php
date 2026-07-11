@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Str;
@@ -80,6 +81,32 @@ class AuthenticationHardeningTest extends TestCase
 
         $this->assertAuthenticatedAs($user);
         $this->assertSame(0, RateLimiter::attempts($key));
+    }
+
+    public function test_failed_login_is_logged_with_a_hash_instead_of_credentials(): void
+    {
+        User::factory()->create([
+            'email' => 'audit@example.com',
+            'password' => 'password-betul',
+        ]);
+        Log::spy();
+
+        $this->post('/login', [
+            'email' => ' Audit@Example.com ',
+            'password' => 'password-salah-rahsia',
+        ])->assertSessionHasErrors('email');
+
+        Log::shouldHaveReceived('warning')
+            ->once()
+            ->withArgs(function (string $message, array $context): bool {
+                $serialized = $message.json_encode($context);
+
+                return $message === 'Authentication failed.'
+                    && $context['email_hash'] === hash('sha256', 'audit@example.com')
+                    && $context['ip_address'] === '127.0.0.1'
+                    && ! str_contains($serialized, 'audit@example.com')
+                    && ! str_contains($serialized, 'password-salah-rahsia');
+            });
     }
 
     public function test_fourth_registration_submission_from_one_ip_is_throttled(): void

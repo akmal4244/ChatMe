@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Tests\TestCase;
@@ -345,6 +346,14 @@ class ToyyibPayCheckoutTest extends TestCase
         foreach (['subscribe', 'billingPortal', 'cancel', 'resume', 'manage'] as $method) {
             $this->assertFalse(method_exists(SubscriptionController::class, $method));
         }
+    }
+
+    public function test_checkout_route_is_rate_limited(): void
+    {
+        $route = Route::getRoutes()->getByName('subscription.checkout');
+
+        $this->assertNotNull($route);
+        $this->assertContains('throttle:5,1', $route->gatherMiddleware());
     }
 
     private function plan(string $slug, string $price, bool $active = true): Plan

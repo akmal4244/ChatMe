@@ -6,6 +6,7 @@ use App\Models\Chatbot;
 use App\Models\KnowledgeItem;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
 class ChatbotAuthorizationTest extends TestCase
@@ -21,6 +22,32 @@ class ChatbotAuthorizationTest extends TestCase
         $this->actingAs($attacker)
             ->get(route('chatbots.edit', $chatbot))
             ->assertForbidden();
+    }
+
+    public function test_authorization_denial_is_logged_without_model_content(): void
+    {
+        $owner = User::factory()->create();
+        $attacker = User::factory()->create();
+        $chatbot = Chatbot::create([
+            'user_id' => $owner->id,
+            'name' => 'PRIVATE_MODEL_CONTENT',
+        ]);
+        Log::spy();
+
+        $this->actingAs($attacker)
+            ->get(route('chatbots.edit', $chatbot))
+            ->assertForbidden();
+
+        Log::shouldHaveReceived('warning')
+            ->once()
+            ->withArgs(function (string $message, array $context) use ($attacker): bool {
+                $serialized = $message.json_encode($context);
+
+                return $message === 'Authorization denied.'
+                    && $context['user_id'] === $attacker->id
+                    && $context['route'] === 'chatbots.edit'
+                    && ! str_contains($serialized, 'PRIVATE_MODEL_CONTENT');
+            });
     }
 
     public function test_user_cannot_update_another_users_chatbot(): void

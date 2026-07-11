@@ -6,6 +6,7 @@ use App\Models\Chatbot;
 use App\Models\KnowledgeItem;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
 class ManagementFormAccessibilityTest extends TestCase
@@ -80,6 +81,33 @@ class ManagementFormAccessibilityTest extends TestCase
             ->assertSee('Jadikan Pengguna Sasaran sebagai pentadbir? Pengguna ini akan mendapat akses ke panel pentadbir.', false);
 
         $this->assertFalse((bool) $target->is_admin);
+    }
+
+    public function test_admin_role_change_is_logged_without_profile_content(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $target = User::factory()->create([
+            'name' => 'PRIVATE_ADMIN_NAME',
+            'email' => 'private-admin@example.com',
+        ]);
+        Log::spy();
+
+        $this->actingAs($admin)
+            ->post(route('admin.users.toggle-admin', $target))
+            ->assertRedirect();
+
+        Log::shouldHaveReceived('notice')
+            ->once()
+            ->withArgs(function (string $message, array $context) use ($admin, $target): bool {
+                $serialized = $message.json_encode($context);
+
+                return $message === 'Administrator role changed.'
+                    && $context['actor_user_id'] === $admin->id
+                    && $context['target_user_id'] === $target->id
+                    && $context['is_admin'] === true
+                    && ! str_contains($serialized, 'PRIVATE_ADMIN_NAME')
+                    && ! str_contains($serialized, 'private-admin@example.com');
+            });
     }
 
     public function test_management_table_actions_use_named_icons(): void

@@ -10,6 +10,7 @@ use App\Models\User;
 use Database\Seeders\PlanSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
 class DeveloperApiTest extends TestCase
@@ -179,6 +180,7 @@ class DeveloperApiTest extends TestCase
             'message' => 'Sudah digunakan',
             'role' => 'user',
         ]);
+        Log::spy();
 
         $this->withToken($token)
             ->postJson(route('api.developer.chat'), [
@@ -190,6 +192,13 @@ class DeveloperApiTest extends TestCase
 
         $this->assertDatabaseCount('chat_logs', 1);
         $this->assertDatabaseMissing('chat_logs', ['session_id' => 'quota-rejected']);
+        Log::shouldHaveReceived('notice')
+            ->once()
+            ->with('Monthly message quota exceeded.', [
+                'user_id' => $chatbot->user_id,
+                'chatbot_id' => $chatbot->id,
+                'channel' => 'developer_api',
+            ]);
     }
 
     public function test_developer_api_is_rate_limited_per_token_and_ip(): void
@@ -213,6 +222,24 @@ class DeveloperApiTest extends TestCase
             ->assertJsonPath('error', 'Terlalu banyak permintaan. Sila cuba lagi sebentar lagi.');
     }
 
+    public function test_invalid_developer_tokens_are_rate_limited_by_ip_before_authentication(): void
+    {
+        config()->set('app.debug', false);
+
+        foreach (range(1, 30) as $attempt) {
+            $this->withToken('cm_live_invalid_'.$attempt)
+                ->postJson(route('api.developer.chat'), ['message' => 'test'])
+                ->assertUnauthorized();
+        }
+
+        $this->withToken('cm_live_invalid_blocked')
+            ->postJson(route('api.developer.chat'), ['message' => 'test'])
+            ->assertStatus(429)
+            ->assertJsonPath('error', 'Terlalu banyak permintaan. Sila cuba lagi sebentar lagi.');
+
+        $this->assertDatabaseCount('chat_logs', 0);
+    }
+
     public function test_developer_api_has_no_wildcard_cors_while_widget_api_keeps_it(): void
     {
         [, $chatbot] = $this->chatbotForPlan('pro');
@@ -230,6 +257,27 @@ class DeveloperApiTest extends TestCase
             ->getJson(route('api.widget.config', $chatbot->api_key))
             ->assertOk()
             ->assertHeader('Access-Control-Allow-Origin', '*');
+    }
+
+    public function test_developer_api_bounds_untrusted_user_agent_before_persisting(): void
+    {
+        [, $chatbot] = $this->chatbotForPlan('pro');
+        $token = $chatbot->rotateDeveloperApiToken();
+
+        $this->withHeaders([
+            'Authorization' => 'Bearer '.$token,
+            'User-Agent' => str_repeat('B', 1000),
+        ])->postJson(route('api.developer.chat'), [
+            'message' => 'Apakah waktu operasi?',
+            'session_id' => 'bounded-developer-agent',
+        ])->assertOk();
+
+        $userLog = ChatLog::query()
+            ->where('session_id', 'bounded-developer-agent')
+            ->where('role', 'user')
+            ->firstOrFail();
+
+        $this->assertSame(255, strlen((string) $userLog->user_agent));
     }
 
     /** @return array{User, Chatbot} */

@@ -6,6 +6,7 @@ use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\ChatbotTestController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeveloperTokenController;
+use App\Http\Controllers\HealthController;
 use App\Http\Controllers\KnowledgeController;
 use App\Http\Controllers\LandingController;
 use App\Http\Controllers\SubscriptionController;
@@ -18,6 +19,9 @@ Route::get('/', [LandingController::class, 'index'])->name('landing');
 Route::get('/pricing', [LandingController::class, 'pricing'])->name('landing.pricing');
 Route::view('/privacy', 'privacy')->name('privacy');
 Route::view('/terms', 'terms')->name('terms');
+Route::get('/health', HealthController::class)
+    ->middleware('throttle:30,1')
+    ->name('health');
 Route::post('/payments/toyyibpay/callback', ToyyibPayCallbackController::class)
     ->middleware('throttle:120,1')
     ->name('payments.toyyibpay.callback');
@@ -53,12 +57,16 @@ Route::middleware('auth')->group(function () {
         Route::post('/', [KnowledgeController::class, 'store'])->name('store');
         Route::put('/{item}', [KnowledgeController::class, 'update'])->name('update');
         Route::delete('/{item}', [KnowledgeController::class, 'destroy'])->name('destroy');
-        Route::post('/import', [KnowledgeController::class, 'import'])->name('import');
+        Route::post('/import', [KnowledgeController::class, 'import'])
+            ->middleware('throttle:10,1')
+            ->name('import');
     });
 
     // Subscription
     Route::get('/subscription/plans', [SubscriptionController::class, 'plans'])->name('subscription.plans');
-    Route::post('/subscription/{plan}/checkout', [SubscriptionController::class, 'checkout'])->name('subscription.checkout');
+    Route::post('/subscription/{plan}/checkout', [SubscriptionController::class, 'checkout'])
+        ->middleware('throttle:5,1')
+        ->name('subscription.checkout');
     Route::get('/subscription/orders/{paymentOrder}/return', [SubscriptionController::class, 'result'])->name('subscription.return');
     Route::post('/subscription/orders/{paymentOrder}/reconcile', [SubscriptionController::class, 'reconcile'])
         ->middleware('throttle:10,1')
@@ -74,4 +82,6 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
 });
 
 // Widget Script (public)
-Route::get('/widget/{chatbot:api_key}.js', [WidgetController::class, 'script'])->name('widget.script');
+Route::get('/widget/{chatbot:api_key}.js', [WidgetController::class, 'script'])
+    ->middleware('throttle:120,1')
+    ->name('widget.script');
