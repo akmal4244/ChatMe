@@ -9,6 +9,10 @@ use Illuminate\Support\Str;
 
 class Chatbot extends Model
 {
+    protected $hidden = [
+        'developer_api_token_hash',
+    ];
+
     protected $fillable = [
         'user_id',
         'name',
@@ -61,6 +65,18 @@ class Chatbot extends Model
             ->exists());
 
         $this->forceFill(['api_key' => $apiKey])->save();
+    }
+
+    public function rotateDeveloperApiToken(): string
+    {
+        $rawToken = 'cm_live_'.Str::random(48);
+
+        $this->forceFill([
+            'developer_api_token_hash' => hash('sha256', $rawToken),
+            'developer_api_token_prefix' => substr($rawToken, 0, 16),
+        ])->save();
+
+        return $rawToken;
     }
 
     public function user(): BelongsTo

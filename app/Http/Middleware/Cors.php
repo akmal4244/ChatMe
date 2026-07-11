@@ -9,6 +9,10 @@ class Cors
 {
     public function handle(Request $request, Closure $next)
     {
+        if (! $request->routeIs('api.chat', 'api.widget.config', 'api.chat.options')) {
+            return $next($request);
+        }
+
         if ($request->isMethod('OPTIONS')) {
             return response('', 200)
                 ->header('Access-Control-Allow-Origin', '*')

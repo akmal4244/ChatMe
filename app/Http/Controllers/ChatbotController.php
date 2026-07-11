@@ -185,8 +185,9 @@ class ChatbotController extends Controller
     public function embed(Chatbot $chatbot)
     {
         Gate::authorize('view', $chatbot);
+        $apiAccess = (bool) $chatbot->user->currentPlan()?->api_access;
 
-        return view('chatbots.embed', compact('chatbot'));
+        return view('chatbots.embed', compact('apiAccess', 'chatbot'));
     }
 
     public function regenerateKey(Chatbot $chatbot)

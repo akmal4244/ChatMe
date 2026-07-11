@@ -32,6 +32,43 @@
         </form>
     </section>
 
+    <section class="card p-5 sm:p-6 mb-6" aria-labelledby="developer-api-heading">
+        <h2 id="developer-api-heading" class="font-semibold text-neutral-950 mb-2">API pembangun</h2>
+        @if($apiAccess)
+            <p class="text-sm text-neutral-600 mb-4">Gunakan token rahsia ini pada endpoint <code>POST /api/v1/chat</code>. Jangan masukkan token ke dalam JavaScript atau laman awam.</p>
+
+            @if(session('developer_token'))
+                <div class="alert alert-warning mb-4" role="alert">
+                    <strong>Token ini hanya dipaparkan sekali.</strong> Salin dan simpan sekarang sebelum meninggalkan halaman ini.
+                </div>
+                <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+                    <code id="developer-token" class="flex-1 overflow-x-auto rounded-lg bg-neutral-100 border border-neutral-200 px-4 py-3 text-sm font-mono text-neutral-900">{{ session('developer_token') }}</code>
+                    <button type="button" class="btn btn-secondary btn-sm self-start sm:self-auto" data-copy-target="#developer-token">Salin token</button>
+                </div>
+            @elseif($chatbot->developer_api_token_prefix)
+                <p class="text-sm text-neutral-600 mb-4">Token aktif: <code>{{ $chatbot->developer_api_token_prefix }}••••••••</code></p>
+            @else
+                <p class="text-sm text-neutral-600 mb-4">Belum ada token API pembangun untuk chatbot ini.</p>
+            @endif
+
+            <form action="{{ route('chatbots.developer-token', $chatbot) }}" method="POST" class="inline"
+                  @if($chatbot->developer_api_token_hash)
+                  data-confirm-title="Jana semula token API pembangun?"
+                  data-confirm-description="Token lama akan berhenti berfungsi serta-merta."
+                  data-confirm-text="Jana semula token"
+                  data-confirm-type="danger"
+                  @endif>
+                @csrf
+                <button type="submit" class="btn {{ $chatbot->developer_api_token_hash ? 'btn-danger' : 'btn-primary' }} btn-sm">
+                    {{ $chatbot->developer_api_token_hash ? 'Jana semula token API pembangun' : 'Jana token API pembangun' }}
+                </button>
+            </form>
+        @else
+            <p class="text-sm text-neutral-600 mb-4">Pelan anda tidak mempunyai akses API pembangun.</p>
+            <a href="{{ route('subscription.plans') }}" class="btn btn-secondary btn-sm">Lihat pelan dengan akses API</a>
+        @endif
+    </section>
+
     <section class="card p-5 sm:p-6" aria-labelledby="preview-heading">
         <h2 id="preview-heading" class="font-semibold text-neutral-950 mb-3">Pratonton</h2>
         <p class="text-sm text-neutral-600 mb-4">Beginilah rupa chatbot anda di laman web:</p>

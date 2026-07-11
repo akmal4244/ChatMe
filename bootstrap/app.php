@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\AdminMiddleware;
+use App\Http\Middleware\AuthenticateDeveloperToken;
 use App\Http\Middleware\Cors;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
@@ -22,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'admin' => AdminMiddleware::class,
+            'developer.token' => AuthenticateDeveloperToken::class,
         ]);
         $middleware->validateCsrfTokens(except: [
             'payments/toyyibpay/callback',
