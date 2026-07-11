@@ -1,3 +1,4 @@
+@push('modals')
 <div class="chatbot-tester-backdrop" id="chatbot-tester-modal" hidden>
     <section class="chatbot-tester-dialog" role="dialog" aria-modal="true" aria-labelledby="chatbot-tester-title" aria-describedby="chatbot-tester-description">
         <header class="chatbot-tester-header">
@@ -35,7 +36,9 @@
         </footer>
     </section>
 </div>
+@endpush
 
+@push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const modal = document.getElementById('chatbot-tester-modal');
@@ -215,3 +218,4 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 </script>
+@endpush

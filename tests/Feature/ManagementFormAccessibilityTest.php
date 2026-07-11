@@ -162,6 +162,9 @@ class ManagementFormAccessibilityTest extends TestCase
         }
 
         $source = file_get_contents($partialPath);
+        $layout = file_get_contents(resource_path('views/layouts/app.blade.php'));
+        $this->assertStringContainsString("@push('modals')", $source);
+        $this->assertStringContainsString("@stack('modals')", $layout);
         $this->assertStringContainsString("document.addEventListener('click'", $source);
         $this->assertStringContainsString("closest('[data-chatbot-test]')", $source);
         $this->assertStringContainsString("'X-CSRF-TOKEN'", $source);

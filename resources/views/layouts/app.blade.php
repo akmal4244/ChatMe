@@ -119,6 +119,7 @@
         <footer class="app-footer">&copy; {{ date('Y') }} ChatMe &mdash; Kuala Lumpur, Malaysia</footer>
     </div>
 
+    @stack('modals')
     @include('partials.toasts')
 
     <div class="modal-backdrop" id="logout-modal" hidden>
