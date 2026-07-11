@@ -34,6 +34,16 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(60)->by($tokenKey.'|'.($request->ip() ?: 'unknown'));
         });
 
+        RateLimiter::for('chatbot-tester', function (Request $request): Limit {
+            $chatbot = $request->route('chatbot');
+            $chatbotKey = $chatbot instanceof Chatbot
+                ? $chatbot->getKey()
+                : (string) $chatbot;
+            $userKey = $request->user()?->getAuthIdentifier() ?? 'guest';
+
+            return Limit::perMinute(20)->by($userKey.'|'.$chatbotKey);
+        });
+
         RateLimiter::for('registration', fn (Request $request): Limit => Limit::perHour(3)
             ->by($request->ip() ?: 'unknown')
             ->response(fn (Request $request, array $headers) => back()

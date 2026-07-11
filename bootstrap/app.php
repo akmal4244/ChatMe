@@ -37,7 +37,8 @@ return Application::configure(basePath: dirname(__DIR__))
             return $request->is('api/*') || $request->expectsJson();
         });
         $exceptions->render(function (Throwable $exception, Request $request) {
-            if (config('app.debug') || ! $request->is('api/*')) {
+            if (config('app.debug')
+                || (! $request->is('api/*') && ! $request->expectsJson())) {
                 return null;
             }
 

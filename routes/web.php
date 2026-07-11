@@ -40,7 +40,9 @@ Route::middleware('auth')->group(function () {
     // Chatbots
     Route::resource('chatbots', ChatbotController::class);
     Route::post('/chatbots/{chatbot}/toggle', [ChatbotController::class, 'toggle'])->name('chatbots.toggle');
-    Route::post('/chatbots/{chatbot}/test-message', ChatbotTestController::class)->name('chatbots.test-message');
+    Route::post('/chatbots/{chatbot}/test-message', ChatbotTestController::class)
+        ->middleware('throttle:chatbot-tester')
+        ->name('chatbots.test-message');
     Route::get('/chatbots/{chatbot}/embed', [ChatbotController::class, 'embed'])->name('chatbots.embed');
     Route::post('/chatbots/{chatbot}/regenerate-key', [ChatbotController::class, 'regenerateKey'])->name('chatbots.regenerate-key');
     Route::post('/chatbots/{chatbot}/developer-token', DeveloperTokenController::class)->name('chatbots.developer-token');

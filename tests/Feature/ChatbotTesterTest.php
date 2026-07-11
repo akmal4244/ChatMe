@@ -106,6 +106,30 @@ class ChatbotTesterTest extends TestCase
         $this->assertSame(0, ChatLog::count());
     }
 
+    public function test_owner_tester_is_rate_limited_per_user_and_chatbot(): void
+    {
+        config()->set('app.debug', false);
+        $user = User::factory()->create();
+        $chatbot = $this->chatbotWithKnowledge($user);
+
+        foreach (range(1, 20) as $attempt) {
+            $this->actingAs($user)
+                ->postJson(route('chatbots.test-message', $chatbot), [
+                    'message' => 'waktu operasi',
+                ])
+                ->assertOk();
+        }
+
+        $this->actingAs($user)
+            ->postJson(route('chatbots.test-message', $chatbot), [
+                'message' => 'waktu operasi',
+            ])
+            ->assertStatus(429)
+            ->assertJsonPath('error', 'Terlalu banyak permintaan. Sila cuba lagi sebentar lagi.');
+
+        $this->assertDatabaseCount('chat_logs', 0);
+    }
+
     private function chatbotWithKnowledge(?User $user = null, array $attributes = []): Chatbot
     {
         $user ??= User::factory()->create();
