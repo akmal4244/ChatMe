@@ -74,6 +74,20 @@ class LightThemeTest extends TestCase
         $this->assertStringContainsString('setSidebarState(false, true)', $source);
     }
 
+    public function test_mobile_viewport_is_locked_and_form_controls_do_not_trigger_auto_zoom(): void
+    {
+        $viewport = 'width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover';
+
+        foreach (['guest', 'app'] as $layout) {
+            $source = file_get_contents(resource_path("views/layouts/{$layout}.blade.php"));
+            $this->assertStringContainsString('content="'.$viewport.'"', $source);
+        }
+
+        $css = file_get_contents(resource_path('css/app.css'));
+        $this->assertStringContainsString('touch-action: manipulation', $css);
+        $this->assertMatchesRegularExpression('/@media\s*\(max-width:\s*640px\).*?font-size:\s*16px/s', $css);
+    }
+
     public function test_landing_uses_real_plan_data_and_manual_renewal_copy(): void
     {
         $source = file_get_contents(resource_path('views/landing.blade.php'));

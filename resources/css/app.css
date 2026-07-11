@@ -68,6 +68,7 @@ body {
 body.modal-open { overflow: hidden; }
 button, input, textarea, select { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
+button, a, input, textarea, select { touch-action: manipulation; }
 a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
 img { max-width: 100%; }
 [hidden] { display: none !important; }
@@ -492,6 +493,9 @@ table.data-table tbody tr:hover { background: #FBFAF7; }
 }
 
 @media (max-width: 640px) {
+    input, textarea, select, .input, .form-control,
+    .form-field input, .form-field textarea, .form-field select,
+    .checkout-form input, .checkout-form textarea { font-size: 16px; }
     .landing-shell { width: min(100% - 28px, 1160px); }
     .landing-hero { padding: 66px 0 52px; }
     .landing-hero__title { font-size: clamp(42px, 14vw, 60px); }

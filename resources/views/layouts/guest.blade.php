@@ -2,7 +2,7 @@
 <html lang="ms">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="description" content="ChatMe — Cipta chatbot AI untuk laman web anda. Platform chatbot buatan Malaysia.">
     <meta property="og:title" content="@yield('title', 'ChatMe — Chatbot AI untuk Laman Web')">

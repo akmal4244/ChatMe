@@ -31,6 +31,12 @@ test('message bubble padding overrides the widget reset so text is not clipped',
   assert.match(source, /#chatme-root \.chatme-msg\{[^}]*padding:10px 14px[^}]*\}/);
 });
 
+test('widget avoids mobile input zoom without changing the host viewport', () => {
+  assert.match(source, /@media\(max-width:640px\)\{#chatme-input\{font-size:16px\}/);
+  assert.match(source, /100dvh/);
+  assert.doesNotMatch(source, /createElement\(['"]meta['"]\)|querySelector\(['"]meta\[name=[^)]*viewport/);
+});
+
 test('widget defaults and status use clear Bahasa Melayu', () => {
   assert.match(source, /Pembantu ChatMe/);
   assert.match(source, /Helo! Bagaimana saya boleh membantu anda\?/);
