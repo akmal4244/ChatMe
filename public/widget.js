@@ -14,6 +14,7 @@
   config.placeholderText = config.placeholderText || 'Taip mesej anda...';
   config.avatarUrl = config.avatarUrl || '';
   config.position = config.position || 'bottom-right';
+  config.showBranding = config.showBranding !== false;
   
   var sessionId = 's' + Math.random().toString(36).substr(2, 9);
   var isOpen = false;
@@ -46,6 +47,7 @@
   var inputEl = document.getElementById('chatme-input');
   var sendBtn = document.getElementById('chatme-send');
   var closeBtn = document.getElementById('chatme-close');
+  var brandEl = document.getElementById('chatme-brand');
 
   bubble.className = config.position;
   windowEl.className = config.position;
@@ -53,6 +55,7 @@
   document.querySelector('#chatme-header img').src = config.avatarUrl;
   document.querySelector('#chatme-header-info .name').textContent = config.botName;
   inputEl.placeholder = config.placeholderText;
+  brandEl.hidden = !config.showBranding;
 
   function readableTextColor(hex) {
     var match = /^#([0-9a-f]{6})$/i.exec(hex || '');

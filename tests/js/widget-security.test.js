@@ -47,6 +47,12 @@ test('widget defaults and status use clear Bahasa Melayu', () => {
   assert.doesNotMatch(source, /Powered by|Type your message|>Online</);
 });
 
+test('widget obeys the server branding entitlement without HTML interpolation', () => {
+  assert.match(source, /config\.showBranding\s*=\s*config\.showBranding !== false/);
+  assert.match(source, /brandEl\.hidden\s*=\s*!config\.showBranding/);
+  assert.doesNotMatch(source, /innerHTML[^;]*showBranding/);
+});
+
 test('chatbot tester popup fits narrow mobile viewports without input zoom', () => {
   assert.match(appCss, /\.chatbot-tester-dialog\s*\{[^}]*width:\s*min\(430px,\s*calc\(100vw - 24px\)\)/s);
   assert.match(appCss, /\.chatbot-tester-dialog\s*\{[^}]*max-height:\s*min\(680px,\s*calc\(100dvh - 24px\)\)/s);
