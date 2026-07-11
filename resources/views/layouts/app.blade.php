@@ -115,23 +115,11 @@
             </div>
         </header>
 
-        <div class="flash-region" aria-live="polite">
-            @if(session('success'))
-                <div class="flash flash-success" role="status"><i class="ph ph-check-circle" aria-hidden="true"></i><span>{{ session('success') }}</span><button type="button" class="flash-close" aria-label="Tutup mesej">&times;</button></div>
-            @endif
-            @if(session('error'))
-                <div class="flash flash-error" role="alert"><i class="ph ph-x-circle" aria-hidden="true"></i><span>{{ session('error') }}</span><button type="button" class="flash-close" aria-label="Tutup mesej">&times;</button></div>
-            @endif
-            @if(session('info'))
-                <div class="flash flash-info" role="status"><i class="ph ph-info" aria-hidden="true"></i><span>{{ session('info') }}</span><button type="button" class="flash-close" aria-label="Tutup mesej">&times;</button></div>
-            @endif
-        </div>
-
         <main class="page-content" id="main-content" tabindex="-1">@yield('content')</main>
         <footer class="app-footer">&copy; {{ date('Y') }} ChatMe &mdash; Kuala Lumpur, Malaysia</footer>
     </div>
 
-    <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
+    @include('partials.toasts')
 
     <div class="modal-backdrop" id="logout-modal" hidden>
         <section class="modal-box" role="dialog" aria-modal="true" aria-labelledby="logout-modal-title" aria-describedby="logout-modal-description">
@@ -296,8 +284,6 @@
 
         document.getElementById('logout-trigger')?.addEventListener('click', () => openModal(document.getElementById('logout-modal')));
         document.getElementById('logout-confirm')?.addEventListener('click', () => document.getElementById('form-logout-dropdown')?.submit());
-        document.querySelectorAll('.flash-close').forEach((button) => button.addEventListener('click', () => button.closest('.flash')?.remove()));
-
         window.sahkan = (config = {}) => {
             const modal = document.getElementById('confirm-modal');
             const confirmButton = document.getElementById('modal-confirm-btn');
@@ -315,13 +301,6 @@
         window.closeConfirm = () => closeModal(document.getElementById('confirm-modal'));
         window.confirmLogout = () => openModal(document.getElementById('logout-modal'));
         window.handleLogout = () => document.getElementById('form-logout-dropdown')?.submit();
-        window.showToast = (message, type = 'success') => {
-            const toast = document.createElement('div');
-            toast.className = `toast toast-${type}`;
-            toast.textContent = message;
-            document.getElementById('toast-container')?.appendChild(toast);
-            setTimeout(() => toast.remove(), 3500);
-        };
     })();
     </script>
     @stack('scripts')

@@ -28,6 +28,7 @@
         @yield('content')
     </main>
 
+    @include('partials.toasts')
     @stack('scripts')
 </body>
 </html>

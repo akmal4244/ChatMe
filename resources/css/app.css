@@ -272,10 +272,6 @@ table.data-table tbody tr:hover { background: #FBFAF7; }
 .user-dropdown a:hover, .user-dropdown button:hover { background: var(--surface-alt); color: var(--text); }
 .user-dropdown-divider { height: 1px; background: var(--border); }
 .user-dropdown .dropdown-danger { margin: 6px; width: calc(100% - 12px); color: var(--danger); }
-.flash-region { display: grid; gap: 8px; padding: 0 22px; }
-.flash-region:empty { display: none; }
-.flash { margin-top: 10px; font-size: 13px; }
-.flash-close { margin-left: auto; border: 0; background: transparent; color: currentColor; cursor: pointer; font-size: 20px; line-height: 1; }
 .page-content { width: 100%; max-width: 1440px; flex: 1; align-self: center; padding: 30px 34px 64px; }
 .app-footer { padding: 20px 24px; border-top: 1px solid var(--border); color: var(--subtle); font-size: 11px; text-align: center; }
 .sidebar-overlay { display: none; }
@@ -291,10 +287,15 @@ table.data-table tbody tr:hover { background: #FBFAF7; }
 .modal-cancel { border: 1px solid var(--border); background: var(--surface); color: var(--text); }
 .modal-confirm { border: 1px solid var(--accent); background: var(--accent); color: white; }
 .modal-confirm-danger { border: 1px solid var(--danger); background: var(--danger); color: white; }
-#toast-container { position: fixed; right: 20px; bottom: 20px; z-index: 120; display: grid; gap: 8px; }
-.toast { max-width: min(360px, calc(100vw - 40px)); border: 1px solid var(--border); border-radius: 999px; background: var(--surface); padding: 10px 16px; color: var(--text); box-shadow: var(--shadow-md); font-size: 13px; font-weight: 650; }
-.toast-success { border-color: #A6F4C5; color: var(--success); }
-.toast-error { border-color: #FECDCA; color: var(--danger); }
+#toast-container { position: fixed; right: 20px; bottom: calc(20px + env(safe-area-inset-bottom)); z-index: 120; display: grid; width: min(380px, calc(100vw - 40px)); gap: 9px; pointer-events: none; }
+.toast { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); padding: 12px 13px; color: var(--text); box-shadow: var(--shadow-lg); font-size: 13px; font-weight: 650; pointer-events: auto; }
+.toast-icon { font-size: 20px; }
+.toast-message { min-width: 0; overflow-wrap: anywhere; }
+.toast-close { display: inline-grid; width: 32px; height: 32px; place-items: center; border: 0; border-radius: 9px; background: transparent; color: currentColor; cursor: pointer; font-size: 20px; line-height: 1; }
+.toast-close:hover { background: rgb(23 23 23 / .06); }
+.toast-success { border-color: #A6F4C5; background: var(--success-soft); color: var(--success); }
+.toast-error { border-color: #FECDCA; background: var(--danger-soft); color: var(--danger); }
+.toast-info { border-color: #BFDBFE; background: var(--info-soft); color: var(--info); }
 
 /* Subscription plans */
 .subscription-page { width: 100%; max-width: 1120px; margin: 0 auto; }
@@ -496,6 +497,7 @@ table.data-table tbody tr:hover { background: #FBFAF7; }
     input, textarea, select, .input, .form-control,
     .form-field input, .form-field textarea, .form-field select,
     .checkout-form input, .checkout-form textarea { font-size: 16px; }
+    #toast-container { top: calc(72px + env(safe-area-inset-top)); right: 12px; bottom: auto; left: 12px; width: auto; }
     .landing-shell { width: min(100% - 28px, 1160px); }
     .landing-hero { padding: 66px 0 52px; }
     .landing-hero__title { font-size: clamp(42px, 14vw, 60px); }

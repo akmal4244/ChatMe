@@ -88,6 +88,37 @@ class LightThemeTest extends TestCase
         $this->assertMatchesRegularExpression('/@media\s*\(max-width:\s*640px\).*?font-size:\s*16px/s', $css);
     }
 
+    public function test_both_layouts_load_the_shared_popup_notification_system(): void
+    {
+        foreach (['guest', 'app'] as $layout) {
+            $source = file_get_contents(resource_path("views/layouts/{$layout}.blade.php"));
+            $this->assertStringContainsString("@include('partials.toasts')", $source);
+        }
+
+        $partialPath = resource_path('views/partials/toasts.blade.php');
+        $this->assertFileExists($partialPath);
+        $partial = file_get_contents($partialPath);
+        $this->assertStringContainsString('id="initial-notifications"', $partial);
+        $this->assertStringContainsString('window.showToast', $partial);
+        $this->assertStringContainsString("toast.setAttribute('role', normalizedType === 'error' ? 'alert' : 'status')", $partial);
+        $this->assertStringContainsString('aria-label="Tutup notifikasi"', $partial);
+    }
+
+    public function test_session_and_validation_feedback_render_as_popup_data(): void
+    {
+        $this->withSession(['success' => 'Chatbot berjaya dikemas kini.'])
+            ->get('/login')->assertOk()
+            ->assertSee('Chatbot berjaya dikemas kini.', false)
+            ->assertSee('id="initial-notifications"', false);
+
+        $this->from('/login')->post('/login', ['email' => '', 'password' => ''])
+            ->assertRedirect('/login')
+            ->assertSessionHasErrors(['email', 'password']);
+
+        $this->get('/login')->assertOk()
+            ->assertSee('Sila semak medan yang bertanda sebelum meneruskan.', false);
+    }
+
     public function test_landing_uses_real_plan_data_and_manual_renewal_copy(): void
     {
         $source = file_get_contents(resource_path('views/landing.blade.php'));
