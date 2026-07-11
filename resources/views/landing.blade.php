@@ -252,7 +252,7 @@
 @endsection
 
 @push('scripts')
-<script>
+<script nonce="{{ Vite::cspNonce() }}">
 document.addEventListener('DOMContentLoaded', function () {
     const toggle = document.querySelector('[data-nav-toggle]');
     const menu = document.querySelector('[data-nav-menu]');
@@ -290,6 +290,6 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 @if($homepageChatbot)
-<script defer src="{{ route('widget.script', ['chatbot' => $homepageChatbot->api_key]) }}?v={{ substr(hash_file('sha256', public_path('widget.js')), 0, 12) }}"></script>
+<script nonce="{{ Vite::cspNonce() }}" defer src="{{ route('widget.script', ['chatbot' => $homepageChatbot->api_key]) }}?v={{ substr(hash_file('sha256', public_path('widget.js')), 0, 12) }}"></script>
 @endif
 @endpush

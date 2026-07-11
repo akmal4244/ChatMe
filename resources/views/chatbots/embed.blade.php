@@ -83,7 +83,7 @@
     </section>
 </div>
 
-<script>
+<script nonce="{{ Vite::cspNonce() }}">
 document.addEventListener('DOMContentLoaded', () => {
     const feedback = document.getElementById('copy-feedback');
 

@@ -39,7 +39,7 @@
 @endpush
 
 @push('scripts')
-<script>
+<script nonce="{{ Vite::cspNonce() }}">
 document.addEventListener('DOMContentLoaded', () => {
     const modal = document.getElementById('chatbot-tester-modal');
     const dialog = modal?.querySelector('.chatbot-tester-dialog');

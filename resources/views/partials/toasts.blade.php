@@ -17,8 +17,8 @@
         <button type="button" class="toast-close" aria-label="Tutup notifikasi">&times;</button>
     </div>
 </template>
-<script id="initial-notifications" type="application/json">{!! json_encode($initialNotifications, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
-<script>
+<script nonce="{{ Vite::cspNonce() }}" id="initial-notifications" type="application/json">{!! json_encode($initialNotifications, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
+<script nonce="{{ Vite::cspNonce() }}">
 (() => {
     const container = document.getElementById('toast-container');
     const template = document.getElementById('toast-template');
