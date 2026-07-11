@@ -12,9 +12,9 @@ Tiada data pelanggan dipadam, tiada pembayaran sebenar dibuat dan deployment tid
 
 Tambah `system_role` nullable dan unik pada `users` serta `chatbots`. Nilai `homepage_owner`, `homepage_chatbot` dan `primary_admin` menjadi penanda dalaman yang tidak boleh diisi melalui mass assignment, form atau API.
 
-Seeder homepage hanya boleh menggunakan chatbot bertanda `homepage_chatbot`. Untuk rollout legacy, ia boleh mengangkat rekod lama sekali sahaja jika semua bukti sepadan serentak: slug rasmi, e-mel owner rasmi, entitlement `homepage-chatbot-system`, dan hubungan pemilik yang sama. Sebarang collision separa menyebabkan exception dan rollback; seeder tidak mencari berdasarkan nama atau status admin.
+Seeder homepage hanya boleh menggunakan chatbot bertanda `homepage_chatbot`. Audit production membuktikan bot legacy rasmi kini dimiliki akaun admin biasa dan belum mempunyai owner/entitlement sistem. Oleh itu rollout legacy tidak boleh meneka rekod berdasarkan nama, admin atau e-mel. Operator mesti menetapkan `CHATME_HOMEPAGE_LEGACY_CHATBOT_ID` secara eksplisit selepas backup; seeder mengunci ID itu dan memerlukan slug rasmi yang tepat. Tanpa ID eksplisit, slug rasmi yang belum bertanda menyebabkan exception dan rollback.
 
-Pengguna sistem homepage tidak memerlukan kuasa admin. Seeder menetapkan `is_admin=false`, password rawak yang tidak dipaparkan, dan entitlement sistem yang khusus.
+Pengguna sistem homepage tidak memerlukan kuasa admin. Seeder mencipta owner khusus dengan `is_admin=false`, password rawak yang tidak dipaparkan, dan entitlement sistem yang khusus. Ketika adoption eksplisit, hanya `user_id` bot ID yang diluluskan dipindahkan kepada owner sistem; API key, log, knowledge dan ID bot kekal. Chatbot lain milik admin tidak disentuh.
 
 Pendaftaran menolak e-mel dalaman homepage serta e-mel admin yang dikonfigurasi secara case-insensitive. `AdminSeeder` hanya mencipta `primary_admin` baharu apabila tiada collision. Rerun pada rekod bertanda adalah idempotent dan tidak menukar password; rekod tidak bertanda dengan e-mel sama menyebabkan kegagalan, bukan promotion. Operasi reset admin yang disengajakan mesti menggunakan command berasingan yang memerlukan confirmation dan memadam semua sesi pengguna itu.
 
@@ -22,7 +22,7 @@ Pendaftaran menolak e-mel dalaman homepage serta e-mel admin yang dikonfigurasi 
 
 Tambah `source_key` nullable pada `knowledge_items` dengan unique gabungan `(chatbot_id, source_key)`. Tiga puluh tiga item rasmi mendapat key stabil seperti `homepage:001`.
 
-Seeder melakukan upsert hanya pada item bertanda. Semasa adoption legacy, item dengan soalan rasmi yang sama boleh ditanda dan dikemas kini; item lain kekal. Seeder hanya boleh membuang source key rasmi yang telah dikeluarkan daripada dataset, dan tidak pernah memanggil `knowledgeItems()->delete()` secara menyeluruh. Chat log, API key dan knowledge buatan pengguna kekal utuh.
+Seeder melakukan upsert hanya pada item bertanda. Semasa adoption legacy eksplisit, item dengan soalan rasmi yang sama boleh ditanda dan dikemas kini; item lain kekal. Seeder hanya boleh membuang source key rasmi yang telah dikeluarkan daripada dataset, dan tidak pernah memanggil `knowledgeItems()->delete()` secara menyeluruh. Chat log, API key dan knowledge buatan pengguna kekal utuh.
 
 ## Tempahan kuota sebelum provider
 
@@ -67,7 +67,7 @@ Collision seeder menggagalkan operasi dengan exception eksplisit kepada operator
 
 - Seeder pada bot admin pelanggan tidak mengubah bot atau satu pun knowledge.
 - Preclaim e-mel homepage/admin gagal tanpa promotion, entitlement atau session preservation.
-- Adoption legacy hanya berjaya untuk tuple rasmi lengkap; rerun idempotent; knowledge tambahan kekal.
+- Adoption legacy tanpa ID eksplisit gagal; ID+slug tepat berjaya, memelihara bot/log/API key/knowledge, dan rerun idempotent.
 - Request kuota terakhir serentak menghasilkan tepat satu reservation/provider call/pasangan log.
 - Kegagalan bot-log rollback kedua-dua log dan melepaskan reservation.
 - Tester AI berhenti memanggil provider selepas had harian tetapi deterministic masih berjaya.
@@ -77,6 +77,6 @@ Collision seeder menggagalkan operasi dengan exception eksplisit kepada operator
 
 ## Deployment dan rollback
 
-Migration hanya menambah column/table/index nullable atau baharu. Adoption marker dilakukan dalam transaction dan gagal-tertutup. Sebelum seeding, backup/restore drill mesti lulus dan query read-only mesti mengesahkan tuple legacy production. Seeder dijalankan khusus, bukan sebagai kesan sampingan deployment umum.
+Migration hanya menambah column/table/index nullable atau baharu. Adoption marker dilakukan dalam transaction dan gagal-tertutup. Sebelum seeding, backup/restore drill mesti lulus dan query read-only mesti merekod ID, slug, kiraan log/knowledge serta pemilik legacy tanpa mendedahkan e-mel. ID itu kemudian ditetapkan sebagai `CHATME_HOMEPAGE_LEGACY_CHATBOT_ID` hanya untuk rollout; selepas marker berjaya, konfigurasi legacy dibuang. Seeder dijalankan khusus, bukan sebagai kesan sampingan deployment umum.
 
 Rollback release tidak menjalankan `migrate:rollback`; column baharu serasi dengan kod lama. `CHATME_AI_ENABLED=false` kekal kill switch provider. Jika limiter atau tiket menyebabkan regresi, rollback code memulihkan release lama sementara database dan backup kekal utuh.
