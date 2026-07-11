@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\LoginRequest;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -55,22 +56,12 @@ class AuthController extends Controller
     /**
      * Handle user login.
      */
-    public function login(Request $request)
+    public function login(LoginRequest $request)
     {
-        $credentials = $request->validate([
-            'email' => ['required', 'string', 'email'],
-            'password' => ['required', 'string'],
-        ]);
+        $request->authenticate();
+        $request->session()->regenerate();
 
-        if (Auth::attempt($credentials, $request->boolean('remember'))) {
-            $request->session()->regenerate();
-
-            return redirect()->intended(route('dashboard'));
-        }
-
-        return back()->withErrors([
-            'email' => __('auth.failed'),
-        ])->onlyInput('email');
+        return redirect()->intended(route('dashboard'));
     }
 
     /**

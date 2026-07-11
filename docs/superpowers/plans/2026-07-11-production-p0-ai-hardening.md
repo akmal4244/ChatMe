@@ -798,7 +798,7 @@ RateLimiter::for('registration', fn (Request $request) =>
 );
 ```
 
-Attach `throttle:registration` only to POST `/register`. Change login controller type to `LoginRequest`, call `authenticate()`, then regenerate. After `Auth::login($user)` in `register`, call `$request->session()->regenerate()` before redirect.
+Attach `throttle:registration` only to POST `/register`. Change login controller type to `LoginRequest`, call `authenticate()`, then regenerate after `Auth::attempt()`. For registration, retain `Auth::login($user)` and use the behavioral regression test to prove Laravel 12's `SessionGuard::updateSession()` migrates the session ID; do not add a redundant second rotation.
 
 - [ ] **Step 5: Run auth and existing flow tests**
 

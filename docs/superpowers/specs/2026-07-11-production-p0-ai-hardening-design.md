@@ -198,7 +198,7 @@ Laravel rate limiting is applied to guest POST routes:
 
 The login error remains generic so it does not enumerate registered email addresses.
 
-After `Auth::login($user)` in registration, the request session ID is regenerated before redirecting to onboarding. Logout continues to invalidate the session and regenerate the CSRF token.
+Registration must prove that the session ID changes before redirecting to onboarding while existing session data is preserved. Verification against Laravel 12 confirms that `Auth::login($user)` calls `SessionGuard::updateSession()`, which migrates the session ID; an additional explicit second rotation is unnecessary. Logout continues to invalidate the session and regenerate the CSRF token.
 
 ## Data flow
 

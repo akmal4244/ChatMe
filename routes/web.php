@@ -25,7 +25,7 @@ Route::post('/payments/toyyibpay/callback', ToyyibPayCallbackController::class)
 // ── Guest Auth Routes ──
 Route::middleware('guest')->group(function () {
     Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
-    Route::post('/register', [AuthController::class, 'register']);
+    Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:registration');
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login']);
 });

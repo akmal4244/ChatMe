@@ -33,5 +33,12 @@ class AppServiceProvider extends ServiceProvider
 
             return Limit::perMinute(60)->by($tokenKey.'|'.($request->ip() ?: 'unknown'));
         });
+
+        RateLimiter::for('registration', fn (Request $request): Limit => Limit::perHour(3)
+            ->by($request->ip() ?: 'unknown')
+            ->response(fn (Request $request, array $headers) => back()
+                ->withErrors(['email' => 'Terlalu banyak percubaan pendaftaran. Sila cuba semula kemudian.'])
+                ->withInput($request->except('password', 'password_confirmation'))
+                ->withHeaders($headers)));
     }
 }
