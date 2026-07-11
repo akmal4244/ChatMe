@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const source = readFileSync(new URL('../../public/widget.js', import.meta.url), 'utf8');
+const appCss = readFileSync(new URL('../../resources/css/app.css', import.meta.url), 'utf8');
 
 test('untrusted widget configuration is not interpolated into innerHTML', () => {
   const markupStart = source.indexOf('root.innerHTML =');
@@ -44,4 +45,10 @@ test('widget defaults and status use clear Bahasa Melayu', () => {
   assert.match(source, /Sedia membantu/);
   assert.match(source, /Disediakan oleh/);
   assert.doesNotMatch(source, /Powered by|Type your message|>Online</);
+});
+
+test('chatbot tester popup fits narrow mobile viewports without input zoom', () => {
+  assert.match(appCss, /\.chatbot-tester-dialog\s*\{[^}]*width:\s*min\(430px,\s*calc\(100vw - 24px\)\)/s);
+  assert.match(appCss, /\.chatbot-tester-dialog\s*\{[^}]*max-height:\s*min\(680px,\s*calc\(100dvh - 24px\)\)/s);
+  assert.match(appCss, /@media\s*\(max-width:\s*640px\)[\s\S]*\.chatbot-tester-input\s*\{[^}]*font-size:\s*16px/);
 });

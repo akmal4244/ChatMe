@@ -38,6 +38,17 @@
                     <td>{{ $bot->chatLogs()->count() }}</td>
                     <td>
                         <div class="flex flex-wrap items-center gap-2">
+                            <button type="button" class="table-action"
+                                    data-chatbot-test
+                                    data-test-url="{{ route('chatbots.test-message', $bot) }}"
+                                    data-test-name="{{ $bot->name }}"
+                                    data-test-bot-name="{{ $bot->bot_name }}"
+                                    data-test-avatar="{{ $bot->resolvedAvatarUrl() }}"
+                                    data-test-welcome="{{ $bot->welcome_message }}"
+                                    data-test-color="{{ $bot->primary_color }}"
+                                    aria-label="Uji chatbot {{ $bot->name }}" title="Uji chatbot">
+                                <i class="ph ph-chat-circle-dots" aria-hidden="true"></i>
+                            </button>
                             <a href="{{ route('chatbots.edit', $bot) }}" class="table-action" aria-label="Sunting chatbot {{ $bot->name }}" title="Sunting chatbot">
                                 <i class="ph ph-pencil-simple" aria-hidden="true"></i>
                             </a>
@@ -68,4 +79,5 @@
 @if($chatbots->hasPages())
     <div class="mt-4">{{ $chatbots->links() }}</div>
 @endif
+@include('partials.chatbot-tester')
 @endsection

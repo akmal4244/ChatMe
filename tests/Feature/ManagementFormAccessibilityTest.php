@@ -96,6 +96,7 @@ class ManagementFormAccessibilityTest extends TestCase
         ]);
 
         $this->actingAs($user)->get(route('dashboard'))->assertOk()
+            ->assertSee('aria-label="Uji chatbot Chatbot Ikon"', false)
             ->assertSee('aria-label="Sunting chatbot Chatbot Ikon"', false)
             ->assertSee('aria-label="Pasang Chatbot Ikon di laman web"', false)
             ->assertSee('aria-label="Urus soal jawab Chatbot Ikon"', false)
@@ -108,6 +109,7 @@ class ManagementFormAccessibilityTest extends TestCase
             ->assertSee('class="ph ph-trash"', false);
 
         $this->get(route('chatbots.index'))->assertOk()
+            ->assertSee('aria-label="Uji chatbot Chatbot Ikon"', false)
             ->assertSee('aria-label="Sunting chatbot Chatbot Ikon"', false)
             ->assertSee('aria-label="Urus soal jawab Chatbot Ikon"', false)
             ->assertSee('aria-label="Pasang Chatbot Ikon di laman web"', false)
@@ -132,6 +134,44 @@ class ManagementFormAccessibilityTest extends TestCase
         $this->get(route('admin.users'))->assertOk()
             ->assertSee('aria-label="Buang peranan pentadbir daripada Pengguna Sasaran"', false)
             ->assertSee('class="ph ph-shield-slash"', false);
+    }
+
+    public function test_chatbot_lists_render_the_owner_test_action_and_popup_contract(): void
+    {
+        $user = User::factory()->create();
+        $chatbot = Chatbot::create([
+            'user_id' => $user->id,
+            'name' => 'Chatbot Ujian',
+            'bot_name' => 'Pembantu Ujian',
+            'welcome_message' => 'Selamat datang ke mod ujian.',
+        ]);
+        $partialPath = resource_path('views/partials/chatbot-tester.blade.php');
+
+        $this->assertFileExists($partialPath);
+
+        foreach ([route('dashboard'), route('chatbots.index')] as $url) {
+            $html = $this->actingAs($user)->get($url)->assertOk()->getContent();
+
+            $this->assertStringContainsString('data-chatbot-test', $html);
+            $this->assertStringContainsString('aria-label="Uji chatbot Chatbot Ujian"', $html);
+            $this->assertStringContainsString('data-test-url="'.route('chatbots.test-message', $chatbot).'"', $html);
+            $this->assertStringContainsString('class="ph ph-chat-circle-dots"', $html);
+            $this->assertStringContainsString('id="chatbot-tester-modal"', $html);
+            $this->assertStringContainsString('Mod ujian — mesej tidak dikira dalam kuota', $html);
+            $this->assertSame(1, substr_count($html, 'id="chatbot-tester-modal"'));
+        }
+
+        $source = file_get_contents($partialPath);
+        $this->assertStringContainsString("document.addEventListener('click'", $source);
+        $this->assertStringContainsString("closest('[data-chatbot-test]')", $source);
+        $this->assertStringContainsString("'X-CSRF-TOKEN'", $source);
+        $this->assertStringContainsString('requestBusy', $source);
+        $this->assertStringContainsString('fetch(endpoint', $source);
+        $this->assertStringContainsString('textContent', $source);
+        $this->assertStringContainsString('window.showToast', $source);
+        $this->assertStringContainsString("event.key === 'Escape'", $source);
+        $this->assertStringContainsString('returnFocus?.focus()', $source);
+        $this->assertStringNotContainsString('.innerHTML', $source);
     }
 
     public function test_risky_management_actions_use_the_shared_confirmation_contract(): void
