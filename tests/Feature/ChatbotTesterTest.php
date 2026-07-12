@@ -110,6 +110,7 @@ class ChatbotTesterTest extends TestCase
     public function test_owner_tester_is_rate_limited_per_user_and_chatbot(): void
     {
         config()->set('app.debug', false);
+        Http::fake();
         $user = User::factory()->create();
         $chatbot = $this->chatbotWithKnowledge($user);
 
@@ -126,9 +127,10 @@ class ChatbotTesterTest extends TestCase
                 'message' => 'waktu operasi',
             ])
             ->assertStatus(429)
-            ->assertJsonPath('error', 'Terlalu banyak permintaan. Sila cuba lagi sebentar lagi.');
+            ->assertExactJson(['error' => 'Terlalu banyak permintaan. Sila cuba lagi sebentar lagi.']);
 
         $this->assertDatabaseCount('chat_logs', 0);
+        Http::assertNothingSent();
     }
 
     public function test_tester_ai_is_limited_daily_without_blocking_deterministic_answers(): void

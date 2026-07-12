@@ -8,6 +8,7 @@ use App\Models\KnowledgeItem;
 use App\Models\Plan;
 use App\Models\Subscription;
 use App\Models\User;
+use Database\Seeders\DatabaseSeeder;
 use Database\Seeders\HomepageChatbotSeeder;
 use Database\Seeders\PlanSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -177,7 +178,7 @@ class HomepageChatbotTest extends TestCase
             'provider_reference' => 'homepage-chatbot-system',
             'status' => 'active',
             'starts_at' => now()->subYear(),
-            'ends_at' => now()->addYears(99),
+            'ends_at' => null,
         ]);
         config()->set('chatme.homepage_chatbot.legacy_chatbot_id', $chatbot->id);
 
@@ -261,7 +262,7 @@ class HomepageChatbotTest extends TestCase
             ->firstOrFail();
         $originalPassword = $owner->password;
         $originalApiKey = $chatbot->api_key;
-        $originalEnd = $subscription->ends_at->toISOString();
+        $this->assertNull($subscription->ends_at);
         $customKnowledge = KnowledgeItem::create([
             'chatbot_id' => $chatbot->id,
             'question' => 'User-added question',
@@ -281,7 +282,7 @@ class HomepageChatbotTest extends TestCase
         $this->assertSame($owner->id, $chatbot->user_id);
         $this->assertSame($originalPassword, $owner->password);
         $this->assertSame($originalApiKey, $chatbot->api_key);
-        $this->assertSame($originalEnd, $subscription->ends_at->toISOString());
+        $this->assertNull($subscription->ends_at);
         $this->assertDatabaseHas('knowledge_items', [
             'id' => $customKnowledge->id,
             'source_key' => null,
@@ -290,6 +291,59 @@ class HomepageChatbotTest extends TestCase
         $this->assertSame(33, $chatbot->knowledgeItems()->whereNotNull('source_key')->count());
         $this->assertSame(1, User::query()->where('system_role', 'homepage_owner')->count());
         $this->assertSame(1, Chatbot::query()->where('system_role', 'homepage_chatbot')->count());
+    }
+
+    public function test_homepage_system_entitlement_is_perpetual_without_an_out_of_range_timestamp(): void
+    {
+        $this->seed(PlanSeeder::class);
+        $this->seed(HomepageChatbotSeeder::class);
+
+        $subscription = Subscription::query()
+            ->where('provider_reference', 'homepage-chatbot-system')
+            ->firstOrFail();
+
+        $this->assertSame('system', $subscription->provider);
+        $this->assertSame('enterprise', $subscription->plan->slug);
+        $this->assertNull($subscription->ends_at);
+        $this->assertTrue($subscription->isActive());
+        $this->assertSame(
+            $subscription->id,
+            $subscription->user->activeSubscription()?->id,
+        );
+    }
+
+    public function test_database_seeder_provisions_a_routable_homepage_api_key_without_model_events(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $chatbot = Chatbot::query()
+            ->where('system_role', 'homepage_chatbot')
+            ->firstOrFail();
+
+        $this->assertIsString($chatbot->api_key);
+        $this->assertMatchesRegularExpression('/^cm_[A-Za-z0-9]{32}$/', $chatbot->api_key);
+        $this->get(route('widget.script', $chatbot->api_key))->assertOk();
+    }
+
+    public function test_explicit_legacy_adoption_repairs_a_missing_widget_api_key_once(): void
+    {
+        $this->seed(PlanSeeder::class);
+        $owner = User::factory()->create();
+        $chatbot = Chatbot::create([
+            'user_id' => $owner->id,
+            'name' => 'Legacy Homepage Without Key',
+            'slug' => 'chatme-homepage',
+        ]);
+        $chatbot->forceFill(['api_key' => null])->saveQuietly();
+        config()->set('chatme.homepage_chatbot.legacy_chatbot_id', $chatbot->id);
+
+        $this->seed(HomepageChatbotSeeder::class);
+        $generatedKey = $chatbot->fresh()->api_key;
+        $this->assertIsString($generatedKey);
+        $this->assertMatchesRegularExpression('/^cm_[A-Za-z0-9]{32}$/', $generatedKey);
+
+        $this->seed(HomepageChatbotSeeder::class);
+        $this->assertSame($generatedKey, $chatbot->fresh()->api_key);
     }
 
     public function test_homepage_loads_only_an_active_database_backed_widget(): void

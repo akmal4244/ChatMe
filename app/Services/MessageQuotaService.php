@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Chatbot;
 use App\Models\ChatLog;
 use App\Models\MessageQuotaReservation;
+use App\Models\MessageUsage;
 use App\Models\User;
 use App\ValueObjects\MessageQuotaPermit;
 use Carbon\CarbonImmutable;
@@ -44,11 +45,30 @@ class MessageQuotaService
             }
 
             [$periodStart, $periodEnd] = $this->quotaPeriod($reservedAt);
-            $used = ChatLog::query()
+            $liveUsage = ChatLog::query()
                 ->where('role', 'user')
                 ->whereHas('chatbot', fn ($query) => $query->where('user_id', $owner->id))
                 ->whereBetween('created_at', [$periodStart, $periodEnd])
                 ->count();
+            $usage = MessageUsage::query()
+                ->where('user_id', $owner->id)
+                ->where('usage_month', $this->usageMonth($reservedAt))
+                ->lockForUpdate()
+                ->first();
+            $used = $liveUsage;
+            if ($usage !== null) {
+                $used = max((int) $usage->message_count, $liveUsage);
+            }
+
+            if (! $usage) {
+                $usage = MessageUsage::query()->create([
+                    'user_id' => $owner->id,
+                    'usage_month' => $this->usageMonth($reservedAt),
+                    'message_count' => $used,
+                ]);
+            } elseif ($usage->message_count < $used) {
+                $usage->forceFill(['message_count' => $used])->save();
+            }
             $reserved = MessageQuotaReservation::query()
                 ->where('user_id', $owner->id)
                 ->whereBetween('created_at', [$periodStart, $periodEnd])
@@ -121,6 +141,8 @@ class MessageQuotaService
                     'updated_at' => $updatedAt,
                 ])->save();
 
+                $this->incrementDurableUsage($permit);
+
                 $reservation?->delete();
             });
         } catch (Throwable $exception) {
@@ -165,6 +187,39 @@ class MessageQuotaService
     private function reservationTtlSeconds(): int
     {
         return max(30, min(600, (int) config('chatme.quota.reservation_ttl_seconds', 120)));
+    }
+
+    private function usageMonth(CarbonImmutable $at): string
+    {
+        return $at
+            ->setTimezone((string) config('chatme.timezone'))
+            ->startOfMonth()
+            ->toDateString();
+    }
+
+    private function incrementDurableUsage(MessageQuotaPermit $permit): void
+    {
+        $usage = MessageUsage::query()
+            ->where('user_id', $permit->userId)
+            ->where('usage_month', $this->usageMonth($permit->reservedAt))
+            ->lockForUpdate()
+            ->first();
+
+        if (! $usage) {
+            MessageUsage::query()->create([
+                'user_id' => $permit->userId,
+                'usage_month' => $this->usageMonth($permit->reservedAt),
+                'message_count' => 1,
+            ]);
+
+            return;
+        }
+
+        if ($usage->message_count >= PHP_INT_MAX) {
+            throw new RuntimeException('The durable message usage counter is out of range.');
+        }
+
+        $usage->forceFill(['message_count' => $usage->message_count + 1])->save();
     }
 
     private function lockedReservation(MessageQuotaPermit $permit): ?MessageQuotaReservation

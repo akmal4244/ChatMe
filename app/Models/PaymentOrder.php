@@ -42,6 +42,9 @@ class PaymentOrder extends Model
     protected function casts(): array
     {
         return [
+            'user_id' => 'integer',
+            'plan_id' => 'integer',
+            'subscription_id' => 'integer',
             'amount_cents' => 'integer',
             'paid_at' => 'datetime',
         ];

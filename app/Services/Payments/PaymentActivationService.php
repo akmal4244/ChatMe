@@ -29,16 +29,31 @@ class PaymentActivationService
         $recordedPaidAt = $paidAt
             ? CarbonImmutable::instance($paidAt)->utc()
             : $activatedAt;
+        $ownerId = (int) PaymentOrder::query()
+            ->whereKey($order->getKey())
+            ->value('user_id');
+
+        if ($ownerId < 1) {
+            throw new LogicException('Payment order owner is missing.');
+        }
 
         return DB::transaction(function () use (
             $order,
+            $ownerId,
             $transactionReference,
             $activatedAt,
             $recordedPaidAt,
         ): Subscription {
+            $user = User::query()
+                ->lockForUpdate()
+                ->findOrFail($ownerId);
             $lockedOrder = PaymentOrder::query()
                 ->lockForUpdate()
                 ->findOrFail($order->getKey());
+
+            if ($lockedOrder->user_id !== $user->id) {
+                throw new LogicException('Payment order owner changed during activation.');
+            }
 
             if ($lockedOrder->status === PaymentOrder::STATUS_PAID) {
                 if (! $lockedOrder->subscription_id) {
@@ -48,10 +63,6 @@ class PaymentActivationService
                 return Subscription::query()->find($lockedOrder->subscription_id)
                     ?? throw new LogicException('Paid payment order references a missing subscription.');
             }
-
-            $user = User::query()
-                ->lockForUpdate()
-                ->findOrFail($lockedOrder->user_id);
 
             /** @var Collection<int, Subscription> $eligibleSubscriptions */
             $eligibleSubscriptions = $user->subscriptions()
@@ -95,7 +106,7 @@ class PaymentActivationService
                         0,
                         $candidate->ends_at->getTimestamp() - $activatedAt->getTimestamp(),
                     );
-                    $sourceMonthlyCents = $candidate->plan->priceInCents();
+                    $sourceMonthlyCents = $this->snapshotMonthlyCents($candidate);
 
                     if ($remainingSeconds > intdiv(PHP_INT_MAX, $sourceMonthlyCents)) {
                         throw new LogicException('Prorated subscription credit exceeds the supported range.');
@@ -124,26 +135,51 @@ class PaymentActivationService
                 ])->save();
             }
 
+            $newEnd = $samePlanBase
+                ->addMonthNoOverflow()
+                ->addSeconds($proratedCreditSeconds);
+            $existingRemainingSeconds = $subscription
+                ? max(0, $samePlanBase->getTimestamp() - $activatedAt->getTimestamp())
+                : 0;
+            $newCoverageSeconds = max(1, $newEnd->getTimestamp() - $samePlanBase->getTimestamp());
+            $existingUnitPrice = $subscription
+                ? $this->snapshotMonthlyCents($subscription)
+                : $lockedOrder->amount_cents;
+            $weightedValueSeconds = $this->checkedValueSeconds(
+                $existingRemainingSeconds,
+                $existingUnitPrice,
+            );
+            $newValueSeconds = $this->checkedValueSeconds(
+                $newCoverageSeconds,
+                $lockedOrder->amount_cents,
+            );
+            if ($weightedValueSeconds > PHP_INT_MAX - $newValueSeconds) {
+                throw new LogicException('Prorated subscription value exceeds the supported range.');
+            }
+            $totalRemainingSeconds = $existingRemainingSeconds + $newCoverageSeconds;
+            $weightedUnitPrice = intdiv(
+                $weightedValueSeconds + $newValueSeconds,
+                $totalRemainingSeconds,
+            );
+
             if ($subscription) {
                 $subscription->forceFill([
+                    'unit_price_cents' => $weightedUnitPrice,
                     'provider' => 'toyyibpay',
                     'provider_reference' => $transactionReference,
                     'status' => 'active',
                     'starts_at' => $subscription->starts_at ?? $activatedAt,
-                    'ends_at' => $samePlanBase
-                        ->addMonthNoOverflow()
-                        ->addSeconds($proratedCreditSeconds),
+                    'ends_at' => $newEnd,
                 ])->save();
             } else {
                 $subscription = $user->subscriptions()->create([
                     'plan_id' => $lockedOrder->plan_id,
+                    'unit_price_cents' => $weightedUnitPrice,
                     'provider' => 'toyyibpay',
                     'provider_reference' => $transactionReference,
                     'status' => 'active',
                     'starts_at' => $activatedAt,
-                    'ends_at' => $activatedAt
-                        ->addMonthNoOverflow()
-                        ->addSeconds($proratedCreditSeconds),
+                    'ends_at' => $newEnd,
                 ]);
             }
 
@@ -156,13 +192,32 @@ class PaymentActivationService
             ])->save();
 
             return $subscription->fresh();
-        });
+        }, 3);
     }
 
     private function isPaidEntitlement(Subscription $subscription): bool
     {
         return $subscription->provider !== 'system'
             && $subscription->plan
-            && $subscription->plan->priceInCents() > 0;
+            && $this->snapshotMonthlyCents($subscription) > 0;
+    }
+
+    private function snapshotMonthlyCents(Subscription $subscription): int
+    {
+        $unitPrice = (int) ($subscription->unit_price_cents ?? 0);
+
+        return $unitPrice > 0
+            ? $unitPrice
+            : (int) $subscription->plan?->priceInCents();
+    }
+
+    private function checkedValueSeconds(int $seconds, int $unitPriceCents): int
+    {
+        if ($seconds < 0 || $unitPriceCents <= 0
+            || ($seconds > 0 && $seconds > intdiv(PHP_INT_MAX, $unitPriceCents))) {
+            throw new LogicException('Prorated subscription value exceeds the supported range.');
+        }
+
+        return $seconds * $unitPriceCents;
     }
 }

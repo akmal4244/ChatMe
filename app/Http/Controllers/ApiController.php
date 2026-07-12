@@ -6,6 +6,7 @@ use App\Exceptions\InvalidWidgetTicketException;
 use App\Models\Chatbot;
 use App\Services\ChatbotResponseService;
 use App\Services\MessageQuotaService;
+use App\Services\OwnerMessagingLimiter;
 use App\Services\WidgetAbuseService;
 use App\Services\WidgetOriginService;
 use App\Services\WidgetTicketService;
@@ -54,6 +55,7 @@ class ApiController extends Controller
         ChatbotResponseService $responses,
         MessageQuotaService $quotas,
         WidgetAbuseService $abuse,
+        OwnerMessagingLimiter $ownerLimits,
         WidgetOriginService $origins,
         WidgetTicketService $tickets,
     ): JsonResponse {
@@ -92,6 +94,10 @@ class ApiController extends Controller
         }
 
         if ($abuse->deniedBy($request, $chatbot, $claims) !== null) {
+            return response()->json(['error' => __('chatme.api.too_many_requests')], 429);
+        }
+
+        if ($ownerLimits->denied($chatbot)) {
             return response()->json(['error' => __('chatme.api.too_many_requests')], 429);
         }
 

@@ -12,6 +12,7 @@ class TesterAiUsage extends Model
     protected function casts(): array
     {
         return [
+            'user_id' => 'integer',
             'attempts' => 'integer',
         ];
     }

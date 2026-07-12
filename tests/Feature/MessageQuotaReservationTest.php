@@ -129,6 +129,31 @@ class MessageQuotaReservationTest extends TestCase
         $this->assertDatabaseCount('message_quota_reservations', 0);
     }
 
+    public function test_completed_monthly_usage_survives_chatbot_deletion_and_blocks_a_replacement_bot(): void
+    {
+        $chatbot = $this->chatbotWithLimit(1);
+        $owner = $chatbot->user;
+        $service = app(MessageQuotaService::class);
+        $permit = $service->reserve($chatbot, 'widget');
+
+        $this->assertNotNull($permit);
+        $service->complete(
+            $permit,
+            sessionId: 'durable-usage-session',
+            userMessage: 'Mesej yang telah digunakan',
+            botMessage: 'Jawapan yang telah dihantar',
+        );
+        $chatbot->delete();
+        $this->assertDatabaseCount('chat_logs', 0);
+
+        $replacement = Chatbot::create([
+            'user_id' => $owner->id,
+            'name' => 'Replacement Bot',
+        ]);
+
+        $this->assertNull($service->reserve($replacement, 'widget'));
+    }
+
     private function chatbotWithLimit(int $monthlyMessages): Chatbot
     {
         $plan = Plan::create([

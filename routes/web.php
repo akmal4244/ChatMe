@@ -71,7 +71,8 @@ Route::middleware(['auth', 'auth.session', 'session.deadline'])->group(function 
         Route::view('/onboarding', 'onboarding')->name('onboarding');
 
         // Chatbots
-        Route::resource('chatbots', ChatbotController::class);
+        Route::resource('chatbots', ChatbotController::class)
+            ->middlewareFor('store', 'throttle:chatbot-creation');
         Route::post('/chatbots/{chatbot}/toggle', [ChatbotController::class, 'toggle'])->name('chatbots.toggle');
         Route::post('/chatbots/{chatbot}/test-message', ChatbotTestController::class)
             ->middleware('throttle:chatbot-tester')

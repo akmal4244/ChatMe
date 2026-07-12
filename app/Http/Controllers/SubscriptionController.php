@@ -4,12 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\PaymentOrder;
 use App\Models\Plan;
+use App\Models\User;
 use App\Services\Payments\ToyyibPayReconciliationService;
 use App\Services\ToyyibPay\ToyyibPayClient;
 use App\Services\ToyyibPay\ToyyibPayException;
 use App\Support\MalaysianPhone;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -20,6 +22,10 @@ use UnexpectedValueException;
 
 class SubscriptionController extends Controller
 {
+    private const CREATING_STALE_AFTER_MINUTES = 5;
+
+    private const BILL_EXPIRES_AFTER_DAYS = 3;
+
     public function plans(): View
     {
         $plans = Plan::visibleForSale()->get();
@@ -53,14 +59,75 @@ class SubscriptionController extends Controller
         $user = $request->user();
 
         try {
-            $order = $user->paymentOrders()->firstOrCreate([
-                'checkout_key' => $validated['checkout_key'],
-            ], [
-                'plan_id' => $plan->id,
-                'provider' => 'toyyibpay',
-                'amount_cents' => $amountCents,
-                'status' => PaymentOrder::STATUS_CREATING,
-            ]);
+            $order = DB::transaction(function () use ($amountCents, $plan, $user, $validated): PaymentOrder {
+                $lockedUser = User::query()
+                    ->whereKey($user->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                $lockedUser->paymentOrders()
+                    ->where('provider', 'toyyibpay')
+                    ->where('status', PaymentOrder::STATUS_CREATING)
+                    ->where('created_at', '<', now()->subMinutes(self::CREATING_STALE_AFTER_MINUTES))
+                    ->update([
+                        'status' => PaymentOrder::STATUS_FAILED,
+                        'failure_reason' => 'stale_creation',
+                        'updated_at' => now(),
+                    ]);
+                $lockedUser->paymentOrders()
+                    ->where('provider', 'toyyibpay')
+                    ->where('status', PaymentOrder::STATUS_PENDING)
+                    ->where('created_at', '<', now()->subDays(self::BILL_EXPIRES_AFTER_DAYS))
+                    ->update([
+                        'status' => PaymentOrder::STATUS_EXPIRED,
+                        'failure_reason' => 'bill_expired',
+                        'updated_at' => now(),
+                    ]);
+
+                $activeOrder = $lockedUser->paymentOrders()
+                    ->where('plan_id', $plan->id)
+                    ->where('provider', 'toyyibpay')
+                    ->where('amount_cents', $amountCents)
+                    ->whereIn('status', [
+                        PaymentOrder::STATUS_CREATING,
+                        PaymentOrder::STATUS_PENDING,
+                    ])
+                    ->latest('id')
+                    ->first();
+
+                if ($activeOrder) {
+                    return $activeOrder;
+                }
+
+                $recoverableOrder = $lockedUser->paymentOrders()
+                    ->where('plan_id', $plan->id)
+                    ->where('provider', 'toyyibpay')
+                    ->where('amount_cents', $amountCents)
+                    ->where('status', PaymentOrder::STATUS_FAILED)
+                    ->where('failure_reason', 'internal_error')
+                    ->whereNotNull('bill_code')
+                    ->where('created_at', '>=', now()->subDays(self::BILL_EXPIRES_AFTER_DAYS))
+                    ->latest('id')
+                    ->first();
+
+                if ($recoverableOrder) {
+                    $recoverableOrder->forceFill([
+                        'status' => PaymentOrder::STATUS_PENDING,
+                        'failure_reason' => null,
+                    ])->save();
+
+                    return $recoverableOrder;
+                }
+
+                return $lockedUser->paymentOrders()->firstOrCreate([
+                    'checkout_key' => $validated['checkout_key'],
+                ], [
+                    'plan_id' => $plan->id,
+                    'provider' => 'toyyibpay',
+                    'amount_cents' => $amountCents,
+                    'status' => PaymentOrder::STATUS_CREATING,
+                ]);
+            }, 3);
         } catch (Throwable $exception) {
             Log::error('Payment order could not be created.', [
                 'user_id' => $user->id,

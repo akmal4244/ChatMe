@@ -148,6 +148,35 @@ class ToyyibPayCheckoutTest extends TestCase
         Http::assertSentCount(1);
     }
 
+    public function test_different_checkout_keys_reuse_one_pending_bill_for_the_same_user_and_plan(): void
+    {
+        $user = User::factory()->create();
+        $plan = $this->plan('pro', '49.00');
+        Http::fake(['*' => Http::response([['BillCode' => 'PLANPENDING1']])]);
+
+        $firstPayload = $this->checkoutPayload();
+        $secondPayload = $this->checkoutPayload();
+        $this->assertNotSame($firstPayload['checkout_key'], $secondPayload['checkout_key']);
+
+        $this->actingAs($user)
+            ->post(route('subscription.checkout', $plan), $firstPayload)
+            ->assertRedirect('https://dev.toyyibpay.com/PLANPENDING1');
+
+        $this->actingAs($user)
+            ->post(route('subscription.checkout', $plan), $secondPayload)
+            ->assertRedirect('https://dev.toyyibpay.com/PLANPENDING1');
+
+        $this->assertDatabaseCount('payment_orders', 1);
+        $this->assertDatabaseHas('payment_orders', [
+            'user_id' => $user->id,
+            'plan_id' => $plan->id,
+            'checkout_key' => $firstPayload['checkout_key'],
+            'bill_code' => 'PLANPENDING1',
+            'status' => PaymentOrder::STATUS_PENDING,
+        ]);
+        Http::assertSentCount(1);
+    }
+
     public function test_enterprise_checkout_uses_its_server_price(): void
     {
         $user = User::factory()->create();
@@ -339,6 +368,73 @@ class ToyyibPayCheckoutTest extends TestCase
                     && ! str_contains($serialized, 'sensitive local failure')
                     && $context['reason'] === 'internal_error';
             });
+    }
+
+    public function test_retry_reuses_a_recent_provider_bill_when_the_local_pending_save_failed(): void
+    {
+        $user = User::factory()->create();
+        $plan = $this->plan('pro', '49.00');
+        $failOnce = true;
+        PaymentOrder::updating(function (PaymentOrder $order) use (&$failOnce): void {
+            if ($failOnce && $order->status === PaymentOrder::STATUS_PENDING) {
+                $failOnce = false;
+                throw new RuntimeException('simulated local pending save failure');
+            }
+        });
+        Http::fake(['*' => Http::response([['BillCode' => 'RECOVERYBILL1']])]);
+
+        $this->actingAs($user)
+            ->from(route('subscription.plans'))
+            ->post(route('subscription.checkout', $plan), $this->checkoutPayload())
+            ->assertSessionHasErrors('payment');
+
+        $this->actingAs($user)
+            ->post(route('subscription.checkout', $plan), $this->checkoutPayload())
+            ->assertRedirect('https://dev.toyyibpay.com/RECOVERYBILL1');
+
+        $this->assertDatabaseCount('payment_orders', 1);
+        $this->assertDatabaseHas('payment_orders', [
+            'user_id' => $user->id,
+            'plan_id' => $plan->id,
+            'bill_code' => 'RECOVERYBILL1',
+            'status' => PaymentOrder::STATUS_PENDING,
+            'failure_reason' => null,
+        ]);
+        Http::assertSentCount(1);
+    }
+
+    public function test_legacy_active_bill_wins_over_a_recoverable_failed_bill(): void
+    {
+        $user = User::factory()->create();
+        $plan = $this->plan('pro', '49.00');
+        $recoverable = PaymentOrder::create([
+            'user_id' => $user->id,
+            'plan_id' => $plan->id,
+            'checkout_key' => (string) Str::uuid(),
+            'bill_code' => 'RECOVERABLEOLD1',
+            'provider' => 'toyyibpay',
+            'amount_cents' => 4900,
+            'status' => PaymentOrder::STATUS_FAILED,
+            'failure_reason' => 'internal_error',
+        ]);
+        $active = PaymentOrder::create([
+            'user_id' => $user->id,
+            'plan_id' => $plan->id,
+            'checkout_key' => (string) Str::uuid(),
+            'bill_code' => 'ACTIVEBILL1',
+            'provider' => 'toyyibpay',
+            'amount_cents' => 4900,
+            'status' => PaymentOrder::STATUS_PENDING,
+        ]);
+        Http::fake();
+
+        $this->actingAs($user)
+            ->post(route('subscription.checkout', $plan), $this->checkoutPayload())
+            ->assertRedirect('https://dev.toyyibpay.com/ACTIVEBILL1');
+
+        $this->assertSame(PaymentOrder::STATUS_FAILED, $recoverable->fresh()->status);
+        $this->assertSame(PaymentOrder::STATUS_PENDING, $active->fresh()->status);
+        Http::assertNothingSent();
     }
 
     public function test_legacy_cashier_controller_methods_are_removed(): void

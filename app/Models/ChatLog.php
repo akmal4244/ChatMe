@@ -19,6 +19,7 @@ class ChatLog extends Model
     protected function casts(): array
     {
         return [
+            'chatbot_id' => 'integer',
             'role' => 'string',
         ];
     }

@@ -83,13 +83,20 @@ class AppServiceProvider extends ServiceProvider
             ]);
         });
 
-        RateLimiter::for('developer-api', function (Request $request): Limit {
+        RateLimiter::for('developer-api', function (Request $request): array {
             $chatbot = $request->attributes->get('developer_chatbot');
-            $tokenKey = $chatbot instanceof Chatbot
-                ? $chatbot->developer_api_token_hash
+            $tokenHash = $chatbot instanceof Chatbot
+                ? (string) $chatbot->developer_api_token_hash
                 : hash('sha256', (string) $request->bearerToken());
 
-            return Limit::perMinute(60)->by($tokenKey.'|'.($request->ip() ?: 'unknown'));
+            return [
+                Limit::perMinute(max(1, (int) config('chatme.developer_api.limits.ip_per_minute', 60)))
+                    ->by('developer-api-ip|'.$tokenHash.'|'.($request->ip() ?: 'unknown')),
+                Limit::perMinute(max(1, (int) config('chatme.developer_api.limits.token_per_minute', 180)))
+                    ->by('developer-api-token-minute|'.$tokenHash),
+                Limit::perDay(max(1, (int) config('chatme.developer_api.limits.token_daily', 5000)))
+                    ->by('developer-api-token-day|'.$tokenHash),
+            ];
         });
 
         RateLimiter::for('chatbot-tester', function (Request $request): Limit {
@@ -126,6 +133,25 @@ class AppServiceProvider extends ServiceProvider
                     ->response($response),
                 Limit::perMinute(max(1, (int) config('chatme.widget.limits.ingress_bot_per_minute', 600)))
                     ->by($chatbotKey)
+                    ->response($response),
+            ];
+        });
+
+        RateLimiter::for('chatbot-creation', function (Request $request): array {
+            $userKey = $request->user()?->getAuthIdentifier() ?? 'guest';
+            $maxAttempts = max(1, (int) config('chatme.chatbots.limits.creations_per_hour', 10));
+            $response = fn (Request $request, array $headers) => $request->expectsJson()
+                ? response()->json(['error' => __('chatme.api.too_many_requests')], 429, $headers)
+                : back()
+                    ->with('error', 'Terlalu banyak percubaan mencipta chatbot. Sila cuba semula kemudian.')
+                    ->withHeaders($headers);
+
+            return [
+                Limit::perHour($maxAttempts)
+                    ->by('chatbot-creation-user|'.$userKey)
+                    ->response($response),
+                Limit::perHour($maxAttempts)
+                    ->by('chatbot-creation-ip|'.($request->ip() ?: 'unknown'))
                     ->response($response),
             ];
         });

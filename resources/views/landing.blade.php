@@ -174,15 +174,15 @@
                         <ul class="pricing-card__features">
                             <li>
                                 <i class="ph ph-check" aria-hidden="true"></i>
-                                {{ $plan->chatbot_limit === -1 ? 'Chatbot tanpa had' : 'Sehingga '.number_format($plan->chatbot_limit).' chatbot' }}
+                                {{ $plan->chatbot_limit === -1 ? 'Sehingga '.number_format((int) config('chatme.chatbots.absolute_limit', 50)).' chatbot (penggunaan saksama)' : 'Sehingga '.number_format($plan->chatbot_limit).' chatbot' }}
                             </li>
                             <li>
                                 <i class="ph ph-check" aria-hidden="true"></i>
-                                {{ $plan->knowledge_limit === -1 ? 'Soal jawab tanpa had' : 'Sehingga '.number_format($plan->knowledge_limit).' soal jawab' }}
+                                {{ $plan->knowledge_limit === -1 ? 'Sehingga '.number_format((int) config('chatme.knowledge.absolute_limit', 5000)).' soal jawab bagi setiap chatbot' : 'Sehingga '.number_format($plan->knowledge_limit).' soal jawab' }}
                             </li>
                             <li>
                                 <i class="ph ph-check" aria-hidden="true"></i>
-                                {{ $plan->monthly_messages === -1 ? 'Mesej tanpa had' : 'Sehingga '.number_format($plan->monthly_messages).' mesej sebulan' }}
+                                {{ $plan->monthly_messages === -1 ? 'Tiada had bulanan; sehingga '.number_format((int) config('chatme.messaging.limits.owner_daily', 5000)).' mesej sehari bagi setiap akaun' : 'Sehingga '.number_format($plan->monthly_messages).' mesej sebulan' }}
                             </li>
                         </ul>
 

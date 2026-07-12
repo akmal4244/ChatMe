@@ -102,6 +102,34 @@ class PlanLimitTest extends TestCase
         ]);
     }
 
+    public function test_unlimited_plan_still_obeys_the_absolute_chatbot_safety_limit(): void
+    {
+        config()->set('chatme.chatbots.absolute_limit', 2);
+        $plan = Plan::create([
+            'name' => 'Unlimited Chatbots',
+            'slug' => 'unlimited-chatbots',
+            'chatbot_limit' => -1,
+        ]);
+        $user = User::factory()->create();
+        Subscription::create([
+            'user_id' => $user->id,
+            'plan_id' => $plan->id,
+            'provider' => 'system',
+            'status' => 'active',
+            'starts_at' => now(),
+            'ends_at' => null,
+        ]);
+        Chatbot::create(['user_id' => $user->id, 'name' => 'Bot One']);
+        Chatbot::create(['user_id' => $user->id, 'name' => 'Bot Two']);
+
+        $this->assertFalse($user->canCreateChatbot());
+        $this->actingAs($user)
+            ->post(route('chatbots.store'), ['name' => 'Unsafe Third Bot'])
+            ->assertSessionHasErrors('name');
+
+        $this->assertDatabaseCount('chatbots', 2);
+    }
+
     public function test_one_message_plan_rejects_chat_when_current_month_quota_is_exhausted_without_writes(): void
     {
         $user = $this->subscribedUserWithMonthlyMessageLimit(1);

@@ -3,10 +3,12 @@
 namespace Tests\Feature;
 
 use App\Models\Chatbot;
+use App\Models\ChatLog;
 use App\Models\KnowledgeItem;
 use App\Models\Plan;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
@@ -101,11 +103,13 @@ class WidgetTicketSecurityTest extends TestCase
 
     public function test_ticket_and_bot_global_limiters_apply_even_when_ips_are_distributed(): void
     {
+        config()->set('app.debug', false);
         config()->set('chatme.widget.limits.ticket_per_minute', 2);
         config()->set('chatme.widget.limits.bot_per_minute', 2);
         config()->set('chatme.widget.limits.bot_daily_unlimited', 100);
         $chatbot = $this->unlimitedChatbot('*');
         $origin = 'https://site.example.test';
+        Http::fake();
 
         foreach (['203.0.113.21', '203.0.113.22'] as $index => $ip) {
             $config = $this->widgetConfig($chatbot, $origin, $ip);
@@ -115,27 +119,65 @@ class WidgetTicketSecurityTest extends TestCase
 
         $thirdIp = '203.0.113.23';
         $third = $this->widgetConfig($chatbot, $origin, $thirdIp);
+        $logsBeforeBotLimit = ChatLog::count();
         $this->sendWithTicket($chatbot, $origin, $thirdIp, $third, 'globally-limited')
             ->assertStatus(429)
             ->assertExactJson(['error' => 'Terlalu banyak permintaan. Sila cuba lagi sebentar lagi.']);
+        $this->assertSame($logsBeforeBotLimit, ChatLog::count());
+        $this->assertDatabaseCount('message_quota_reservations', 0);
 
         config()->set('chatme.widget.limits.bot_per_minute', 100);
         $sameIp = '203.0.113.24';
         $sameTicket = $this->widgetConfig($chatbot, $origin, $sameIp);
         $this->sendWithTicket($chatbot, $origin, $sameIp, $sameTicket, 'ticket-1')->assertOk();
         $this->sendWithTicket($chatbot, $origin, $sameIp, $sameTicket, 'ticket-2')->assertOk();
+        $logsBeforeTicketLimit = ChatLog::count();
         $this->sendWithTicket($chatbot, $origin, $sameIp, $sameTicket, 'ticket-3')
-            ->assertStatus(429);
+            ->assertStatus(429)
+            ->assertExactJson(['error' => 'Terlalu banyak permintaan. Sila cuba lagi sebentar lagi.']);
+        $this->assertSame($logsBeforeTicketLimit, ChatLog::count());
+        $this->assertDatabaseCount('message_quota_reservations', 0);
+        Http::assertNothingSent();
+    }
+
+    public function test_chatbot_ip_limiter_returns_a_safe_malay_429_without_side_effects(): void
+    {
+        config()->set('app.debug', false);
+        config()->set('chatme.messaging.limits.owner_per_minute', 100);
+        config()->set('chatme.messaging.limits.owner_daily', 100);
+        config()->set('chatme.widget.limits.ticket_per_minute', 100);
+        config()->set('chatme.widget.limits.chatbot_ip_per_minute', 1);
+        config()->set('chatme.widget.limits.bot_per_minute', 100);
+        config()->set('chatme.widget.limits.bot_daily_unlimited', 100);
+        $chatbot = $this->unlimitedChatbot('*');
+        $origin = 'https://chatbot-ip-limit.example.test';
+        $ip = '203.0.113.25';
+        $ticket = $this->widgetConfig($chatbot, $origin, $ip);
+        Http::fake();
+
+        $this->sendWithTicket($chatbot, $origin, $ip, $ticket, 'ip-allowed')
+            ->assertOk();
+        $logsBeforeDeniedRequest = ChatLog::count();
+
+        $this->sendWithTicket($chatbot, $origin, $ip, $ticket, 'ip-denied')
+            ->assertStatus(429)
+            ->assertExactJson(['error' => 'Terlalu banyak permintaan. Sila cuba lagi sebentar lagi.']);
+
+        $this->assertSame($logsBeforeDeniedRequest, ChatLog::count());
+        $this->assertDatabaseCount('message_quota_reservations', 0);
+        Http::assertNothingSent();
     }
 
     public function test_plan_aware_daily_bot_limit_applies_across_tickets_and_resets_in_kuala_lumpur(): void
     {
+        config()->set('app.debug', false);
         config()->set('chatme.widget.limits.ticket_per_minute', 100);
         config()->set('chatme.widget.limits.chatbot_ip_per_minute', 100);
         config()->set('chatme.widget.limits.bot_per_minute', 100);
         config()->set('chatme.widget.limits.bot_daily_unlimited', 2);
         $chatbot = $this->unlimitedChatbot('*');
         $origin = 'https://daily-limit.example.test';
+        Http::fake();
 
         foreach (['203.0.113.31', '203.0.113.32'] as $index => $ip) {
             $ticket = $this->widgetConfig($chatbot, $origin, $ip);
@@ -145,9 +187,13 @@ class WidgetTicketSecurityTest extends TestCase
 
         $blockedIp = '203.0.113.33';
         $blockedTicket = $this->widgetConfig($chatbot, $origin, $blockedIp);
+        $logsBeforeDailyLimit = ChatLog::count();
         $this->sendWithTicket($chatbot, $origin, $blockedIp, $blockedTicket, 'daily-blocked')
             ->assertStatus(429)
             ->assertExactJson(['error' => 'Terlalu banyak permintaan. Sila cuba lagi sebentar lagi.']);
+        $this->assertSame($logsBeforeDailyLimit, ChatLog::count());
+        $this->assertDatabaseCount('message_quota_reservations', 0);
+        Http::assertNothingSent();
 
         $this->travelTo(now('Asia/Kuala_Lumpur')->addDay()->startOfDay()->addSecond());
         $nextDayIp = '203.0.113.34';

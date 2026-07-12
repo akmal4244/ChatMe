@@ -10,6 +10,7 @@ use App\Models\User;
 use Database\Seeders\PlanSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
@@ -224,6 +225,7 @@ class DeveloperApiTest extends TestCase
     public function test_developer_api_is_rate_limited_per_token_and_ip(): void
     {
         config()->set('app.debug', false);
+        Http::fake();
         [, $chatbot] = $this->chatbotForPlan('pro');
         $token = $chatbot->rotateDeveloperApiToken();
 
@@ -236,10 +238,97 @@ class DeveloperApiTest extends TestCase
                 ->assertOk();
         }
 
+        $logCountBeforeDeniedRequest = ChatLog::count();
         $this->withToken($token)
-            ->postJson(route('api.developer.chat'), ['message' => 'Apakah waktu operasi?'])
+            ->postJson(route('api.developer.chat'), [
+                'message' => 'Apakah waktu operasi?',
+                'session_id' => 'rate-denied',
+            ])
             ->assertStatus(429)
-            ->assertJsonPath('error', 'Terlalu banyak permintaan. Sila cuba lagi sebentar lagi.');
+            ->assertExactJson(['error' => 'Terlalu banyak permintaan. Sila cuba lagi sebentar lagi.']);
+
+        $this->assertSame($logCountBeforeDeniedRequest, ChatLog::count());
+        $this->assertDatabaseMissing('chat_logs', ['session_id' => 'rate-denied']);
+        $this->assertDatabaseCount('message_quota_reservations', 0);
+        Http::assertNothingSent();
+    }
+
+    public function test_developer_api_token_rate_limit_cannot_be_bypassed_by_rotating_ip_addresses(): void
+    {
+        config()->set('app.debug', false);
+        config()->set('chatme.developer_api.limits', [
+            'ip_per_minute' => 2,
+            'token_per_minute' => 3,
+            'token_daily' => 100,
+        ]);
+        [, $chatbot] = $this->chatbotForPlan('enterprise');
+        $token = $chatbot->rotateDeveloperApiToken();
+
+        foreach (['203.0.113.10', '203.0.113.10', '203.0.113.11'] as $requestNumber => $ipAddress) {
+            $this->withServerVariables(['REMOTE_ADDR' => $ipAddress])
+                ->withToken($token)
+                ->postJson(route('api.developer.chat'), [
+                    'message' => 'Apakah waktu operasi?',
+                    'session_id' => 'distributed-rate-'.($requestNumber + 1),
+                ])
+                ->assertOk();
+        }
+
+        $this->fakeEnabledAi();
+
+        $response = $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.12'])
+            ->withToken($token)
+            ->postJson(route('api.developer.chat'), [
+                'message' => 'Boleh jelaskan waktu yang sesuai?',
+                'session_id' => 'distributed-rate-denied',
+            ])
+            ->assertStatus(429)
+            ->assertExactJson(['error' => 'Terlalu banyak permintaan. Sila cuba lagi sebentar lagi.']);
+
+        $this->assertStringNotContainsString($token, $response->getContent());
+        Http::assertNothingSent();
+        $this->assertDatabaseCount('chat_logs', 6);
+        $this->assertDatabaseCount('message_quota_reservations', 0);
+        $this->assertDatabaseMissing('chat_logs', ['session_id' => 'distributed-rate-denied']);
+    }
+
+    public function test_unlimited_plan_developer_token_has_a_daily_hard_safety_cap(): void
+    {
+        config()->set('app.debug', false);
+        config()->set('chatme.developer_api.limits', [
+            'ip_per_minute' => 10,
+            'token_per_minute' => 10,
+            'token_daily' => 2,
+        ]);
+        [, $chatbot] = $this->chatbotForPlan('enterprise');
+        $token = $chatbot->rotateDeveloperApiToken();
+
+        foreach (['198.51.100.20', '198.51.100.21'] as $requestNumber => $ipAddress) {
+            $this->withServerVariables(['REMOTE_ADDR' => $ipAddress])
+                ->withToken($token)
+                ->postJson(route('api.developer.chat'), [
+                    'message' => 'Apakah waktu operasi?',
+                    'session_id' => 'daily-cap-'.($requestNumber + 1),
+                ])
+                ->assertOk();
+        }
+
+        $this->fakeEnabledAi();
+
+        $response = $this->withServerVariables(['REMOTE_ADDR' => '198.51.100.22'])
+            ->withToken($token)
+            ->postJson(route('api.developer.chat'), [
+                'message' => 'Boleh jelaskan waktu yang sesuai?',
+                'session_id' => 'daily-cap-denied',
+            ])
+            ->assertStatus(429)
+            ->assertExactJson(['error' => 'Terlalu banyak permintaan. Sila cuba lagi sebentar lagi.']);
+
+        $this->assertStringNotContainsString($token, $response->getContent());
+        Http::assertNothingSent();
+        $this->assertDatabaseCount('chat_logs', 4);
+        $this->assertDatabaseCount('message_quota_reservations', 0);
+        $this->assertDatabaseMissing('chat_logs', ['session_id' => 'daily-cap-denied']);
     }
 
     public function test_invalid_developer_tokens_are_rate_limited_by_ip_before_authentication(): void
@@ -374,5 +463,23 @@ class DeveloperApiTest extends TestCase
         ])->save();
 
         return $raw;
+    }
+
+    private function fakeEnabledAi(): void
+    {
+        config()->set('services.cloudflare_ai', [
+            'enabled' => true,
+            'account_id' => 'developer-rate-limit-account',
+            'token' => 'developer-rate-limit-provider-token',
+            'model' => '@cf/qwen/qwen3-30b-a3b-fp8',
+            'timeout' => 8,
+            'max_tokens' => 220,
+        ]);
+        Http::fake(['*' => Http::response([
+            'success' => true,
+            'errors' => [],
+            'messages' => [],
+            'result' => ['response' => 'Jawapan AI yang tidak patut dipanggil.'],
+        ])]);
     }
 }

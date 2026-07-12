@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\PaymentOrder;
+use App\Models\User;
 use App\Services\Payments\PaymentActivationService;
 use App\Services\ToyyibPay\ToyyibPayClient;
 use App\Services\ToyyibPay\ToyyibPayException;
@@ -83,47 +84,57 @@ class ToyyibPayCallbackController extends Controller
 
         try {
             $amountCents = Ringgit::decimalToCents($validated['amount']);
-            $matched = DB::transaction(function () use (
-                $validated,
-                $amountCents,
-                $activationService,
-                $providerPaidAt,
-            ): bool {
-                $order = PaymentOrder::query()
-                    ->where('external_reference', $validated['order_id'])
-                    ->lockForUpdate()
-                    ->first();
+            $ownerId = (int) PaymentOrder::query()
+                ->where('external_reference', $validated['order_id'])
+                ->value('user_id');
+            $matched = $ownerId > 0 && DB::transaction(
+                function () use (
+                    $validated,
+                    $amountCents,
+                    $activationService,
+                    $providerPaidAt,
+                    $ownerId,
+                ): bool {
+                    $owner = User::query()->lockForUpdate()->find($ownerId);
+                    $order = PaymentOrder::query()
+                        ->where('external_reference', $validated['order_id'])
+                        ->lockForUpdate()
+                        ->first();
 
-                if (! $order
-                    || $order->provider !== 'toyyibpay'
-                    || $order->bill_code !== $validated['billcode']
-                    || $order->amount_cents !== $amountCents) {
-                    return false;
-                }
+                    if (! $owner
+                        || ! $order
+                        || $order->user_id !== $owner->id
+                        || $order->provider !== 'toyyibpay'
+                        || $order->bill_code !== $validated['billcode']
+                        || $order->amount_cents !== $amountCents) {
+                        return false;
+                    }
 
-                if ($validated['status'] === '1') {
-                    $activationService->activate(
-                        $order,
-                        $validated['refno'],
-                        $providerPaidAt,
-                    );
+                    if ($validated['status'] === '1') {
+                        $activationService->activate(
+                            $order,
+                            $validated['refno'],
+                            $providerPaidAt,
+                        );
+
+                        return true;
+                    }
+
+                    if ($order->status !== PaymentOrder::STATUS_PAID) {
+                        $order->forceFill([
+                            'status' => $validated['status'] === '2'
+                                ? PaymentOrder::STATUS_PENDING
+                                : PaymentOrder::STATUS_FAILED,
+                            'failure_reason' => $validated['status'] === '2'
+                                ? null
+                                : 'provider_failed',
+                        ])->save();
+                    }
 
                     return true;
-                }
-
-                if ($order->status !== PaymentOrder::STATUS_PAID) {
-                    $order->forceFill([
-                        'status' => $validated['status'] === '2'
-                            ? PaymentOrder::STATUS_PENDING
-                            : PaymentOrder::STATUS_FAILED,
-                        'failure_reason' => $validated['status'] === '2'
-                            ? null
-                            : 'provider_failed',
-                    ])->save();
-                }
-
-                return true;
-            });
+                },
+                3,
+            );
 
             if (! $matched) {
                 Log::warning('Verified ToyyibPay callback did not match its payment order.', [

@@ -50,6 +50,7 @@ class HomepageChatbotSeeder extends Seeder
                 'system_role' => self::CHATBOT_ROLE,
                 'developer_api_token_hash' => null,
                 'developer_api_token_prefix' => null,
+                'api_key' => filled($chatbot->api_key) ? $chatbot->api_key : Chatbot::newApiKey(),
                 'name' => 'ChatMe Assistant',
                 'slug' => $slug,
                 'avatar_url' => 'akmal3d.png',
@@ -185,6 +186,7 @@ class HomepageChatbotSeeder extends Seeder
             'system_role' => self::CHATBOT_ROLE,
             'name' => 'ChatMe Assistant',
             'slug' => $slug,
+            'api_key' => Chatbot::newApiKey(),
         ])->save();
 
         return [$chatbot, false];
@@ -213,9 +215,7 @@ class HomepageChatbotSeeder extends Seeder
             'provider_reference' => self::ENTITLEMENT_REFERENCE,
             'status' => 'active',
             'starts_at' => $subscription->starts_at ?? now(),
-            'ends_at' => $subscription->ends_at && $subscription->ends_at->isFuture()
-                ? $subscription->ends_at
-                : now()->addYears(100),
+            'ends_at' => null,
         ])->save();
     }
 

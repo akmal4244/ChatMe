@@ -179,7 +179,7 @@ return [
     [
         'source_key' => 'homepage:026',
         'question' => 'Apakah perbezaan pelan Pro dan Enterprise?',
-        'answer' => 'Pro menyediakan sehingga lima chatbot, 500 soal jawab dan 10,000 mesej sebulan serta akses API. Enterprise menyediakan chatbot, soal jawab dan mesej tanpa had, akses API dan pilihan untuk menyembunyikan jenama ChatMe.',
+        'answer' => 'Pro menyediakan sehingga lima chatbot, 500 soal jawab dan 10,000 mesej sebulan serta akses API. Enterprise tidak mempunyai had mesej bulanan dan menyediakan sehingga 50 chatbot, 5,000 soal jawab bagi setiap chatbot serta sehingga 5,000 mesej sehari bagi setiap akaun di bawah penggunaan saksama. Enterprise turut menyediakan akses API dan pilihan untuk menyembunyikan jenama ChatMe.',
         'category' => 'Harga',
         'tags' => 'pro,enterprise,beza,banding',
     ],

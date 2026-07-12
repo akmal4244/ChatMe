@@ -240,6 +240,33 @@ class PaymentActivationTest extends TestCase
         ));
     }
 
+    public function test_proration_uses_the_price_paid_snapshot_after_catalog_price_changes(): void
+    {
+        $user = User::factory()->create();
+        $enterprise = $this->paidPlan('enterprise-snapshot', '149.00');
+        $pro = $this->paidPlan('pro-snapshot', '49.00');
+        $enterpriseTerm = $this->activationService()->activate(
+            $this->paymentOrder($user, $enterprise),
+            'TXN-ENTERPRISE-SNAPSHOT',
+        );
+
+        $switchAt = $this->now->addDays(14);
+        Carbon::setTestNow($switchAt);
+        $remainingSeconds = $enterpriseTerm->ends_at->getTimestamp() - $switchAt->getTimestamp();
+        $expectedCreditSeconds = intdiv($remainingSeconds * 14900, 4900);
+        $enterprise->update(['price' => '999.00']);
+
+        $proTerm = $this->activationService()->activate(
+            $this->paymentOrder($user, $pro),
+            'TXN-PRO-SNAPSHOT',
+        );
+
+        $this->assertTrue($proTerm->ends_at->equalTo(
+            $switchAt->addMonthNoOverflow()->addSeconds($expectedCreditSeconds),
+        ));
+        $this->assertTrue($proTerm->ends_at->lt($switchAt->addMonthsNoOverflow(4)));
+    }
+
     public function test_pending_and_failed_orders_grant_no_access_but_a_later_verified_success_can_activate(): void
     {
         $user = User::factory()->create();

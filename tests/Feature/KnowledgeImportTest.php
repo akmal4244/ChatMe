@@ -216,6 +216,22 @@ class KnowledgeImportTest extends TestCase
         $this->assertDatabaseCount('knowledge_items', 5);
     }
 
+    public function test_unlimited_plan_still_obeys_the_absolute_operational_safety_limit(): void
+    {
+        config()->set('chatme.knowledge.absolute_limit', 3);
+        $this->plan->update(['knowledge_limit' => -1]);
+        $this->createKnowledgeItem('Existing question one');
+        $this->createKnowledgeItem('Existing question two');
+        $this->createKnowledgeItem('Existing question three');
+
+        $this->postImport($this->encodeRows([
+            ['question' => 'Unsafe extra question', 'answer' => 'Must not be written'],
+        ]))->assertSessionHasErrors('json_data');
+
+        $this->assertDatabaseCount('knowledge_items', 3);
+        $this->assertDatabaseMissing('knowledge_items', ['question' => 'Unsafe extra question']);
+    }
+
     public function test_user_quota_method_counts_the_complete_requested_batch(): void
     {
         $this->plan->update(['knowledge_limit' => 2]);

@@ -16,6 +16,7 @@ class Subscription extends Model
     protected $fillable = [
         'user_id',
         'plan_id',
+        'unit_price_cents',
         'provider',
         'provider_reference',
         'status',
@@ -29,6 +30,9 @@ class Subscription extends Model
     protected function casts(): array
     {
         return [
+            'user_id' => 'integer',
+            'plan_id' => 'integer',
+            'unit_price_cents' => 'integer',
             'trial_ends_at' => 'datetime',
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
@@ -63,7 +67,9 @@ class Subscription extends Model
             return false;
         }
 
-        if (! $this->ends_at && (! $this->plan || $this->plan->priceInCents() > 0)) {
+        if (! $this->ends_at
+            && $this->provider !== 'system'
+            && (! $this->plan || $this->plan->priceInCents() > 0)) {
             return false;
         }
 

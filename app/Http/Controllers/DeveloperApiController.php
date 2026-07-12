@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Chatbot;
 use App\Services\ChatbotResponseService;
 use App\Services\MessageQuotaService;
+use App\Services\OwnerMessagingLimiter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -17,6 +18,7 @@ class DeveloperApiController extends Controller
         Request $request,
         ChatbotResponseService $responses,
         MessageQuotaService $quotas,
+        OwnerMessagingLimiter $ownerLimits,
     ): JsonResponse {
         $chatbot = $request->attributes->get('developer_chatbot');
         abort_unless($chatbot instanceof Chatbot, 401);
@@ -25,6 +27,10 @@ class DeveloperApiController extends Controller
             'message' => ['required', 'string', 'max:1000'],
             'session_id' => ['nullable', 'string', 'max:100'],
         ]);
+
+        if ($ownerLimits->denied($chatbot)) {
+            return response()->json(['error' => __('chatme.api.too_many_requests')], 429);
+        }
 
         $permit = $quotas->reserve($chatbot, 'developer_api');
         if ($permit === null) {

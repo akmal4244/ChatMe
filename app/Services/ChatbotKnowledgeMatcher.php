@@ -13,6 +13,8 @@ class ChatbotKnowledgeMatcher
 
     private const UNCERTAIN_CONFIDENCE = 0.20;
 
+    private const MAX_SEARCH_TERMS = 12;
+
     /** @var list<string> */
     private const STOP_WORDS = [
         'a', 'ada', 'an', 'and', 'are', 'atau', 'awak', 'boleh', 'bot', 'buat',
@@ -47,6 +49,7 @@ class ChatbotKnowledgeMatcher
 
     public function match(Chatbot $chatbot, string $message): KnowledgeMatchResult
     {
+        $lexicalTokens = $this->lexicalTokens($message);
         $normalizedMessage = $this->normalize($message);
 
         if ($normalizedMessage === '') {
@@ -54,8 +57,47 @@ class ChatbotKnowledgeMatcher
         }
 
         $messageTokens = $this->meaningfulTokens($normalizedMessage);
+        $normalizedTokens = preg_split('/\s+/u', $normalizedMessage, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        $candidateLimit = max(
+            1,
+            min(1000, (int) config('chatme.knowledge.matcher_candidate_limit', 250)),
+        );
+        $normalizedSearchTokens = $messageTokens !== []
+            ? $messageTokens
+            : array_values(array_unique($normalizedTokens));
+        $searchTerms = array_slice(
+            array_values(array_unique([...$normalizedSearchTokens, ...$lexicalTokens])),
+            0,
+            self::MAX_SEARCH_TERMS,
+        );
+        if ($searchTerms === []) {
+            return $this->noMatch();
+        }
+
+        $relevanceParts = ['CASE WHEN LOWER(question) = ? THEN 1000 ELSE 0 END'];
+        $relevanceBindings = [$normalizedMessage];
+        foreach ($searchTerms as $term) {
+            $like = '%'.$term.'%';
+            $relevanceParts[] = 'CASE WHEN LOWER(question) LIKE ? THEN 10 ELSE 0 END';
+            $relevanceParts[] = "CASE WHEN LOWER(COALESCE(tags, '')) LIKE ? THEN 3 ELSE 0 END";
+            $relevanceBindings[] = $like;
+            $relevanceBindings[] = $like;
+        }
+
         $scored = $chatbot->knowledgeItems()
+            ->select(['id', 'chatbot_id', 'question', 'answer', 'tags'])
             ->where('is_active', true)
+            ->where(function ($query) use ($searchTerms): void {
+                foreach ($searchTerms as $term) {
+                    $like = '%'.$term.'%';
+                    $query->orWhereRaw('LOWER(question) LIKE ?', [$like])
+                        ->orWhereRaw("LOWER(COALESCE(tags, '')) LIKE ?", [$like]);
+                }
+            })
+            ->orderByRaw(implode(' + ', $relevanceParts).' DESC', $relevanceBindings)
+            ->orderBy('id')
+            ->limit($candidateLimit)
             ->get()
             ->map(function (KnowledgeItem $item) use ($normalizedMessage, $messageTokens): array {
                 $question = $this->normalize($item->question);
@@ -171,6 +213,20 @@ class ChatbotKnowledgeMatcher
         }, $tokens);
 
         return implode(' ', $tokens);
+    }
+
+    /** @return list<string> */
+    private function lexicalTokens(string $text): array
+    {
+        if (class_exists(\Normalizer::class)) {
+            $text = \Normalizer::normalize($text, \Normalizer::FORM_KC) ?: $text;
+        }
+
+        $text = mb_strtolower(str_replace(['’', '‘', '`'], "'", $text));
+        $text = preg_replace('/[^\p{L}\p{N}]+/u', ' ', $text) ?? $text;
+        $tokens = preg_split('/\s+/u', trim($text), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return array_values(array_unique($tokens));
     }
 
     /** @return list<string> */

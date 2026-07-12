@@ -19,6 +19,7 @@ class KnowledgeItem extends Model
     protected function casts(): array
     {
         return [
+            'chatbot_id' => 'integer',
             'is_active' => 'boolean',
         ];
     }

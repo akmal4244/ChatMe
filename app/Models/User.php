@@ -81,8 +81,11 @@ class User extends Authenticatable implements MustVerifyEmail
             ->where(function ($query) use ($now) {
                 $query->where('subscriptions.ends_at', '>', $now)
                     ->orWhere(function ($query): void {
-                        $query->where('plans.price', '<=', 0)
-                            ->whereNull('subscriptions.ends_at');
+                        $query->whereNull('subscriptions.ends_at')
+                            ->where(function ($query): void {
+                                $query->where('subscriptions.provider', 'system')
+                                    ->orWhere('plans.price', '<=', 0);
+                            });
                     });
             })
             ->orderByRaw('CASE WHEN plans.price > 0 THEN 1 ELSE 0 END DESC')
@@ -111,11 +114,18 @@ class User extends Authenticatable implements MustVerifyEmail
         if (! $plan) {
             return false;
         }
+
+        $chatbotCount = $this->chatbots()->count();
+        $absoluteLimit = max(1, (int) config('chatme.chatbots.absolute_limit', 50));
+        if ($chatbotCount >= $absoluteLimit) {
+            return false;
+        }
+
         if ($plan->chatbot_limit === -1) {
             return true;
         }
 
-        return $this->chatbots()->count() < $plan->chatbot_limit;
+        return $chatbotCount < $plan->chatbot_limit;
     }
 
     public function canSendChatMessage(): bool
@@ -138,8 +148,12 @@ class User extends Authenticatable implements MustVerifyEmail
             ->whereHas('chatbot', fn ($query) => $query->where('user_id', $this->id))
             ->whereBetween('created_at', [$monthStartsAt, $monthEndsAt])
             ->count();
+        $durableUsage = MessageUsage::query()
+            ->where('user_id', $this->id)
+            ->where('usage_month', $businessNow->copy()->startOfMonth()->toDateString())
+            ->value('message_count');
 
-        return $messagesThisMonth < $plan->monthly_messages;
+        return max($messagesThisMonth, (int) ($durableUsage ?? 0)) < $plan->monthly_messages;
     }
 
     public function canAddKnowledgeItems(Chatbot $chatbot, int $count = 1): bool
@@ -153,10 +167,16 @@ class User extends Authenticatable implements MustVerifyEmail
             return false;
         }
 
+        $currentCount = $chatbot->knowledgeItems()->count();
+        $absoluteLimit = max(1, (int) config('chatme.knowledge.absolute_limit', 5000));
+        if ($currentCount + $count > $absoluteLimit) {
+            return false;
+        }
+
         if ($plan->knowledge_limit === -1) {
             return true;
         }
 
-        return $chatbot->knowledgeItems()->count() + $count <= $plan->knowledge_limit;
+        return $currentCount + $count <= $plan->knowledge_limit;
     }
 }
