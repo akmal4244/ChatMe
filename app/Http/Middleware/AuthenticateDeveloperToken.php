@@ -32,7 +32,7 @@ class AuthenticateDeveloperToken
             ->where('developer_api_token_hash', hash('sha256', $token))
             ->first();
 
-        if (! $chatbot || ! $chatbot->is_active) {
+        if (! $chatbot || ! $chatbot->is_active || filled($chatbot->system_role)) {
             return $this->denied($rateLimitKey, 401);
         }
 

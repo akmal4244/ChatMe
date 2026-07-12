@@ -48,6 +48,8 @@ class HomepageChatbotSeeder extends Seeder
             $chatbot->forceFill([
                 'user_id' => $owner->id,
                 'system_role' => self::CHATBOT_ROLE,
+                'developer_api_token_hash' => null,
+                'developer_api_token_prefix' => null,
                 'name' => 'ChatMe Assistant',
                 'slug' => $slug,
                 'avatar_url' => 'akmal3d.png',

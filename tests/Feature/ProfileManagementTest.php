@@ -154,6 +154,44 @@ class ProfileManagementTest extends TestCase
         $this->assertSame('Nama Tanpa Tukar E-mel', $user->fresh()->name);
     }
 
+    public function test_email_change_current_password_attempts_have_a_cross_ip_user_ceiling(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'pemilik@example.test',
+            'password' => 'kata-laluan-semasa',
+        ]);
+
+        foreach (range(1, 10) as $attempt) {
+            $this->actingAs($user)
+                ->withServerVariables(['REMOTE_ADDR' => "203.0.113.{$attempt}"])
+                ->patch(route('profile.update'), [
+                    'name' => 'Pemilik',
+                    'email' => 'baharu@example.test',
+                    'current_password' => 'salah',
+                    'company' => null,
+                    'website' => null,
+                ])->assertSessionHasErrors('current_password')
+                ->assertHeaderMissing('Retry-After');
+        }
+
+        $this->actingAs($user)
+            ->withServerVariables(['REMOTE_ADDR' => '203.0.113.99'])
+            ->patch(route('profile.update'), [
+                'name' => 'Pemilik',
+                'email' => 'baharu@example.test',
+                'current_password' => 'salah',
+                'company' => null,
+                'website' => null,
+            ])->assertRedirect()
+            ->assertHeader('Retry-After')
+            ->assertSessionHas(
+                'error',
+                'Terlalu banyak perubahan profil. Sila cuba semula kemudian.',
+            );
+
+        $this->assertSame('pemilik@example.test', $user->fresh()->email);
+    }
+
     public function test_system_account_can_save_profile_when_its_reserved_email_is_unchanged(): void
     {
         config(['chatme.admin.email' => 'primary.admin@example.test']);
@@ -269,6 +307,35 @@ class ProfileManagementTest extends TestCase
         $user->refresh();
         $this->assertTrue(Hash::check('kata-laluan-asal', $user->password));
         $this->assertSame('token-asal', $user->remember_token);
+    }
+
+    public function test_sensitive_current_password_attempts_have_a_shared_cross_ip_user_ceiling(): void
+    {
+        $user = User::factory()->create(['password' => 'kata-laluan-semasa']);
+
+        foreach (range(1, 20) as $attempt) {
+            $this->actingAs($user)
+                ->withServerVariables(['REMOTE_ADDR' => "198.51.100.{$attempt}"])
+                ->put(route('profile.password.update'), [
+                    'current_password' => 'salah',
+                    'password' => 'KataLaluanBaharu123!',
+                    'password_confirmation' => 'KataLaluanBaharu123!',
+                ])->assertSessionHasErrors('current_password')
+                ->assertHeaderMissing('Retry-After');
+        }
+
+        $this->actingAs($user)
+            ->withServerVariables(['REMOTE_ADDR' => '198.51.100.99'])
+            ->put(route('profile.password.update'), [
+                'current_password' => 'salah',
+                'password' => 'KataLaluanBaharu123!',
+                'password_confirmation' => 'KataLaluanBaharu123!',
+            ])->assertRedirect()
+            ->assertHeader('Retry-After')
+            ->assertSessionHas(
+                'error',
+                'Terlalu banyak percubaan tindakan sensitif. Sila cuba semula kemudian.',
+            );
     }
 
     public function test_password_validation_names_the_new_password_field_in_malay(): void

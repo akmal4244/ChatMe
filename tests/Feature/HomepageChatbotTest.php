@@ -116,6 +116,7 @@ class HomepageChatbotTest extends TestCase
     public function test_explicit_legacy_adoption_preserves_key_logs_and_unmarked_knowledge(): void
     {
         [$chatbot, $legacyOwner, $customKnowledge, $legacyKnowledgeIds] = $this->legacyProductionShape();
+        $legacyDeveloperToken = $chatbot->rotateDeveloperApiToken();
         config()->set('chatme.homepage_chatbot.legacy_chatbot_id', $chatbot->id);
 
         $this->seed(HomepageChatbotSeeder::class);
@@ -129,6 +130,8 @@ class HomepageChatbotTest extends TestCase
         $this->assertNotSame($legacyOwner->id, $chatbot->user_id);
         $this->assertFalse($systemOwner->is_admin);
         $this->assertSame('TEST_KEY', $chatbot->api_key);
+        $this->assertNull($chatbot->developer_api_token_hash);
+        $this->assertNull($chatbot->developer_api_token_prefix);
         $this->assertSame(200, $chatbot->chatLogs()->count());
         $this->assertDatabaseHas('knowledge_items', [
             'id' => $customKnowledge->id,
@@ -155,6 +158,11 @@ class HomepageChatbotTest extends TestCase
         $this->assertSame('enterprise', $systemEntitlement->plan->slug);
         $this->assertSame('system', $systemEntitlement->provider);
         $this->assertSame('active', $systemEntitlement->status);
+
+        $this->withToken($legacyDeveloperToken)
+            ->postJson(route('api.developer.chat'), ['message' => 'test'])
+            ->assertUnauthorized()
+            ->assertExactJson(['error' => 'Akses API tidak dibenarkan.']);
     }
 
     public function test_explicit_adoption_rejects_a_conflicting_reserved_entitlement(): void
@@ -299,6 +307,31 @@ class HomepageChatbotTest extends TestCase
 
         $chatbot->update(['is_active' => false]);
         $this->get('/')->assertOk()->assertDontSee($widgetUrl, false);
+    }
+
+    public function test_homepage_never_embeds_an_active_unmarked_official_slug(): void
+    {
+        $owner = User::factory()->create();
+        $unmarked = Chatbot::create([
+            'user_id' => $owner->id,
+            'name' => 'Preclaimed Homepage',
+            'slug' => 'chatme-homepage',
+            'is_active' => true,
+        ]);
+        $widgetUrl = route('widget.script', ['chatbot' => $unmarked->api_key]);
+
+        $this->get('/')->assertOk()->assertDontSee($widgetUrl, false);
+    }
+
+    public function test_system_chatbot_developer_token_is_rejected_even_if_a_hash_is_forced(): void
+    {
+        $chatbot = $this->freshHomepageChatbot();
+        $forcedToken = $chatbot->rotateDeveloperApiToken();
+
+        $this->withToken($forcedToken)
+            ->postJson(route('api.developer.chat'), ['message' => 'test'])
+            ->assertUnauthorized()
+            ->assertExactJson(['error' => 'Akses API tidak dibenarkan.']);
     }
 
     public function test_homepage_chatbot_accepts_the_real_origin_and_rejects_other_sites(): void

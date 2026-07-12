@@ -12,6 +12,7 @@ class LandingController extends Controller
     {
         $plans = Plan::visibleForSale()->get();
         $homepageChatbot = Chatbot::query()
+            ->where('system_role', 'homepage_chatbot')
             ->where('slug', config('chatme.homepage_chatbot.slug'))
             ->where('is_active', true)
             ->first();

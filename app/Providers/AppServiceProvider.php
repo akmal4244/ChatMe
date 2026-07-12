@@ -171,28 +171,45 @@ class AppServiceProvider extends ServiceProvider
                     ->withHeaders($headers));
         });
 
-        RateLimiter::for('profile-update', function (Request $request): Limit {
+        RateLimiter::for('profile-update', function (Request $request): array {
             $currentEmail = Str::lower(trim((string) $request->user()?->email));
             $requestedEmail = Str::lower(trim((string) $request->input('email')));
             $emailChanged = $currentEmail !== $requestedEmail;
+            $userKey = $request->user()?->getAuthIdentifier() ?? 'guest';
+            $response = fn (Request $request, array $headers) => back()
+                ->with('error', 'Terlalu banyak perubahan profil. Sila cuba semula kemudian.')
+                ->withInput($request->except('current_password'))
+                ->withHeaders($headers);
+            $limits = [
+                Limit::perHour($emailChanged ? 5 : 60)
+                    ->by($userKey.'|'.($request->ip() ?: 'unknown'))
+                    ->response($response),
+            ];
 
-            return Limit::perHour($emailChanged ? 5 : 60)
-                ->by(($request->user()?->getAuthIdentifier() ?? 'guest').'|'.($request->ip() ?: 'unknown'))
-                ->response(fn (Request $request, array $headers) => back()
-                    ->with('error', 'Terlalu banyak perubahan profil. Sila cuba semula kemudian.')
-                    ->withInput($request->except('current_password'))
-                    ->withHeaders($headers));
+            if ($emailChanged) {
+                $limits[] = Limit::perHour(10)
+                    ->by('profile-email-user|'.$userKey)
+                    ->response($response);
+            }
+
+            return $limits;
         });
 
-        RateLimiter::for('sensitive-account', function (Request $request): Limit {
+        RateLimiter::for('sensitive-account', function (Request $request): array {
             $routeKey = $request->route()?->getName() ?? 'sensitive-account';
             $userKey = $request->user()?->getAuthIdentifier() ?? 'guest';
+            $response = fn (Request $request, array $headers) => back()
+                ->with('error', 'Terlalu banyak percubaan tindakan sensitif. Sila cuba semula kemudian.')
+                ->withHeaders($headers);
 
-            return Limit::perMinute(5)
-                ->by($routeKey.'|'.$userKey.'|'.($request->ip() ?: 'unknown'))
-                ->response(fn (Request $request, array $headers) => back()
-                    ->with('error', 'Terlalu banyak percubaan tindakan sensitif. Sila cuba semula dalam satu minit.')
-                    ->withHeaders($headers));
+            return [
+                Limit::perMinute(5)
+                    ->by($routeKey.'|'.$userKey.'|'.($request->ip() ?: 'unknown'))
+                    ->response($response),
+                Limit::perHour(20)
+                    ->by('sensitive-user|'.$userKey)
+                    ->response($response),
+            ];
         });
     }
 }
