@@ -86,17 +86,6 @@ class KnowledgeController extends Controller
     }
 
     /**
-     * Show a specific knowledge item.
-     */
-    public function show(Chatbot $chatbot, KnowledgeItem $item)
-    {
-        Gate::authorize('view', $chatbot);
-        $this->ensureItemBelongsToChatbot($chatbot, $item);
-
-        return view('knowledge.show', ['chatbot' => $chatbot, 'knowledge' => $item]);
-    }
-
-    /**
      * Show the edit form for a knowledge item.
      */
     public function edit(Chatbot $chatbot, KnowledgeItem $item)

@@ -17,17 +17,23 @@
         <button type="button" class="toast-close" aria-label="Tutup notifikasi">&times;</button>
     </div>
 </template>
-<script id="initial-notifications" type="application/json">{!! json_encode($initialNotifications, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
-<script>
+<script nonce="{{ Vite::cspNonce() }}" id="initial-notifications" type="application/json">{!! json_encode($initialNotifications, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
+<script nonce="{{ Vite::cspNonce() }}">
 (() => {
     const container = document.getElementById('toast-container');
     const template = document.getElementById('toast-template');
     const durations = { success: 4000, info: 5000, error: 7000 };
     const icons = { success: 'ph-check-circle', info: 'ph-info', error: 'ph-x-circle' };
 
-    window.showToast = (message, type = 'success') => {
+    window.showToast = (message, type = 'success', options = {}) => {
         const text = String(message || '').trim();
         const normalizedType = ['success', 'error', 'info'].includes(type) ? type : 'info';
+        const configuredDuration = Number(options.duration ?? durations[normalizedType]);
+        const duration = configuredDuration === 0
+            ? 0
+            : (Number.isFinite(configuredDuration) && configuredDuration > 0
+                ? configuredDuration
+                : durations[normalizedType]);
         if (!text || !container || !template) return null;
 
         const duplicate = [...container.querySelectorAll('[data-toast]')]
@@ -49,7 +55,7 @@
         };
         const resume = () => {
             window.clearTimeout(timer);
-            timer = window.setTimeout(remove, durations[normalizedType]);
+            if (duration > 0) timer = window.setTimeout(remove, duration);
         };
         const pause = () => window.clearTimeout(timer);
 

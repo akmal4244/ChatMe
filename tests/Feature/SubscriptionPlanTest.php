@@ -10,6 +10,7 @@ use Database\Seeders\PlanSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class SubscriptionPlanTest extends TestCase
@@ -90,6 +91,11 @@ class SubscriptionPlanTest extends TestCase
             ->assertDontSeeText('Lifetime')
             ->assertDontSeeText('Custom Paid');
 
+        $this->actingAs($user)->get('/pricing')->assertOk()
+            ->assertSee('name="checkout_key"', false)
+            ->assertDontSeeText('Lifetime')
+            ->assertDontSeeText('Custom Paid');
+
         $this->actingAs($user)->get(route('subscription.plans'))->assertOk()
             ->assertSeeText('Free')
             ->assertSeeText('Pro')
@@ -144,24 +150,37 @@ class SubscriptionPlanTest extends TestCase
             ->assertDontSeeText('Akaun anda akan kembali kepada pelan Free selepas akses berbayar tamat.');
     }
 
-    public function test_unlimited_limits_and_checkout_copy_are_rendered_correctly(): void
+    public function test_enterprise_fair_use_limits_and_checkout_copy_are_rendered_correctly(): void
     {
         config()->set('services.toyyibpay.dnqr_enabled', true);
+        config()->set('chatme.chatbots.absolute_limit', 50);
+        config()->set('chatme.knowledge.absolute_limit', 5000);
+        config()->set('chatme.messaging.limits.owner_daily', 5000);
         $this->seed(PlanSeeder::class);
         $user = User::factory()->create();
 
         $response = $this->actingAs($user)->get(route('subscription.plans'));
 
         $response->assertOk()
-            ->assertSeeText('Tanpa had chatbot')
-            ->assertSeeText('Soal jawab tanpa had')
-            ->assertSeeText('Tanpa had mesej')
+            ->assertSeeText('Sehingga 50 chatbot (penggunaan saksama)')
+            ->assertSeeText('Sehingga 5,000 soal jawab bagi setiap chatbot')
+            ->assertSeeText('Tiada had bulanan; sehingga 5,000 mesej sehari bagi setiap akaun')
             ->assertSeeText('Nombor telefon mudah alih')
             ->assertSeeText('FPX / DuitNow QR')
             ->assertSeeText('Pembaharuan dibuat secara manual setiap bulan; tiada potongan automatik daripada akaun bank.')
             ->assertDontSeeText('-1 chatbot')
             ->assertDontSeeText('-1 soal jawab')
-            ->assertDontSeeText('-1 mesej');
+            ->assertDontSeeText('-1 mesej')
+            ->assertDontSeeText('Tanpa had chatbot')
+            ->assertDontSeeText('Soal jawab tanpa had')
+            ->assertDontSeeText('Tanpa had mesej');
+
+        $this->get('/')->assertOk()
+            ->assertSeeText('Sehingga 50 chatbot (penggunaan saksama)')
+            ->assertSeeText('Sehingga 5,000 soal jawab bagi setiap chatbot')
+            ->assertSeeText('Tiada had bulanan; sehingga 5,000 mesej sehari bagi setiap akaun');
+        $this->get('/terms')->assertOk()
+            ->assertSeeText('had penggunaan saksama');
     }
 
     public function test_payment_channel_copy_matches_the_dnqr_capability_flag(): void
@@ -227,6 +246,7 @@ class SubscriptionPlanTest extends TestCase
             ->from(route('subscription.plans'))
             ->post(route('subscription.checkout', $pro), [
                 'checkout_plan' => $pro->id,
+                'checkout_key' => (string) Str::uuid(),
                 'phone' => '123',
             ])
             ->assertRedirect(route('subscription.plans'))

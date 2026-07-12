@@ -19,12 +19,22 @@ test('untrusted widget configuration is not interpolated into innerHTML', () => 
 test('widget fits a 320px viewport and reports non-success API responses', () => {
   assert.match(source, /width:min\(370px,calc\(100% - 24px\)\)/);
   assert.doesNotMatch(source, /calc\(100vw - 24px\)/);
-  assert.match(source, /if\s*\(!r\.ok\)\s*throw new Error/);
+  assert.match(source, /if\s*\(!response\.ok\)\s*throw new Error/);
   assert.match(source, /if\s*\(!d\.response\)\s*throw new Error/);
-  assert.match(source, /Promise\.race\(\[fetch/);
+  assert.match(source, /Promise\.race\(\[performChat/);
   assert.match(source, /controller\.abort\(\)/);
   assert.match(source, /inputEl\.value = text/);
   assert.match(source, /closeBtn\.style\.color = primaryTextColor/);
+});
+
+test('widget bootstraps a short-lived ticket and never persists it in a URL or browser storage', () => {
+  assert.match(source, /fetch\(config\.apiUrl \+ '\/config'/);
+  assert.match(source, /widget_ticket:\s*widgetTicket/);
+  assert.match(source, /session_id:\s*sessionId/);
+  assert.match(source, /response\.status === 401 && canRetryTicket/);
+  assert.match(source, /credentials:\s*'omit'/);
+  assert.doesNotMatch(source, /localStorage|sessionStorage/);
+  assert.doesNotMatch(source, /[?&](?:ticket|widget_ticket)=/);
 });
 
 test('message bubble padding overrides the widget reset so text is not clipped', () => {
@@ -45,6 +55,12 @@ test('widget defaults and status use clear Bahasa Melayu', () => {
   assert.match(source, /Sedia membantu/);
   assert.match(source, /Disediakan oleh/);
   assert.doesNotMatch(source, /Powered by|Type your message|>Online</);
+});
+
+test('widget obeys the server branding entitlement without HTML interpolation', () => {
+  assert.match(source, /config\.showBranding\s*=\s*config\.showBranding !== false/);
+  assert.match(source, /brandEl\.hidden\s*=\s*!config\.showBranding/);
+  assert.doesNotMatch(source, /innerHTML[^;]*showBranding/);
 });
 
 test('chatbot tester popup fits narrow mobile viewports without input zoom', () => {

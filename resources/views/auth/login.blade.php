@@ -63,6 +63,7 @@
                         <input id="remember" name="remember" type="checkbox" value="1" @checked(old('remember'))>
                         <span>Teruskan log masuk pada peranti ini</span>
                     </label>
+                    <a href="{{ route('password.request') }}">Lupa kata laluan?</a>
                 </div>
 
                 <button type="submit" class="button button-primary button-full">

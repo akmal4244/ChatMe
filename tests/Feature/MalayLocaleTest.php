@@ -16,6 +16,12 @@ class MalayLocaleTest extends TestCase
         $this->assertSame('ms_MY', config('app.faker_locale'));
     }
 
+    public function test_business_time_uses_kuala_lumpur_while_storage_stays_utc(): void
+    {
+        $this->assertSame('Asia/Kuala_Lumpur', config('chatme.timezone'));
+        $this->assertSame('UTC', config('app.timezone'));
+    }
+
     public function test_validation_messages_and_attributes_are_malay(): void
     {
         $validator = validator(

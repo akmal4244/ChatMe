@@ -22,6 +22,7 @@ class PaymentOrder extends Model
         'user_id',
         'plan_id',
         'subscription_id',
+        'checkout_key',
         'bill_code',
         'provider',
         'amount_cents',
@@ -41,6 +42,9 @@ class PaymentOrder extends Model
     protected function casts(): array
     {
         return [
+            'user_id' => 'integer',
+            'plan_id' => 'integer',
+            'subscription_id' => 'integer',
             'amount_cents' => 'integer',
             'paid_at' => 'datetime',
         ];
@@ -51,16 +55,19 @@ class PaymentOrder extends Model
         return 'external_reference';
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+    /** @return BelongsTo<Plan, $this> */
     public function plan(): BelongsTo
     {
         return $this->belongsTo(Plan::class);
     }
 
+    /** @return BelongsTo<Subscription, $this> */
     public function subscription(): BelongsTo
     {
         return $this->belongsTo(Subscription::class);

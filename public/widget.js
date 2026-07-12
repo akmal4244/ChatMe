@@ -14,8 +14,12 @@
   config.placeholderText = config.placeholderText || 'Taip mesej anda...';
   config.avatarUrl = config.avatarUrl || '';
   config.position = config.position || 'bottom-right';
+  config.showBranding = config.showBranding !== false;
   
-  var sessionId = 's' + Math.random().toString(36).substr(2, 9);
+  var sessionId = '';
+  var widgetTicket = '';
+  var ticketExpiresAt = 0;
+  var ticketPromise = null;
   var isOpen = false;
   var isLoading = false;
   
@@ -46,6 +50,7 @@
   var inputEl = document.getElementById('chatme-input');
   var sendBtn = document.getElementById('chatme-send');
   var closeBtn = document.getElementById('chatme-close');
+  var brandEl = document.getElementById('chatme-brand');
 
   bubble.className = config.position;
   windowEl.className = config.position;
@@ -53,6 +58,7 @@
   document.querySelector('#chatme-header img').src = config.avatarUrl;
   document.querySelector('#chatme-header-info .name').textContent = config.botName;
   inputEl.placeholder = config.placeholderText;
+  brandEl.hidden = !config.showBranding;
 
   function readableTextColor(hex) {
     var match = /^#([0-9a-f]{6})$/i.exec(hex || '');
@@ -100,6 +106,79 @@
     isLoading = false;
     typingEl.className = '';
   }
+
+  function refreshTicket() {
+    if (ticketPromise) return ticketPromise;
+
+    ticketPromise = fetch(config.apiUrl + '/config', {
+      method: 'GET',
+      headers: {'Accept': 'application/json'},
+      credentials: 'omit',
+      cache: 'no-store'
+    })
+    .then(function(response) {
+      if (!response.ok) throw new Error('ChatMe bootstrap failed');
+      return response.json();
+    })
+    .then(function(payload) {
+      if (!payload.widget_ticket || !payload.widget_session_id || !payload.ticket_expires_at) {
+        throw new Error('ChatMe bootstrap response was invalid');
+      }
+
+      widgetTicket = payload.widget_ticket;
+      sessionId = payload.widget_session_id;
+      ticketExpiresAt = Date.parse(payload.ticket_expires_at) || 0;
+    })
+    .finally(function() {
+      ticketPromise = null;
+    });
+
+    return ticketPromise;
+  }
+
+  function ensureTicket() {
+    if (widgetTicket && sessionId && ticketExpiresAt > Date.now() + 30000) {
+      return Promise.resolve();
+    }
+
+    return refreshTicket();
+  }
+
+  function performChat(text, canRetryTicket, signal) {
+    return ensureTicket()
+      .then(function() {
+        var options = {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          },
+          credentials: 'omit',
+          body: JSON.stringify({
+            message: text,
+            session_id: sessionId,
+            widget_ticket: widgetTicket
+          })
+        };
+        if (signal) options.signal = signal;
+
+        return fetch(config.apiUrl + '/chat', options);
+      })
+      .then(function(response) {
+        if (response.status === 401 && canRetryTicket) {
+          widgetTicket = '';
+          sessionId = '';
+          ticketExpiresAt = 0;
+
+          return refreshTicket().then(function() {
+            return performChat(text, false, signal);
+          });
+        }
+        if (!response.ok) throw new Error('ChatMe request failed');
+
+        return response.json();
+      });
+  }
   
   function send() {
     var text = inputEl.value.trim();
@@ -109,12 +188,6 @@
     showTyping();
     
     var controller = typeof AbortController === 'function' ? new AbortController() : null;
-    var requestOptions = {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({message: text, session_id: sessionId})
-    };
-    if (controller) requestOptions.signal = controller.signal;
     var timeoutId;
     var timeout = new Promise(function(_, reject) {
       timeoutId = setTimeout(function() {
@@ -123,11 +196,7 @@
       }, 15000);
     });
 
-    Promise.race([fetch(config.apiUrl + '/chat', requestOptions), timeout])
-    .then(function(r) {
-      if (!r.ok) throw new Error('ChatMe request failed');
-      return r.json();
-    })
+    Promise.race([performChat(text, true, controller ? controller.signal : null), timeout])
     .then(function(d) {
       if (!d.response) throw new Error('ChatMe response was empty');
       hideTyping();
@@ -167,6 +236,12 @@
   inputEl.addEventListener('keydown', function(e) { if (e.key === 'Enter') send(); });
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape' && isOpen) toggle();
+  });
+
+  refreshTicket().catch(function() {
+    widgetTicket = '';
+    sessionId = '';
+    ticketExpiresAt = 0;
   });
   
 })();

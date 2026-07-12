@@ -9,6 +9,10 @@ use Illuminate\Support\Str;
 
 class Chatbot extends Model
 {
+    protected $hidden = [
+        'developer_api_token_hash',
+    ];
+
     protected $fillable = [
         'user_id',
         'name',
@@ -21,6 +25,7 @@ class Chatbot extends Model
         'placeholder_text',
         'bot_name',
         'system_prompt',
+        'fallback_message',
         'is_active',
         'api_key',
         'domain_whitelist',
@@ -29,6 +34,7 @@ class Chatbot extends Model
     protected function casts(): array
     {
         return [
+            'user_id' => 'integer',
             'is_active' => 'boolean',
         ];
     }
@@ -62,16 +68,31 @@ class Chatbot extends Model
         $this->forceFill(['api_key' => $apiKey])->save();
     }
 
+    public function rotateDeveloperApiToken(): string
+    {
+        $rawToken = 'cm_live_'.Str::random(48);
+
+        $this->forceFill([
+            'developer_api_token_hash' => hash('sha256', $rawToken),
+            'developer_api_token_prefix' => substr($rawToken, 0, 16),
+        ])->save();
+
+        return $rawToken;
+    }
+
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+    /** @return HasMany<KnowledgeItem, $this> */
     public function knowledgeItems(): HasMany
     {
         return $this->hasMany(KnowledgeItem::class);
     }
 
+    /** @return HasMany<ChatLog, $this> */
     public function chatLogs(): HasMany
     {
         return $this->hasMany(ChatLog::class);
@@ -105,5 +126,12 @@ class Chatbot extends Model
         }
 
         return asset('storage/'.$path);
+    }
+
+    public function fallbackResponse(): string
+    {
+        return filled($this->fallback_message)
+            ? trim((string) $this->fallback_message)
+            : 'Maaf, saya belum menemui jawapan yang tepat. Cuba gunakan perkataan lain.';
     }
 }

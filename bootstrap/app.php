@@ -1,13 +1,17 @@
 <?php
 
+use App\Http\Middleware\AddSessionExpiryHeader;
 use App\Http\Middleware\AdminMiddleware;
+use App\Http\Middleware\AuthenticateDeveloperToken;
 use App\Http\Middleware\Cors;
+use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
@@ -20,8 +24,17 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->trustHosts(at: function (): array {
+            $host = parse_url((string) config('app.url'), PHP_URL_HOST);
+
+            return is_string($host) && $host !== ''
+                ? ['^'.preg_quote($host, '/').'$']
+                : [];
+        }, subdomains: false);
         $middleware->alias([
             'admin' => AdminMiddleware::class,
+            'developer.token' => AuthenticateDeveloperToken::class,
+            'session.deadline' => AddSessionExpiryHeader::class,
         ]);
         $middleware->validateCsrfTokens(except: [
             'payments/toyyibpay/callback',
@@ -29,19 +42,24 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->api(prepend: [
             Cors::class,
         ]);
+        $middleware->web(append: [
+            SecurityHeaders::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(function (Request $request) {
             return $request->is('api/*') || $request->expectsJson();
         });
         $exceptions->render(function (Throwable $exception, Request $request) {
-            if (config('app.debug') || ! $request->is('api/*')) {
+            if (config('app.debug')
+                || (! $request->is('api/*') && ! $request->expectsJson())) {
                 return null;
             }
 
             if ($exception instanceof ValidationException
                 || $exception instanceof AuthenticationException
-                || $exception instanceof AuthorizationException) {
+                || $exception instanceof AuthorizationException
+                || $exception instanceof HttpResponseException) {
                 return null;
             }
 

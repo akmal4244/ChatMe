@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Chatbot;
 use App\Models\Plan;
+use Illuminate\Support\Str;
 
 class LandingController extends Controller
 {
@@ -11,6 +12,7 @@ class LandingController extends Controller
     {
         $plans = Plan::visibleForSale()->get();
         $homepageChatbot = Chatbot::query()
+            ->where('system_role', 'homepage_chatbot')
             ->where('slug', config('chatme.homepage_chatbot.slug'))
             ->where('is_active', true)
             ->first();
@@ -21,8 +23,11 @@ class LandingController extends Controller
     public function pricing()
     {
         $plans = Plan::visibleForSale()->get();
+        $checkoutKeys = $plans
+            ->reject(fn (Plan $plan): bool => $plan->slug === 'free')
+            ->mapWithKeys(fn (Plan $plan): array => [$plan->id => (string) Str::uuid()]);
 
-        return view('subscription.plans', compact('plans'));
+        return view('subscription.plans', compact('checkoutKeys', 'plans'));
     }
 
     public function features()

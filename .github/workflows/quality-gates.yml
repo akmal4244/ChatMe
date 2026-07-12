@@ -1,0 +1,127 @@
+name: Production quality gates
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-gates-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  application-tests:
+    name: PHP, JavaScript and build gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+          tools: composer:v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install locked dependencies
+        run: |
+          composer install --no-interaction --no-progress --prefer-dist
+          npm ci --no-audit --no-fund
+
+      - name: Run PHP tests
+        run: composer test
+
+      - name: Check PHP formatting
+        run: php vendor/bin/pint --test
+
+      - name: Run JavaScript tests
+        run: npm test
+
+      - name: Build production assets
+        run: npm run build
+
+      - name: Audit locked dependencies
+        run: |
+          composer audit --locked --no-interaction
+          npm audit --audit-level=high
+
+  static-analysis:
+    name: Larastan level 5
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+          tools: composer:v2
+
+      - name: Validate locked dependencies
+        run: composer validate --strict --no-check-publish
+
+      - name: Install locked dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Analyse the complete application
+        run: composer analyse -- --error-format=github
+
+  secret-scanning:
+    name: Gitleaks history and working tree
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GITLEAKS_VERSION: '8.30.1'
+      GITLEAKS_LINUX_X64_SHA256: '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb'
+
+    steps:
+      - name: Check out complete history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install verified Gitleaks release
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl --fail --silent --show-error --location --retry 3 \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${archive}" \
+            --output "/tmp/${archive}"
+          echo "${GITLEAKS_LINUX_X64_SHA256}  /tmp/${archive}" | sha256sum --check --strict
+          tar --extract --gzip --file "/tmp/${archive}" --directory /tmp gitleaks
+          /tmp/gitleaks version
+
+      - name: Scan complete Git history
+        run: >-
+          /tmp/gitleaks git .
+          --log-opts="--all"
+          --no-banner
+          --no-color
+          --redact=100
+          --timeout=300
+
+      - name: Scan checked-out working tree
+        run: >-
+          /tmp/gitleaks dir .
+          --no-banner
+          --no-color
+          --redact=100
+          --timeout=300

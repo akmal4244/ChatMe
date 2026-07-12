@@ -44,7 +44,8 @@ class ChatbotController extends Controller
             'welcome_message' => ['sometimes', 'required', 'string', 'max:1000'],
             'placeholder_text' => ['nullable', 'string', 'max:255'],
             'bot_name' => ['sometimes', 'required', 'string', 'max:255'],
-            'system_prompt' => ['nullable', 'string', 'max:5000'],
+            'system_prompt' => ['nullable', 'string', 'max:1000'],
+            'fallback_message' => ['nullable', 'string', 'max:500'],
             'domain_whitelist' => ['nullable', 'string', 'max:2000'],
         ]);
 
@@ -115,7 +116,8 @@ class ChatbotController extends Controller
             'welcome_message' => ['sometimes', 'required', 'string', 'max:1000'],
             'placeholder_text' => ['nullable', 'string', 'max:255'],
             'bot_name' => ['sometimes', 'required', 'string', 'max:255'],
-            'system_prompt' => ['nullable', 'string', 'max:5000'],
+            'system_prompt' => ['nullable', 'string', 'max:1000'],
+            'fallback_message' => ['nullable', 'string', 'max:500'],
             'domain_whitelist' => ['nullable', 'string', 'max:2000'],
             'is_active' => ['boolean'],
         ]);
@@ -139,39 +141,6 @@ class ChatbotController extends Controller
             ->with('success', 'Chatbot berjaya dipadam.');
     }
 
-    /**
-     * Show the customization form for a specific chatbot.
-     */
-    public function customize(Chatbot $chatbot)
-    {
-        Gate::authorize('view', $chatbot);
-
-        return view('chatbots.customize', compact('chatbot'));
-    }
-
-    /**
-     * Update customization settings for a chatbot.
-     */
-    public function updateCustomization(Request $request, Chatbot $chatbot)
-    {
-        Gate::authorize('update', $chatbot);
-
-        $validated = $request->validate([
-            'primary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
-            'secondary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
-            'position' => ['required', 'string', 'in:bottom-right,bottom-left'],
-            'welcome_message' => ['nullable', 'string', 'max:1000'],
-            'placeholder_text' => ['nullable', 'string', 'max:255'],
-            'bot_name' => ['nullable', 'string', 'max:255'],
-            'avatar_url' => ['nullable', 'url', 'max:2048'],
-        ]);
-
-        $chatbot->update($validated);
-
-        return redirect()->route('chatbots.customize', $chatbot)
-            ->with('success', 'Penampilan chatbot berjaya dikemas kini.');
-    }
-
     public function toggle(Chatbot $chatbot)
     {
         Gate::authorize('update', $chatbot);
@@ -183,8 +152,9 @@ class ChatbotController extends Controller
     public function embed(Chatbot $chatbot)
     {
         Gate::authorize('view', $chatbot);
+        $apiAccess = (bool) $chatbot->user->currentPlan()?->api_access;
 
-        return view('chatbots.embed', compact('chatbot'));
+        return view('chatbots.embed', compact('apiAccess', 'chatbot'));
     }
 
     public function regenerateKey(Chatbot $chatbot)

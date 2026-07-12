@@ -1,13 +1,14 @@
 @import 'tailwindcss';
+@import '@phosphor-icons/web/regular';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../**/*.blade.php';
 @source '../**/*.js';
 
 @theme {
-    --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
-    --font-serif: 'Newsreader', ui-serif, Georgia, serif;
-    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+    --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-serif: ui-serif, Georgia, Cambria, 'Times New Roman', serif;
+    --font-mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
     --color-brand-50: #eef2ff;
     --color-brand-100: #e0e7ff;
     --color-brand-200: #c7d2fe;
@@ -46,9 +47,9 @@
     --radius-sm: 10px;
     --radius-md: 16px;
     --radius-lg: 24px;
-    --font-ui: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
-    --font-editorial: 'Newsreader', ui-serif, Georgia, serif;
-    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+    --font-ui: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-editorial: ui-serif, Georgia, Cambria, 'Times New Roman', serif;
+    --font-mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -287,7 +288,7 @@ table.data-table tbody tr:hover { background: #FBFAF7; }
 .modal-cancel { border: 1px solid var(--border); background: var(--surface); color: var(--text); }
 .modal-confirm { border: 1px solid var(--accent); background: var(--accent); color: white; }
 .modal-confirm-danger { border: 1px solid var(--danger); background: var(--danger); color: white; }
-#toast-container { position: fixed; right: 20px; bottom: calc(20px + env(safe-area-inset-bottom)); z-index: 120; display: grid; width: min(380px, calc(100vw - 40px)); gap: 9px; pointer-events: none; }
+#toast-container { position: fixed; top: calc(20px + env(safe-area-inset-top)); right: 20px; bottom: auto; z-index: 120; display: grid; width: min(380px, calc(100vw - 40px)); gap: 9px; pointer-events: none; }
 .toast { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); padding: 12px 13px; color: var(--text); box-shadow: var(--shadow-lg); font-size: 13px; font-weight: 650; pointer-events: auto; }
 .toast-icon { font-size: 20px; }
 .toast-message { min-width: 0; overflow-wrap: anywhere; }
@@ -296,6 +297,20 @@ table.data-table tbody tr:hover { background: #FBFAF7; }
 .toast-success { border-color: #A6F4C5; background: var(--success-soft); color: var(--success); }
 .toast-error { border-color: #FECDCA; background: var(--danger-soft); color: var(--danger); }
 .toast-info { border-color: #BFDBFE; background: var(--info-soft); color: var(--info); }
+
+/* Account profile */
+.profile-page { width: min(1040px, 100%); margin: 0 auto; }
+.profile-page__header { margin-bottom: 20px; }
+.profile-verification { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 18px; border-color: #FCD34D; background: var(--warning-soft); padding: 18px 20px; }
+.profile-verification h2 { color: var(--warning); font-size: 16px; }
+.profile-verification p { color: var(--muted); font-size: 13px; }
+.profile-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start; }
+.profile-card { padding: clamp(22px, 4vw, 30px); }
+.profile-card__header { margin-bottom: 24px; }
+.profile-card__header h2 { margin-bottom: 4px; font-size: 20px; }
+.profile-card__header p { color: var(--muted); font-size: 13px; }
+.profile-card .button { justify-self: start; }
+.field-optional { color: var(--muted); font-size: 11px; font-weight: 500; }
 
 /* Subscription plans */
 .subscription-page { width: 100%; max-width: 1120px; margin: 0 auto; }
@@ -538,6 +553,7 @@ table.data-table tbody tr:hover { background: #FBFAF7; }
     .feature-grid, .pricing-grid, .plan-grid { grid-template-columns: 1fr; }
     .feature-card--wide { grid-column: auto; }
     .landing-cta__panel { align-items: flex-start; flex-direction: column; }
+    .profile-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 640px) {
@@ -564,6 +580,8 @@ table.data-table tbody tr:hover { background: #FBFAF7; }
     .payment-details > div { grid-template-columns: 1fr; gap: 2px; }
     .chatbot-tester-input { font-size: 16px; }
     .chatbot-tester-dialog { border-radius: 18px; }
+    .profile-verification { align-items: stretch; flex-direction: column; }
+    .profile-verification .button, .profile-card .button { width: 100%; }
 }
 
 @media (max-width: 360px) {

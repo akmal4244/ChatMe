@@ -44,4 +44,13 @@ return [
         'timeout' => env('TOYYIBPAY_TIMEOUT', 15),
     ],
 
+    'cloudflare_ai' => [
+        'enabled' => filter_var(env('CHATME_AI_ENABLED', false), FILTER_VALIDATE_BOOL),
+        'account_id' => env('CLOUDFLARE_ACCOUNT_ID'),
+        'token' => env('CLOUDFLARE_AI_TOKEN'),
+        'model' => env('CLOUDFLARE_AI_MODEL', '@cf/qwen/qwen3-30b-a3b-fp8'),
+        'timeout' => (int) env('CLOUDFLARE_AI_TIMEOUT', 8),
+        'max_tokens' => (int) env('CLOUDFLARE_AI_MAX_TOKENS', 220),
+    ],
+
 ];

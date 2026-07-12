@@ -173,7 +173,7 @@
     </div>
 </dialog>
 
-<script>
+<script nonce="{{ Vite::cspNonce() }}">
 document.addEventListener('DOMContentLoaded', () => {
     const editableItems = {{ Illuminate\Support\Js::from($editableItems) }};
     const updateRouteTemplate = {{ Illuminate\Support\Js::from(route('knowledge.update', [$chatbot, '__ITEM__'])) }};

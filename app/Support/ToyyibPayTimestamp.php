@@ -26,7 +26,7 @@ final class ToyyibPayTimestamp
                 continue;
             }
 
-            if ($timestamp !== false && $timestamp->format($format) === $value) {
+            if ($timestamp !== null && $timestamp->format($format) === $value) {
                 return $timestamp->utc();
             }
         }

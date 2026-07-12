@@ -30,6 +30,7 @@
                 <h2 id="terms-subscription">Langganan dan pembayaran</h2>
                 <p>Setiap pembayaran pelan berbayar memberikan akses selama satu bulan bermula selepas pembayaran disahkan. Pembayaran dibuat melalui ToyyibPay menggunakan {{ config('services.toyyibpay.dnqr_enabled') ? 'FPX atau DuitNow QR' : 'FPX' }}.</p>
                 <p>Tiada potongan automatik daripada akaun bank anda. Untuk meneruskan pelan berbayar, anda perlu membuat pembayaran baharu bagi bulan seterusnya. Jika tidak diperbaharui, akaun akan kembali kepada pelan Free selepas tempoh berbayar tamat.</p>
+                <p>Pelan Enterprise tidak mempunyai had mesej bulanan, namun tertakluk pada had penggunaan saksama yang dipaparkan pada halaman pelan: sehingga {{ number_format((int) config('chatme.chatbots.absolute_limit', 50)) }} chatbot, {{ number_format((int) config('chatme.knowledge.absolute_limit', 5000)) }} soal jawab bagi setiap chatbot dan {{ number_format((int) config('chatme.messaging.limits.owner_daily', 5000)) }} mesej sehari bagi setiap akaun. Had ini melindungi kestabilan dan keselamatan perkhidmatan untuk semua pelanggan.</p>
             </section>
 
             <section aria-labelledby="terms-availability">

@@ -5,71 +5,392 @@ namespace Tests\Feature;
 use App\Models\Chatbot;
 use App\Models\ChatLog;
 use App\Models\KnowledgeItem;
+use App\Models\Plan;
 use App\Models\Subscription;
 use App\Models\User;
+use Database\Seeders\DatabaseSeeder;
 use Database\Seeders\HomepageChatbotSeeder;
 use Database\Seeders\PlanSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
+use RuntimeException;
 use Tests\TestCase;
 
 class HomepageChatbotTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_seeder_reuses_the_official_chatbot_and_preserves_its_identity_and_logs(): void
+    public function test_arbitrary_admin_chatbot_and_knowledge_are_never_adopted_by_name(): void
     {
-        [$chatbot, $owner, $chatLog] = $this->existingOfficialChatbot();
+        $this->seed(PlanSeeder::class);
+        $owner = User::factory()->create(['is_admin' => true]);
+        $chatbot = Chatbot::create([
+            'user_id' => $owner->id,
+            'name' => 'ChatMe Assistant',
+            'slug' => 'customer-chatme-assistant',
+            'api_key' => 'CUSTOMER_KEY',
+            'welcome_message' => 'Customer welcome message',
+        ]);
+        $knowledge = KnowledgeItem::create([
+            'chatbot_id' => $chatbot->id,
+            'question' => 'Customer question',
+            'answer' => 'Customer answer',
+        ]);
+        $chatbotBefore = $chatbot->fresh()->getAttributes();
+        $knowledgeBefore = $knowledge->fresh()->getAttributes();
+
+        $this->seed(HomepageChatbotSeeder::class);
+
+        $chatbot->refresh();
+        $knowledge->refresh();
+        $this->assertSame($chatbotBefore, $chatbot->getAttributes());
+        $this->assertSame($knowledgeBefore, $knowledge->getAttributes());
+        $this->assertSame($owner->id, $chatbot->user_id);
+        $this->assertSame('customer-chatme-assistant', $chatbot->slug);
+        $this->assertSame('CUSTOMER_KEY', $chatbot->api_key);
+        $this->assertSame('Customer welcome message', $chatbot->welcome_message);
+        $this->assertNull($chatbot->system_role);
+        $this->assertDatabaseHas('knowledge_items', [
+            'id' => $knowledge->id,
+            'chatbot_id' => $chatbot->id,
+            'question' => 'Customer question',
+            'answer' => 'Customer answer',
+            'source_key' => null,
+        ]);
+        $this->assertNotSame(
+            $chatbot->id,
+            Chatbot::query()->where('system_role', 'homepage_chatbot')->firstOrFail()->id,
+        );
+    }
+
+    public function test_unmarked_official_slug_fails_closed_without_explicit_legacy_id(): void
+    {
+        $this->seed(PlanSeeder::class);
+        $owner = User::factory()->create();
+        $chatbot = Chatbot::create([
+            'user_id' => $owner->id,
+            'name' => 'Legacy homepage bot',
+            'slug' => 'chatme-homepage',
+            'api_key' => 'LEGACY_COLLISION_KEY',
+        ]);
+        $knowledge = KnowledgeItem::create([
+            'chatbot_id' => $chatbot->id,
+            'question' => 'Legacy customer question',
+            'answer' => 'Must survive collision',
+        ]);
+
+        $this->assertHomepageSeederFails('legacy chatbot ID');
+
+        $this->assertDatabaseHas('chatbots', [
+            'id' => $chatbot->id,
+            'user_id' => $owner->id,
+            'api_key' => 'LEGACY_COLLISION_KEY',
+            'system_role' => null,
+        ]);
+        $this->assertDatabaseHas('knowledge_items', [
+            'id' => $knowledge->id,
+            'answer' => 'Must survive collision',
+            'source_key' => null,
+        ]);
+        $this->assertDatabaseMissing('users', ['system_role' => 'homepage_owner']);
+    }
+
+    public function test_preclaimed_homepage_owner_email_fails_without_entitlement_or_password_reset(): void
+    {
+        $this->seed(PlanSeeder::class);
+        $preclaim = User::factory()->create([
+            'email' => 'homepage-bot@chatme.invalid',
+            'password' => 'preclaim-password',
+            'is_admin' => false,
+        ]);
+
+        $this->assertHomepageSeederFails('reserved homepage owner');
+
+        $preclaim->refresh();
+        $this->assertFalse($preclaim->is_admin);
+        $this->assertNull($preclaim->system_role);
+        $this->assertTrue(Hash::check('preclaim-password', $preclaim->password));
+        $this->assertDatabaseCount('chatbots', 0);
+        $this->assertDatabaseCount('subscriptions', 0);
+    }
+
+    public function test_explicit_legacy_adoption_preserves_key_logs_and_unmarked_knowledge(): void
+    {
+        [$chatbot, $legacyOwner, $customKnowledge, $legacyKnowledgeIds] = $this->legacyProductionShape();
+        $legacyDeveloperToken = $chatbot->rotateDeveloperApiToken();
+        config()->set('chatme.homepage_chatbot.legacy_chatbot_id', $chatbot->id);
 
         $this->seed(HomepageChatbotSeeder::class);
         $this->seed(HomepageChatbotSeeder::class);
 
         $chatbot->refresh();
+        $systemOwner = User::query()->where('system_role', 'homepage_owner')->firstOrFail();
 
-        $this->assertSame('chatme-homepage', $chatbot->slug);
+        $this->assertSame('homepage_chatbot', $chatbot->system_role);
+        $this->assertSame($systemOwner->id, $chatbot->user_id);
+        $this->assertNotSame($legacyOwner->id, $chatbot->user_id);
+        $this->assertFalse($systemOwner->is_admin);
         $this->assertSame('TEST_KEY', $chatbot->api_key);
+        $this->assertNull($chatbot->developer_api_token_hash);
+        $this->assertNull($chatbot->developer_api_token_prefix);
+        $this->assertSame(200, $chatbot->chatLogs()->count());
+        $this->assertDatabaseHas('knowledge_items', [
+            'id' => $customKnowledge->id,
+            'chatbot_id' => $chatbot->id,
+            'question' => 'CUSTOMER_KNOWLEDGE_MARKER',
+            'answer' => 'CUSTOMER_ANSWER_MARKER',
+            'source_key' => null,
+        ]);
+        $this->assertSame(34, $chatbot->knowledgeItems()->count());
+        $this->assertSame(33, $chatbot->knowledgeItems()->whereNotNull('source_key')->count());
+        $this->assertSame(33, $chatbot->knowledgeItems()->distinct()->count('source_key'));
+        foreach ($legacyKnowledgeIds as $sourceKey => $legacyKnowledgeId) {
+            $this->assertDatabaseHas('knowledge_items', [
+                'id' => $legacyKnowledgeId,
+                'chatbot_id' => $chatbot->id,
+                'source_key' => $sourceKey,
+            ]);
+        }
+
+        $systemEntitlement = Subscription::query()
+            ->where('provider_reference', 'homepage-chatbot-system')
+            ->firstOrFail();
+        $this->assertSame($systemOwner->id, $systemEntitlement->user_id);
+        $this->assertSame('enterprise', $systemEntitlement->plan->slug);
+        $this->assertSame('system', $systemEntitlement->provider);
+        $this->assertSame('active', $systemEntitlement->status);
+
+        $this->withToken($legacyDeveloperToken)
+            ->postJson(route('api.developer.chat'), ['message' => 'test'])
+            ->assertUnauthorized()
+            ->assertExactJson(['error' => 'Akses API tidak dibenarkan.']);
+    }
+
+    public function test_explicit_adoption_rejects_a_conflicting_reserved_entitlement(): void
+    {
+        [$chatbot, $legacyOwner, $customKnowledge] = $this->legacyProductionShape();
+        $entitlementOwner = User::factory()->create();
+        $enterprise = Plan::query()->where('slug', 'enterprise')->firstOrFail();
+        $conflictingEntitlement = Subscription::create([
+            'user_id' => $entitlementOwner->id,
+            'plan_id' => $enterprise->id,
+            'provider' => 'system',
+            'provider_reference' => 'homepage-chatbot-system',
+            'status' => 'active',
+            'starts_at' => now()->subYear(),
+            'ends_at' => null,
+        ]);
+        config()->set('chatme.homepage_chatbot.legacy_chatbot_id', $chatbot->id);
+
+        $this->assertHomepageSeederFails('entitlement conflicts');
+
+        $this->assertDatabaseHas('chatbots', [
+            'id' => $chatbot->id,
+            'user_id' => $legacyOwner->id,
+            'api_key' => 'TEST_KEY',
+            'system_role' => null,
+        ]);
+        $this->assertDatabaseHas('subscriptions', [
+            'id' => $conflictingEntitlement->id,
+            'user_id' => $entitlementOwner->id,
+            'provider_reference' => 'homepage-chatbot-system',
+        ]);
+        $this->assertDatabaseHas('knowledge_items', [
+            'id' => $customKnowledge->id,
+            'source_key' => null,
+        ]);
+        $this->assertSame(200, ChatLog::query()->where('chatbot_id', $chatbot->id)->count());
+        $this->assertDatabaseMissing('users', ['system_role' => 'homepage_owner']);
+    }
+
+    public function test_official_knowledge_has_unique_keys_that_do_not_depend_on_dataset_order(): void
+    {
+        $knowledge = require database_path('data/homepage_chatbot_knowledge.php');
+
+        foreach ($knowledge as $item) {
+            $this->assertArrayHasKey('source_key', $item);
+            $this->assertMatchesRegularExpression('/^homepage:\d{3}$/', $item['source_key']);
+        }
+
+        $sourceKeys = array_column($knowledge, 'source_key');
+        $this->assertCount(count($knowledge), array_unique($sourceKeys));
+
+        $byQuestion = collect($knowledge)
+            ->mapWithKeys(fn (array $item): array => [$item['question'] => $item['source_key']])
+            ->sortKeys()
+            ->all();
+        $reorderedByQuestion = collect(array_reverse($knowledge))
+            ->mapWithKeys(fn (array $item): array => [$item['question'] => $item['source_key']])
+            ->sortKeys()
+            ->all();
+
+        $this->assertSame($byQuestion, $reorderedByQuestion);
+    }
+
+    public function test_explicit_legacy_id_must_reference_the_exact_official_slug(): void
+    {
+        $this->seed(PlanSeeder::class);
+        $owner = User::factory()->create();
+        $chatbot = Chatbot::create([
+            'user_id' => $owner->id,
+            'name' => 'Wrong bot',
+            'slug' => 'not-the-homepage',
+            'api_key' => 'WRONG_KEY',
+        ]);
+        config()->set('chatme.homepage_chatbot.legacy_chatbot_id', $chatbot->id);
+
+        $this->assertHomepageSeederFails('official slug');
+
+        $this->assertDatabaseHas('chatbots', [
+            'id' => $chatbot->id,
+            'user_id' => $owner->id,
+            'slug' => 'not-the-homepage',
+            'system_role' => null,
+        ]);
+        $this->assertDatabaseMissing('users', ['system_role' => 'homepage_owner']);
+    }
+
+    public function test_fresh_install_and_rerun_keep_stable_marked_identity_and_user_knowledge(): void
+    {
+        $this->seed(PlanSeeder::class);
+        $this->seed(HomepageChatbotSeeder::class);
+
+        $chatbot = Chatbot::query()->where('system_role', 'homepage_chatbot')->firstOrFail();
+        $owner = $chatbot->user;
+        $subscription = Subscription::query()
+            ->where('provider_reference', 'homepage-chatbot-system')
+            ->firstOrFail();
+        $originalPassword = $owner->password;
+        $originalApiKey = $chatbot->api_key;
+        $this->assertNull($subscription->ends_at);
+        $customKnowledge = KnowledgeItem::create([
+            'chatbot_id' => $chatbot->id,
+            'question' => 'User-added question',
+            'answer' => 'User-added answer',
+        ]);
+
+        $this->travel(1)->year();
+        $this->seed(HomepageChatbotSeeder::class);
+
+        $chatbot->refresh();
+        $owner->refresh();
+        $subscription->refresh();
+        $this->assertSame('homepage-bot@chatme.invalid', $owner->email);
+        $this->assertSame('homepage_owner', $owner->system_role);
+        $this->assertFalse($owner->is_admin);
+        $this->assertSame('homepage_chatbot', $chatbot->system_role);
         $this->assertSame($owner->id, $chatbot->user_id);
-        $this->assertSame('chatme.akmalmarvis.com', $chatbot->domain_whitelist);
-        $this->assertTrue($chatbot->is_active);
-        $this->assertDatabaseHas('chat_logs', ['id' => $chatLog->id, 'chatbot_id' => $chatbot->id]);
-        $this->assertSame(1, Chatbot::query()->where('slug', 'chatme-homepage')->count());
-        $this->assertSame(33, $chatbot->knowledgeItems()->count());
-        $this->assertSame(33, $chatbot->knowledgeItems()->where('is_active', true)->count());
+        $this->assertSame($originalPassword, $owner->password);
+        $this->assertSame($originalApiKey, $chatbot->api_key);
+        $this->assertNull($subscription->ends_at);
+        $this->assertDatabaseHas('knowledge_items', [
+            'id' => $customKnowledge->id,
+            'source_key' => null,
+        ]);
+        $this->assertSame(34, $chatbot->knowledgeItems()->count());
+        $this->assertSame(33, $chatbot->knowledgeItems()->whereNotNull('source_key')->count());
+        $this->assertSame(1, User::query()->where('system_role', 'homepage_owner')->count());
+        $this->assertSame(1, Chatbot::query()->where('system_role', 'homepage_chatbot')->count());
+    }
 
-        $copy = $chatbot->knowledgeItems()
-            ->get(['question', 'answer'])
-            ->map(fn (KnowledgeItem $item): string => $item->question.' '.$item->answer)
-            ->implode("\n");
+    public function test_homepage_system_entitlement_is_perpetual_without_an_out_of_range_timestamp(): void
+    {
+        $this->seed(PlanSeeder::class);
+        $this->seed(HomepageChatbotSeeder::class);
 
-        $this->assertDoesNotMatchRegularExpression(
-            '/\b(?:tak|nak|je|ni|tu|lepas tu|website|setup|support|custom|coding|client|ready|upgrade|plan)\b/i',
-            $copy,
+        $subscription = Subscription::query()
+            ->where('provider_reference', 'homepage-chatbot-system')
+            ->firstOrFail();
+
+        $this->assertSame('system', $subscription->provider);
+        $this->assertSame('enterprise', $subscription->plan->slug);
+        $this->assertNull($subscription->ends_at);
+        $this->assertTrue($subscription->isActive());
+        $this->assertSame(
+            $subscription->id,
+            $subscription->user->activeSubscription()?->id,
         );
+    }
+
+    public function test_database_seeder_provisions_a_routable_homepage_api_key_without_model_events(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $chatbot = Chatbot::query()
+            ->where('system_role', 'homepage_chatbot')
+            ->firstOrFail();
+
+        $this->assertIsString($chatbot->api_key);
+        $this->assertMatchesRegularExpression('/^cm_[A-Za-z0-9]{32}$/', $chatbot->api_key);
+        $this->get(route('widget.script', $chatbot->api_key))->assertOk();
+    }
+
+    public function test_explicit_legacy_adoption_repairs_a_missing_widget_api_key_once(): void
+    {
+        $this->seed(PlanSeeder::class);
+        $owner = User::factory()->create();
+        $chatbot = Chatbot::create([
+            'user_id' => $owner->id,
+            'name' => 'Legacy Homepage Without Key',
+            'slug' => 'chatme-homepage',
+        ]);
+        $chatbot->forceFill(['api_key' => null])->saveQuietly();
+        config()->set('chatme.homepage_chatbot.legacy_chatbot_id', $chatbot->id);
+
+        $this->seed(HomepageChatbotSeeder::class);
+        $generatedKey = $chatbot->fresh()->api_key;
+        $this->assertIsString($generatedKey);
+        $this->assertMatchesRegularExpression('/^cm_[A-Za-z0-9]{32}$/', $generatedKey);
+
+        $this->seed(HomepageChatbotSeeder::class);
+        $this->assertSame($generatedKey, $chatbot->fresh()->api_key);
     }
 
     public function test_homepage_loads_only_an_active_database_backed_widget(): void
     {
-        [$chatbot] = $this->existingOfficialChatbot();
-        $this->seed(HomepageChatbotSeeder::class);
+        $chatbot = $this->freshHomepageChatbot();
+        $widgetUrl = route('widget.script', ['chatbot' => $chatbot->api_key]);
 
-        $widgetUrl = route('widget.script', ['chatbot' => 'TEST_KEY']);
         $this->get('/')->assertOk()
             ->assertSee($widgetUrl, false)
             ->assertSee($widgetUrl.'?v=', false);
 
         $source = file_get_contents(resource_path('views/landing.blade.php'));
         $this->assertIsString($source);
-        $this->assertStringNotContainsString('TEST_KEY', $source);
-        $this->assertStringNotContainsString('cm_', $source);
+        $this->assertStringNotContainsString($chatbot->api_key, $source);
 
-        $chatbot->refresh()->update(['is_active' => false]);
+        $chatbot->update(['is_active' => false]);
         $this->get('/')->assertOk()->assertDontSee($widgetUrl, false);
+    }
+
+    public function test_homepage_never_embeds_an_active_unmarked_official_slug(): void
+    {
+        $owner = User::factory()->create();
+        $unmarked = Chatbot::create([
+            'user_id' => $owner->id,
+            'name' => 'Preclaimed Homepage',
+            'slug' => 'chatme-homepage',
+            'is_active' => true,
+        ]);
+        $widgetUrl = route('widget.script', ['chatbot' => $unmarked->api_key]);
+
+        $this->get('/')->assertOk()->assertDontSee($widgetUrl, false);
+    }
+
+    public function test_system_chatbot_developer_token_is_rejected_even_if_a_hash_is_forced(): void
+    {
+        $chatbot = $this->freshHomepageChatbot();
+        $forcedToken = $chatbot->rotateDeveloperApiToken();
+
+        $this->withToken($forcedToken)
+            ->postJson(route('api.developer.chat'), ['message' => 'test'])
+            ->assertUnauthorized()
+            ->assertExactJson(['error' => 'Akses API tidak dibenarkan.']);
     }
 
     public function test_homepage_chatbot_accepts_the_real_origin_and_rejects_other_sites(): void
     {
-        [$chatbot] = $this->existingOfficialChatbot();
-        $this->seed(HomepageChatbotSeeder::class);
-        $chatbot->refresh();
+        $chatbot = $this->freshHomepageChatbot();
 
         $this->withHeader('Origin', 'https://chatme.akmalmarvis.com')
             ->getJson(route('api.widget.config', $chatbot->api_key))
@@ -81,60 +402,72 @@ class HomepageChatbotTest extends TestCase
             ->assertExactJson(['error' => 'Domain ini tidak dibenarkan.']);
     }
 
-    public function test_fresh_install_creates_a_stable_system_owner_and_long_lived_entitlement(): void
+    /** @return array{Chatbot, User, KnowledgeItem, array<string, int>} */
+    private function legacyProductionShape(): array
     {
         $this->seed(PlanSeeder::class);
-        $this->seed(HomepageChatbotSeeder::class);
-
-        $chatbot = Chatbot::query()->where('slug', 'chatme-homepage')->firstOrFail();
-        $owner = $chatbot->user;
-        $subscription = Subscription::query()
-            ->where('provider_reference', 'homepage-chatbot-system')
-            ->firstOrFail();
-        $originalEnd = $subscription->ends_at->toISOString();
-
-        $this->assertSame('homepage-bot@chatme.invalid', $owner->email);
-        $this->assertTrue($owner->is_admin);
-        $this->assertSame($owner->id, $subscription->user_id);
-        $this->assertSame('enterprise', $subscription->plan->slug);
-        $this->assertSame('active', $subscription->status);
-        $this->assertTrue($subscription->ends_at->greaterThan(now()->addYears(99)));
-
-        $this->travel(1)->year();
-        $this->seed(HomepageChatbotSeeder::class);
-
-        $this->assertSame(
-            $originalEnd,
-            $subscription->fresh()->ends_at->toISOString(),
-            'Rerunning the seeder must not extend the system entitlement.',
-        );
-        $this->assertSame(1, User::query()->where('email', 'homepage-bot@chatme.invalid')->count());
-    }
-
-    /** @return array{Chatbot, User, ChatLog} */
-    private function existingOfficialChatbot(): array
-    {
-        $this->seed(PlanSeeder::class);
-        $owner = User::factory()->create(['is_admin' => true]);
+        $legacyOwner = User::factory()->create([
+            'email' => 'legacy-owner@example.test',
+            'is_admin' => true,
+        ]);
         $chatbot = Chatbot::create([
-            'user_id' => $owner->id,
-            'name' => 'ChatMe Assistant',
-            'slug' => 'chatme-assistant-old',
+            'user_id' => $legacyOwner->id,
+            'name' => 'Legacy Production Homepage',
+            'slug' => 'chatme-homepage',
             'api_key' => 'TEST_KEY',
             'domain_whitelist' => null,
         ]);
-        KnowledgeItem::create([
-            'chatbot_id' => $chatbot->id,
-            'question' => 'Old question',
-            'answer' => 'Old answer',
-        ]);
-        $chatLog = ChatLog::create([
-            'chatbot_id' => $chatbot->id,
-            'session_id' => 'preserved-session',
-            'message' => 'Preserve this log',
-            'role' => 'user',
+
+        $knowledge = require database_path('data/homepage_chatbot_knowledge.php');
+        $legacyKnowledgeIds = [];
+        foreach ($knowledge as $item) {
+            $sourceKey = $item['source_key'];
+            unset($item['source_key']);
+
+            $legacyKnowledge = $chatbot->knowledgeItems()->create([...$item, 'is_active' => true]);
+            $legacyKnowledgeIds[$sourceKey] = $legacyKnowledge->id;
+        }
+        $customKnowledge = $chatbot->knowledgeItems()->create([
+            'question' => 'CUSTOMER_KNOWLEDGE_MARKER',
+            'answer' => 'CUSTOMER_ANSWER_MARKER',
+            'is_active' => true,
         ]);
 
-        return [$chatbot, $owner, $chatLog];
+        $now = now();
+        ChatLog::query()->insert(array_map(
+            fn (int $number): array => [
+                'chatbot_id' => $chatbot->id,
+                'session_id' => 'legacy-session-'.$number,
+                'message' => 'Legacy log '.$number,
+                'role' => $number % 2 === 0 ? 'bot' : 'user',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            range(1, 200),
+        ));
+
+        return [$chatbot, $legacyOwner, $customKnowledge, $legacyKnowledgeIds];
+    }
+
+    private function freshHomepageChatbot(): Chatbot
+    {
+        $this->seed(PlanSeeder::class);
+        $this->seed(HomepageChatbotSeeder::class);
+
+        return Chatbot::query()->where('system_role', 'homepage_chatbot')->firstOrFail();
+    }
+
+    private function assertHomepageSeederFails(string $messageFragment): void
+    {
+        $caught = null;
+
+        try {
+            $this->seed(HomepageChatbotSeeder::class);
+        } catch (RuntimeException $exception) {
+            $caught = $exception;
+        }
+
+        $this->assertNotNull($caught, 'Homepage seeding should have failed closed.');
+        $this->assertStringContainsString($messageFragment, $caught->getMessage());
     }
 }

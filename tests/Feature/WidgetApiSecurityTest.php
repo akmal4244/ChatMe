@@ -126,6 +126,14 @@ class WidgetApiSecurityTest extends TestCase
         $this->assertStringNotContainsString('trace', $json);
     }
 
+    public function test_widget_script_route_has_a_public_rate_limit(): void
+    {
+        $route = Route::getRoutes()->getByName('widget.script');
+
+        $this->assertNotNull($route);
+        $this->assertContains('throttle:120,1', $route->gatherMiddleware());
+    }
+
     private function chatbotWithWhitelist(string $whitelist): Chatbot
     {
         $user = User::factory()->create();

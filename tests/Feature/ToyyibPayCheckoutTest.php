@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Tests\TestCase;
@@ -74,12 +75,12 @@ class ToyyibPayCheckoutTest extends TestCase
         });
 
         $this->actingAs($user)
-            ->post("/subscription/{$plan->id}/checkout", [
+            ->post("/subscription/{$plan->id}/checkout", $this->checkoutPayload([
                 'phone' => '+60 12-345 6789',
                 'amount_cents' => 1,
                 'status' => 'paid',
                 'bill_code' => 'ATTACKER',
-            ])
+            ]))
             ->assertRedirect('https://dev.toyyibpay.com/CHECKOUTBILL1')
             ->assertSessionHasNoErrors();
 
@@ -96,6 +97,86 @@ class ToyyibPayCheckoutTest extends TestCase
         Http::assertSentCount(1);
     }
 
+    public function test_checkout_form_issues_a_unique_idempotency_key_for_each_paid_plan(): void
+    {
+        $user = User::factory()->create();
+        $this->plan('pro', '49.00');
+        $this->plan('enterprise', '149.00');
+
+        $html = $this->actingAs($user)
+            ->get(route('subscription.plans'))
+            ->assertOk()
+            ->getContent();
+
+        preg_match_all('/name="checkout_key" value="([^"]+)"/', $html, $matches);
+
+        $this->assertCount(2, $matches[1]);
+        $this->assertCount(2, array_unique($matches[1]));
+        foreach ($matches[1] as $key) {
+            $this->assertTrue(Str::isUuid($key));
+        }
+    }
+
+    public function test_duplicate_checkout_key_reuses_the_existing_bill_without_a_second_provider_request(): void
+    {
+        $user = User::factory()->create();
+        $plan = $this->plan('pro', '49.00');
+        $checkoutKey = (string) Str::uuid();
+        Http::fake(['*' => Http::response([['BillCode' => 'IDEMPOTENT1']])]);
+
+        $payload = [
+            'phone' => '0123456789',
+            'checkout_key' => $checkoutKey,
+        ];
+
+        $this->actingAs($user)
+            ->post(route('subscription.checkout', $plan), $payload)
+            ->assertRedirect('https://dev.toyyibpay.com/IDEMPOTENT1');
+
+        $this->actingAs($user)
+            ->post(route('subscription.checkout', $plan), $payload)
+            ->assertRedirect('https://dev.toyyibpay.com/IDEMPOTENT1');
+
+        $this->assertDatabaseCount('payment_orders', 1);
+        $this->assertDatabaseHas('payment_orders', [
+            'user_id' => $user->id,
+            'plan_id' => $plan->id,
+            'checkout_key' => $checkoutKey,
+            'bill_code' => 'IDEMPOTENT1',
+            'status' => PaymentOrder::STATUS_PENDING,
+        ]);
+        Http::assertSentCount(1);
+    }
+
+    public function test_different_checkout_keys_reuse_one_pending_bill_for_the_same_user_and_plan(): void
+    {
+        $user = User::factory()->create();
+        $plan = $this->plan('pro', '49.00');
+        Http::fake(['*' => Http::response([['BillCode' => 'PLANPENDING1']])]);
+
+        $firstPayload = $this->checkoutPayload();
+        $secondPayload = $this->checkoutPayload();
+        $this->assertNotSame($firstPayload['checkout_key'], $secondPayload['checkout_key']);
+
+        $this->actingAs($user)
+            ->post(route('subscription.checkout', $plan), $firstPayload)
+            ->assertRedirect('https://dev.toyyibpay.com/PLANPENDING1');
+
+        $this->actingAs($user)
+            ->post(route('subscription.checkout', $plan), $secondPayload)
+            ->assertRedirect('https://dev.toyyibpay.com/PLANPENDING1');
+
+        $this->assertDatabaseCount('payment_orders', 1);
+        $this->assertDatabaseHas('payment_orders', [
+            'user_id' => $user->id,
+            'plan_id' => $plan->id,
+            'checkout_key' => $firstPayload['checkout_key'],
+            'bill_code' => 'PLANPENDING1',
+            'status' => PaymentOrder::STATUS_PENDING,
+        ]);
+        Http::assertSentCount(1);
+    }
+
     public function test_enterprise_checkout_uses_its_server_price(): void
     {
         $user = User::factory()->create();
@@ -103,10 +184,10 @@ class ToyyibPayCheckoutTest extends TestCase
         Http::fake(['*' => Http::response([['BillCode' => 'ENTERPRISE1']])]);
 
         $this->actingAs($user)
-            ->post("/subscription/{$plan->id}/checkout", [
+            ->post("/subscription/{$plan->id}/checkout", $this->checkoutPayload([
                 'phone' => '01123456789',
                 'amount_cents' => 49,
-            ])
+            ]))
             ->assertRedirect('https://dev.toyyibpay.com/ENTERPRISE1');
 
         $this->assertDatabaseHas('payment_orders', [
@@ -144,7 +225,9 @@ class ToyyibPayCheckoutTest extends TestCase
         Http::fake();
 
         $this->actingAs($user)
-            ->post("/subscription/{$plan->id}/checkout", ['phone' => '0151234567'])
+            ->post("/subscription/{$plan->id}/checkout", $this->checkoutPayload([
+                'phone' => '0151234567',
+            ]))
             ->assertSessionHasErrors('phone');
 
         $this->assertDatabaseCount('payment_orders', 0);
@@ -167,7 +250,7 @@ class ToyyibPayCheckoutTest extends TestCase
 
         $this->actingAs($user)
             ->from(route('subscription.plans'))
-            ->post("/subscription/{$plan->id}/checkout", ['phone' => '0123456789'])
+            ->post("/subscription/{$plan->id}/checkout", $this->checkoutPayload())
             ->assertRedirect(route('subscription.plans'))
             ->assertSessionHasErrors('payment');
 
@@ -213,7 +296,7 @@ class ToyyibPayCheckoutTest extends TestCase
 
         $this->actingAs($user)
             ->from(route('subscription.plans'))
-            ->post("/subscription/{$plan->id}/checkout", ['phone' => '0123456789'])
+            ->post("/subscription/{$plan->id}/checkout", $this->checkoutPayload())
             ->assertRedirect(route('subscription.plans'))
             ->assertSessionHasErrors('payment');
 
@@ -235,7 +318,7 @@ class ToyyibPayCheckoutTest extends TestCase
 
         $this->actingAs($user)
             ->from(route('subscription.plans'))
-            ->post("/subscription/{$plan->id}/checkout", ['phone' => '0123456789'])
+            ->post("/subscription/{$plan->id}/checkout", $this->checkoutPayload())
             ->assertRedirect(route('subscription.plans'))
             ->assertSessionHasErrors('payment');
 
@@ -265,7 +348,7 @@ class ToyyibPayCheckoutTest extends TestCase
 
         $this->actingAs($user)
             ->from(route('subscription.plans'))
-            ->post("/subscription/{$plan->id}/checkout", ['phone' => '0123456789'])
+            ->post("/subscription/{$plan->id}/checkout", $this->checkoutPayload())
             ->assertRedirect(route('subscription.plans'))
             ->assertSessionHasErrors('payment');
 
@@ -287,11 +370,86 @@ class ToyyibPayCheckoutTest extends TestCase
             });
     }
 
+    public function test_retry_reuses_a_recent_provider_bill_when_the_local_pending_save_failed(): void
+    {
+        $user = User::factory()->create();
+        $plan = $this->plan('pro', '49.00');
+        $failOnce = true;
+        PaymentOrder::updating(function (PaymentOrder $order) use (&$failOnce): void {
+            if ($failOnce && $order->status === PaymentOrder::STATUS_PENDING) {
+                $failOnce = false;
+                throw new RuntimeException('simulated local pending save failure');
+            }
+        });
+        Http::fake(['*' => Http::response([['BillCode' => 'RECOVERYBILL1']])]);
+
+        $this->actingAs($user)
+            ->from(route('subscription.plans'))
+            ->post(route('subscription.checkout', $plan), $this->checkoutPayload())
+            ->assertSessionHasErrors('payment');
+
+        $this->actingAs($user)
+            ->post(route('subscription.checkout', $plan), $this->checkoutPayload())
+            ->assertRedirect('https://dev.toyyibpay.com/RECOVERYBILL1');
+
+        $this->assertDatabaseCount('payment_orders', 1);
+        $this->assertDatabaseHas('payment_orders', [
+            'user_id' => $user->id,
+            'plan_id' => $plan->id,
+            'bill_code' => 'RECOVERYBILL1',
+            'status' => PaymentOrder::STATUS_PENDING,
+            'failure_reason' => null,
+        ]);
+        Http::assertSentCount(1);
+    }
+
+    public function test_legacy_active_bill_wins_over_a_recoverable_failed_bill(): void
+    {
+        $user = User::factory()->create();
+        $plan = $this->plan('pro', '49.00');
+        $recoverable = PaymentOrder::create([
+            'user_id' => $user->id,
+            'plan_id' => $plan->id,
+            'checkout_key' => (string) Str::uuid(),
+            'bill_code' => 'RECOVERABLEOLD1',
+            'provider' => 'toyyibpay',
+            'amount_cents' => 4900,
+            'status' => PaymentOrder::STATUS_FAILED,
+            'failure_reason' => 'internal_error',
+        ]);
+        $active = PaymentOrder::create([
+            'user_id' => $user->id,
+            'plan_id' => $plan->id,
+            'checkout_key' => (string) Str::uuid(),
+            'bill_code' => 'ACTIVEBILL1',
+            'provider' => 'toyyibpay',
+            'amount_cents' => 4900,
+            'status' => PaymentOrder::STATUS_PENDING,
+        ]);
+        Http::fake();
+
+        $this->actingAs($user)
+            ->post(route('subscription.checkout', $plan), $this->checkoutPayload())
+            ->assertRedirect('https://dev.toyyibpay.com/ACTIVEBILL1');
+
+        $this->assertSame(PaymentOrder::STATUS_FAILED, $recoverable->fresh()->status);
+        $this->assertSame(PaymentOrder::STATUS_PENDING, $active->fresh()->status);
+        Http::assertNothingSent();
+    }
+
     public function test_legacy_cashier_controller_methods_are_removed(): void
     {
         foreach (['subscribe', 'billingPortal', 'cancel', 'resume', 'manage'] as $method) {
             $this->assertFalse(method_exists(SubscriptionController::class, $method));
         }
+    }
+
+    public function test_checkout_route_is_rate_limited(): void
+    {
+        $route = Route::getRoutes()->getByName('subscription.checkout');
+
+        $this->assertNotNull($route);
+        $this->assertContains('throttle:5,1', $route->gatherMiddleware());
     }
 
     private function plan(string $slug, string $price, bool $active = true): Plan
@@ -302,5 +460,14 @@ class ToyyibPayCheckoutTest extends TestCase
             'price' => $price,
             'is_active' => $active,
         ]);
+    }
+
+    /** @return array<string, mixed> */
+    private function checkoutPayload(array $overrides = []): array
+    {
+        return array_merge([
+            'phone' => '0123456789',
+            'checkout_key' => (string) Str::uuid(),
+        ], $overrides);
     }
 }

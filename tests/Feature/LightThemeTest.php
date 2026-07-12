@@ -100,8 +100,20 @@ class LightThemeTest extends TestCase
         $partial = file_get_contents($partialPath);
         $this->assertStringContainsString('id="initial-notifications"', $partial);
         $this->assertStringContainsString('window.showToast', $partial);
+        $this->assertStringContainsString('options = {}', $partial);
+        $this->assertStringContainsString('configuredDuration === 0', $partial);
         $this->assertStringContainsString("toast.setAttribute('role', normalizedType === 'error' ? 'alert' : 'status')", $partial);
         $this->assertStringContainsString('aria-label="Tutup notifikasi"', $partial);
+    }
+
+    public function test_popup_notifications_are_top_aligned_and_support_persistent_duration(): void
+    {
+        $css = file_get_contents(resource_path('css/app.css'));
+        $partial = file_get_contents(resource_path('views/partials/toasts.blade.php'));
+
+        $this->assertMatchesRegularExpression('/#toast-container\s*\{[^}]*top:\s*calc\(20px \+ env\(safe-area-inset-top\)\)/s', $css);
+        $this->assertMatchesRegularExpression('/#toast-container\s*\{[^}]*bottom:\s*auto/s', $css);
+        $this->assertStringContainsString('window.setTimeout(remove, duration)', $partial);
     }
 
     public function test_session_and_validation_feedback_render_as_popup_data(): void

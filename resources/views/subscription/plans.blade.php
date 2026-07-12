@@ -71,15 +71,15 @@
                 <ul class="plan-features">
                     <li>
                         <span aria-hidden="true">&#10003;</span>
-                        {{ $plan->chatbot_limit === -1 ? 'Tanpa had chatbot' : number_format($plan->chatbot_limit).' chatbot' }}
+                        {{ $plan->chatbot_limit === -1 ? 'Sehingga '.number_format((int) config('chatme.chatbots.absolute_limit', 50)).' chatbot (penggunaan saksama)' : number_format($plan->chatbot_limit).' chatbot' }}
                     </li>
                     <li>
                         <span aria-hidden="true">&#10003;</span>
-                        {{ $plan->knowledge_limit === -1 ? 'Soal jawab tanpa had' : number_format($plan->knowledge_limit).' soal jawab' }}
+                        {{ $plan->knowledge_limit === -1 ? 'Sehingga '.number_format((int) config('chatme.knowledge.absolute_limit', 5000)).' soal jawab bagi setiap chatbot' : number_format($plan->knowledge_limit).' soal jawab' }}
                     </li>
                     <li>
                         <span aria-hidden="true">&#10003;</span>
-                        {{ $plan->monthly_messages === -1 ? 'Tanpa had mesej' : number_format($plan->monthly_messages).' mesej sebulan' }}
+                        {{ $plan->monthly_messages === -1 ? 'Tiada had bulanan; sehingga '.number_format((int) config('chatme.messaging.limits.owner_daily', 5000)).' mesej sehari bagi setiap akaun' : number_format($plan->monthly_messages).' mesej sebulan' }}
                     </li>
                     <li class="{{ $plan->api_access ? '' : 'plan-feature-muted' }}">
                         <span aria-hidden="true">{{ $plan->api_access ? '✓' : '—' }}</span>
@@ -108,6 +108,7 @@
                         <form action="{{ route('subscription.checkout', $plan) }}" method="POST" class="checkout-form">
                             @csrf
                             <input type="hidden" name="checkout_plan" value="{{ $plan->id }}">
+                            <input type="hidden" name="checkout_key" value="{{ $checkoutKeys[$plan->id] }}">
                             <label for="{{ $phoneId }}">Nombor telefon mudah alih</label>
                             <p id="{{ $phoneId }}-hint" class="field-hint">Digunakan untuk bil ToyyibPay dan pengesahan pembayaran.</p>
                             <input

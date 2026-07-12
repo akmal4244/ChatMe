@@ -6,31 +6,27 @@ use App\Models\Chatbot;
 use App\Models\ChatLog;
 use App\Models\KnowledgeItem;
 use App\Models\User;
-use App\Services\ChatbotResponseMatcher;
+use App\Services\ChatbotResponseService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class ChatbotTesterTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_shared_matcher_returns_the_existing_best_match_and_fallback(): void
+    public function test_shared_response_service_returns_the_best_match_and_stable_fallback(): void
     {
         $chatbot = $this->chatbotWithKnowledge();
-        $matcher = app(ChatbotResponseMatcher::class);
+        $responses = app(ChatbotResponseService::class);
 
         $this->assertSame(
             'Kami buka setiap hari.',
-            $matcher->respond($chatbot, 'waktu operasi'),
+            $responses->respond($chatbot, 'waktu operasi')->answer,
         );
-        $this->assertContains(
-            $matcher->respond($chatbot, 'soalan yang tiada padanan'),
-            [
-                'Maaf, saya belum pasti jawapannya. Cuba tanya dengan cara lain atau berikan maklumat yang lebih khusus.',
-                'Soalan yang bagus! Boleh berikan sedikit lagi maklumat supaya saya dapat membantu?',
-                'Saya sedia membantu. Boleh jelaskan dengan lebih lanjut perkara yang anda ingin tahu?',
-                'Maaf, saya belum menemui jawapan yang tepat. Cuba gunakan perkataan lain.',
-            ],
+        $this->assertSame(
+            $chatbot->fallbackResponse(),
+            $responses->respond($chatbot, 'soalan yang tiada padanan')->answer,
         );
     }
 
@@ -111,6 +107,112 @@ class ChatbotTesterTest extends TestCase
         $this->assertSame(0, ChatLog::count());
     }
 
+    public function test_owner_tester_is_rate_limited_per_user_and_chatbot(): void
+    {
+        config()->set('app.debug', false);
+        Http::fake();
+        $user = User::factory()->create();
+        $chatbot = $this->chatbotWithKnowledge($user);
+
+        foreach (range(1, 20) as $attempt) {
+            $this->actingAs($user)
+                ->postJson(route('chatbots.test-message', $chatbot), [
+                    'message' => 'waktu operasi',
+                ])
+                ->assertOk();
+        }
+
+        $this->actingAs($user)
+            ->postJson(route('chatbots.test-message', $chatbot), [
+                'message' => 'waktu operasi',
+            ])
+            ->assertStatus(429)
+            ->assertExactJson(['error' => 'Terlalu banyak permintaan. Sila cuba lagi sebentar lagi.']);
+
+        $this->assertDatabaseCount('chat_logs', 0);
+        Http::assertNothingSent();
+    }
+
+    public function test_tester_ai_is_limited_daily_without_blocking_deterministic_answers(): void
+    {
+        $this->enableFakeAi();
+        config()->set('chatme.tester.daily_ai_limit', 2);
+        $user = User::factory()->create();
+        $chatbot = $this->chatbotWithKnowledge($user);
+        Http::fake(['*' => Http::response([
+            'success' => true,
+            'errors' => [],
+            'messages' => [],
+            'result' => ['response' => 'Jawapan AI tester.'],
+        ])]);
+
+        foreach (range(1, 2) as $attempt) {
+            $this->actingAs($user)
+                ->postJson(route('chatbots.test-message', $chatbot), [
+                    'message' => 'Boleh jelaskan waktu yang sesuai?',
+                ])
+                ->assertOk()
+                ->assertExactJson(['response' => 'Jawapan AI tester.']);
+        }
+
+        $this->actingAs($user)
+            ->postJson(route('chatbots.test-message', $chatbot), [
+                'message' => 'Boleh jelaskan waktu yang sesuai?',
+            ])
+            ->assertOk()
+            ->assertExactJson([
+                'response' => $chatbot->fallbackResponse(),
+                'notice' => 'Had ujian AI harian telah dicapai. Padanan biasa masih digunakan.',
+            ]);
+
+        $this->actingAs($user)
+            ->postJson(route('chatbots.test-message', $chatbot), [
+                'message' => 'waktu operasi',
+            ])
+            ->assertOk()
+            ->assertExactJson(['response' => 'Kami buka setiap hari.']);
+
+        Http::assertSentCount(2);
+        $this->assertDatabaseHas('tester_ai_usages', [
+            'user_id' => $user->id,
+            'attempts' => 2,
+        ]);
+        $this->assertDatabaseCount('chat_logs', 0);
+    }
+
+    public function test_tester_ai_limit_resets_on_the_next_kuala_lumpur_day(): void
+    {
+        $this->enableFakeAi();
+        config()->set('chatme.tester.daily_ai_limit', 1);
+        $user = User::factory()->create();
+        $chatbot = $this->chatbotWithKnowledge($user);
+        Http::fake(['*' => Http::response([
+            'success' => true,
+            'errors' => [],
+            'messages' => [],
+            'result' => ['response' => 'Jawapan AI tester.'],
+        ])]);
+
+        $this->actingAs($user)
+            ->postJson(route('chatbots.test-message', $chatbot), [
+                'message' => 'Boleh jelaskan waktu yang sesuai?',
+            ])
+            ->assertOk();
+
+        $this->travel(1)->day();
+
+        $this->actingAs($user)
+            ->postJson(route('chatbots.test-message', $chatbot), [
+                'message' => 'Boleh jelaskan waktu yang sesuai?',
+            ])
+            ->assertOk()
+            ->assertExactJson(['response' => 'Jawapan AI tester.']);
+
+        Http::assertSentCount(2);
+        $this->assertDatabaseCount('tester_ai_usages', 2);
+        $this->assertDatabaseCount('chat_logs', 0);
+    }
+
     private function chatbotWithKnowledge(?User $user = null, array $attributes = []): Chatbot
     {
         $user ??= User::factory()->create();
@@ -128,5 +230,17 @@ class ChatbotTesterTest extends TestCase
         ]);
 
         return $chatbot;
+    }
+
+    private function enableFakeAi(): void
+    {
+        config()->set('services.cloudflare_ai', [
+            'enabled' => true,
+            'account_id' => 'tester-account',
+            'token' => 'tester-token',
+            'model' => '@cf/qwen/qwen3-30b-a3b-fp8',
+            'timeout' => 8,
+            'max_tokens' => 220,
+        ]);
     }
 }

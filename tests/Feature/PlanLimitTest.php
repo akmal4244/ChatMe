@@ -7,7 +7,10 @@ use App\Models\ChatLog;
 use App\Models\Plan;
 use App\Models\Subscription;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 class PlanLimitTest extends TestCase
@@ -99,6 +102,34 @@ class PlanLimitTest extends TestCase
         ]);
     }
 
+    public function test_unlimited_plan_still_obeys_the_absolute_chatbot_safety_limit(): void
+    {
+        config()->set('chatme.chatbots.absolute_limit', 2);
+        $plan = Plan::create([
+            'name' => 'Unlimited Chatbots',
+            'slug' => 'unlimited-chatbots',
+            'chatbot_limit' => -1,
+        ]);
+        $user = User::factory()->create();
+        Subscription::create([
+            'user_id' => $user->id,
+            'plan_id' => $plan->id,
+            'provider' => 'system',
+            'status' => 'active',
+            'starts_at' => now(),
+            'ends_at' => null,
+        ]);
+        Chatbot::create(['user_id' => $user->id, 'name' => 'Bot One']);
+        Chatbot::create(['user_id' => $user->id, 'name' => 'Bot Two']);
+
+        $this->assertFalse($user->canCreateChatbot());
+        $this->actingAs($user)
+            ->post(route('chatbots.store'), ['name' => 'Unsafe Third Bot'])
+            ->assertSessionHasErrors('name');
+
+        $this->assertDatabaseCount('chatbots', 2);
+    }
+
     public function test_one_message_plan_rejects_chat_when_current_month_quota_is_exhausted_without_writes(): void
     {
         $user = $this->subscribedUserWithMonthlyMessageLimit(1);
@@ -113,21 +144,28 @@ class PlanLimitTest extends TestCase
             'message' => 'Already counted',
             'role' => 'user',
         ]);
+        Log::spy();
 
-        $this->postJson(route('api.chat', $targetChatbot->api_key), [
+        $this->postWidgetJson($targetChatbot, [
             'message' => 'Over limit',
-            'session_id' => 'new-session',
-        ])
+        ], $newSession)
             ->assertStatus(429)
             ->assertJson(['error' => 'Had mesej bulanan telah dicapai.']);
 
         $this->assertDatabaseCount('chat_logs', 1);
         $this->assertDatabaseMissing('chat_logs', [
-            'session_id' => 'new-session',
+            'session_id' => $newSession,
         ]);
+        Log::shouldHaveReceived('notice')
+            ->once()
+            ->with('Monthly message quota exceeded.', [
+                'user_id' => $user->id,
+                'chatbot_id' => $targetChatbot->id,
+                'channel' => 'widget',
+            ]);
     }
 
-    public function test_message_limit_is_rechecked_after_the_owner_lock_is_acquired(): void
+    public function test_message_limit_is_checked_after_the_owner_lock_before_reservation(): void
     {
         $user = $this->subscribedUserWithMonthlyMessageLimit(1);
         $chatbot = $this->chatbotFor($user);
@@ -141,7 +179,7 @@ class PlanLimitTest extends TestCase
 
             $matchingOwnerRetrievals++;
 
-            if ($matchingOwnerRetrievals !== 2) {
+            if ($matchingOwnerRetrievals !== 1) {
                 return;
             }
 
@@ -154,21 +192,20 @@ class PlanLimitTest extends TestCase
             ]);
         });
 
-        $this->postJson(route('api.chat', $chatbot->api_key), [
+        $this->postWidgetJson($chatbot, [
             'message' => 'Too late',
-            'session_id' => 'too-late-session',
-        ])
+        ], $tooLateSession)
             ->assertStatus(429)
             ->assertJson(['error' => 'Had mesej bulanan telah dicapai.']);
 
-        $this->assertSame(2, $matchingOwnerRetrievals);
+        $this->assertSame(1, $matchingOwnerRetrievals);
         $this->assertDatabaseCount('chat_logs', 1);
         $this->assertDatabaseHas('chat_logs', [
             'session_id' => 'competing-session',
             'role' => 'user',
         ]);
         $this->assertDatabaseMissing('chat_logs', [
-            'session_id' => 'too-late-session',
+            'session_id' => $tooLateSession,
         ]);
     }
 
@@ -179,7 +216,7 @@ class PlanLimitTest extends TestCase
         $failBotWrite = true;
 
         ChatLog::creating(function (ChatLog $chatLog) use (&$failBotWrite): void {
-            if (! $failBotWrite || $chatLog->session_id !== 'atomic-session' || $chatLog->role !== 'bot') {
+            if (! $failBotWrite || $chatLog->role !== 'bot') {
                 return;
             }
 
@@ -190,10 +227,9 @@ class PlanLimitTest extends TestCase
         $this->withoutExceptionHandling();
 
         try {
-            $this->postJson(route('api.chat', $chatbot->api_key), [
+            $this->postWidgetJson($chatbot, [
                 'message' => 'Atomic request',
-                'session_id' => 'atomic-session',
-            ]);
+            ], $atomicSession);
 
             $this->fail('The simulated response write failure was not raised.');
         } catch (\RuntimeException $exception) {
@@ -201,7 +237,7 @@ class PlanLimitTest extends TestCase
         }
 
         $this->assertDatabaseMissing('chat_logs', [
-            'session_id' => 'atomic-session',
+            'session_id' => $atomicSession,
         ]);
     }
 
@@ -217,9 +253,8 @@ class PlanLimitTest extends TestCase
             'role' => 'user',
         ]);
 
-        $this->postJson(route('api.chat', $chatbot->api_key), [
+        $this->postWidgetJson($chatbot, [
             'message' => 'Admin over limit',
-            'session_id' => 'admin-over-limit-session',
         ])
             ->assertStatus(429)
             ->assertJson(['error' => 'Had mesej bulanan telah dicapai.']);
@@ -253,23 +288,58 @@ class PlanLimitTest extends TestCase
             'role' => 'bot',
         ]);
 
-        $this->postJson(route('api.chat', $targetChatbot->api_key), [
+        $this->postWidgetJson($targetChatbot, [
             'message' => 'First counted message this month',
-            'session_id' => 'allowed-session',
-        ])->assertOk();
+        ], $allowedSession)->assertOk();
 
         $this->assertDatabaseCount('chat_logs', 4);
         $this->assertDatabaseHas('chat_logs', [
             'chatbot_id' => $targetChatbot->id,
-            'session_id' => 'allowed-session',
+            'session_id' => $allowedSession,
             'role' => 'user',
         ]);
         $this->assertDatabaseHas('chat_logs', [
             'chatbot_id' => $targetChatbot->id,
-            'session_id' => 'allowed-session',
+            'session_id' => $allowedSession,
             'role' => 'bot',
         ]);
         $this->assertFalse($user->canSendChatMessage());
+    }
+
+    public function test_monthly_quota_resets_at_midnight_in_kuala_lumpur(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-31 16:30:00', 'UTC'));
+
+        try {
+            $user = $this->subscribedUserWithMonthlyMessageLimit(1);
+            $chatbot = $this->chatbotFor($user);
+
+            $previousMonthLog = ChatLog::create([
+                'chatbot_id' => $chatbot->id,
+                'session_id' => 'july-business-month',
+                'message' => 'Mesej bulan Julai',
+                'role' => 'user',
+            ]);
+            $previousMonthLog->forceFill([
+                'created_at' => Carbon::parse('2026-07-15 12:00:00', 'UTC'),
+            ])->saveQuietly();
+
+            $this->assertTrue($user->canSendChatMessage());
+
+            $currentMonthLog = ChatLog::create([
+                'chatbot_id' => $chatbot->id,
+                'session_id' => 'august-business-month',
+                'message' => 'Mesej bulan Ogos',
+                'role' => 'user',
+            ]);
+            $currentMonthLog->forceFill([
+                'created_at' => Carbon::parse('2026-07-31 16:15:00', 'UTC'),
+            ])->saveQuietly();
+
+            $this->assertFalse($user->canSendChatMessage());
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_unlimited_message_plan_allows_chat_and_writes_one_user_and_one_bot_row(): void
@@ -277,22 +347,41 @@ class PlanLimitTest extends TestCase
         $user = $this->subscribedUserWithMonthlyMessageLimit(-1);
         $chatbot = $this->chatbotFor($user);
 
-        $this->postJson(route('api.chat', $chatbot->api_key), [
+        $this->postWidgetJson($chatbot, [
             'message' => 'Unlimited message',
-            'session_id' => 'unlimited-session',
-        ])->assertOk();
+        ], $unlimitedSession)->assertOk();
 
         $this->assertDatabaseCount('chat_logs', 2);
         $this->assertDatabaseHas('chat_logs', [
             'chatbot_id' => $chatbot->id,
-            'session_id' => 'unlimited-session',
+            'session_id' => $unlimitedSession,
             'role' => 'user',
         ]);
         $this->assertDatabaseHas('chat_logs', [
             'chatbot_id' => $chatbot->id,
-            'session_id' => 'unlimited-session',
+            'session_id' => $unlimitedSession,
             'role' => 'bot',
         ]);
+    }
+
+    public function test_widget_chat_bounds_untrusted_user_agent_before_persisting(): void
+    {
+        $user = $this->subscribedUserWithMonthlyMessageLimit(-1);
+        $chatbot = $this->chatbotFor($user);
+
+        $this->postWidgetJson(
+            $chatbot,
+            ['message' => 'Metadata bounded'],
+            $boundedSession,
+            ['User-Agent' => str_repeat('A', 1000)],
+        )->assertOk();
+
+        $userLog = ChatLog::query()
+            ->where('session_id', $boundedSession)
+            ->where('role', 'user')
+            ->firstOrFail();
+
+        $this->assertSame(255, strlen((string) $userLog->user_agent));
     }
 
     private function freePlanUser(): User
@@ -333,5 +422,23 @@ class PlanLimitTest extends TestCase
             'user_id' => $user->id,
             'name' => 'Quota Bot',
         ]);
+    }
+
+    private function postWidgetJson(
+        Chatbot $chatbot,
+        array $payload,
+        ?string &$sessionId = null,
+        array $headers = [],
+    ): TestResponse {
+        $origin = 'https://widget.example.test';
+        $config = $this->withHeader('Origin', $origin)
+            ->getJson(route('api.widget.config', $chatbot->api_key))
+            ->assertOk();
+        $sessionId = $config->json('widget_session_id');
+        $payload['session_id'] = $sessionId;
+        $payload['widget_ticket'] = $config->json('widget_ticket');
+
+        return $this->withHeaders(['Origin' => $origin, ...$headers])
+            ->postJson(route('api.chat', $chatbot->api_key), $payload);
     }
 }

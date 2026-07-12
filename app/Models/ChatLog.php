@@ -19,10 +19,12 @@ class ChatLog extends Model
     protected function casts(): array
     {
         return [
+            'chatbot_id' => 'integer',
             'role' => 'string',
         ];
     }
 
+    /** @return BelongsTo<Chatbot, $this> */
     public function chatbot(): BelongsTo
     {
         return $this->belongsTo(Chatbot::class);

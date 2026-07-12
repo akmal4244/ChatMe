@@ -2,22 +2,36 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\InvalidWidgetTicketException;
 use App\Models\Chatbot;
-use App\Models\ChatLog;
-use App\Models\User;
-use App\Services\ChatbotResponseMatcher;
+use App\Services\ChatbotResponseService;
+use App\Services\MessageQuotaService;
+use App\Services\OwnerMessagingLimiter;
+use App\Services\WidgetAbuseService;
+use App\Services\WidgetOriginService;
+use App\Services\WidgetTicketService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use Throwable;
 
 class ApiController extends Controller
 {
-    public function config(Request $request, $apiKey)
-    {
+    public function config(
+        Request $request,
+        $apiKey,
+        WidgetOriginService $origins,
+        WidgetTicketService $tickets,
+    ): JsonResponse {
         $chatbot = Chatbot::where('api_key', $apiKey)->where('is_active', true)->firstOrFail();
+        $origin = $this->allowedOrigin($request, $chatbot, $origins);
 
-        if (! $this->isOriginAllowed($request, $chatbot)) {
+        if ($origin === null) {
             return response()->json(['error' => __('chatme.api.domain_forbidden')], 403);
         }
+
+        $ticket = $tickets->issue($request, $chatbot, $origin);
 
         return response()->json([
             'id' => $chatbot->id,
@@ -29,99 +43,115 @@ class ApiController extends Controller
             'position' => $chatbot->position,
             'welcome_message' => $chatbot->welcome_message,
             'placeholder_text' => $chatbot->placeholder_text,
-        ])->header('Access-Control-Allow-Origin', '*');
+            'widget_ticket' => $ticket['ticket'],
+            'widget_session_id' => $ticket['session_id'],
+            'ticket_expires_at' => $ticket['expires_at'],
+        ])->header('Cache-Control', 'no-store, private');
     }
 
-    public function chat(Request $request, $apiKey, ChatbotResponseMatcher $matcher)
-    {
+    public function chat(
+        Request $request,
+        $apiKey,
+        ChatbotResponseService $responses,
+        MessageQuotaService $quotas,
+        WidgetAbuseService $abuse,
+        OwnerMessagingLimiter $ownerLimits,
+        WidgetOriginService $origins,
+        WidgetTicketService $tickets,
+    ): JsonResponse {
         $chatbot = Chatbot::where('api_key', $apiKey)->where('is_active', true)->firstOrFail();
+        $origin = $this->allowedOrigin($request, $chatbot, $origins);
 
-        if (! $this->isOriginAllowed($request, $chatbot)) {
+        if ($origin === null) {
             return response()->json(['error' => __('chatme.api.domain_forbidden')], 403);
-        }
-
-        if (! $chatbot->user->canSendChatMessage()) {
-            return response()->json(['error' => __('chatme.api.monthly_limit')], 429);
         }
 
         $data = $request->validate([
             'message' => 'required|string|max:1000',
-            'session_id' => 'nullable|string|max:100',
+            'session_id' => 'required|string|max:100',
         ]);
+        $rawTicket = $request->input('widget_ticket');
 
-        $sessionId = $data['session_id'] ?? 'session_'.uniqid();
-        $userMessage = trim($data['message']);
-
-        $response = DB::transaction(function () use ($chatbot, $request, $sessionId, $userMessage, $matcher): ?string {
-            $owner = User::query()
-                ->lockForUpdate()
-                ->findOrFail($chatbot->user_id);
-
-            if (! $owner->canSendChatMessage()) {
-                return null;
+        try {
+            if (! is_string($rawTicket) || strlen($rawTicket) > 4096) {
+                throw new InvalidWidgetTicketException('missing_or_oversized');
             }
 
-            ChatLog::create([
+            $claims = $tickets->validate(
+                $request,
+                $chatbot,
+                $origin,
+                $rawTicket,
+                $data['session_id'],
+            );
+        } catch (InvalidWidgetTicketException $exception) {
+            Log::notice('Widget ticket rejected.', [
                 'chatbot_id' => $chatbot->id,
-                'session_id' => $sessionId,
-                'message' => $userMessage,
-                'role' => 'user',
-                'ip_address' => $request->ip(),
-                'user_agent' => $request->userAgent(),
+                'reason' => $exception->reason,
             ]);
 
-            $response = $matcher->respond($chatbot, $userMessage);
+            return response()->json(['error' => __('chatme.api.widget_session_invalid')], 401);
+        }
 
-            ChatLog::create([
-                'chatbot_id' => $chatbot->id,
-                'session_id' => $sessionId,
-                'message' => $response,
-                'role' => 'bot',
-            ]);
+        if ($abuse->deniedBy($request, $chatbot, $claims) !== null) {
+            return response()->json(['error' => __('chatme.api.too_many_requests')], 429);
+        }
 
-            return $response;
-        });
+        if ($ownerLimits->denied($chatbot)) {
+            return response()->json(['error' => __('chatme.api.too_many_requests')], 429);
+        }
 
-        if ($response === null) {
+        $permit = $quotas->reserve($chatbot, 'widget');
+        if ($permit === null) {
+            $this->logQuotaExceeded($chatbot);
+
             return response()->json(['error' => __('chatme.api.monthly_limit')], 429);
+        }
+
+        $sessionId = $data['session_id'];
+        $userMessage = trim($data['message']);
+        $ipAddress = is_string($request->ip()) ? Str::substr($request->ip(), 0, 255) : null;
+        $userAgent = is_string($request->userAgent()) ? Str::substr($request->userAgent(), 0, 255) : null;
+
+        try {
+            $response = $responses->respond($chatbot, $userMessage)->answer;
+            $quotas->complete(
+                $permit,
+                sessionId: $sessionId,
+                userMessage: $userMessage,
+                botMessage: $response,
+                ipAddress: $ipAddress,
+                userAgent: $userAgent,
+            );
+        } catch (Throwable $exception) {
+            $quotas->release($permit);
+
+            throw $exception;
         }
 
         return response()->json([
             'response' => $response,
             'session_id' => $sessionId,
-        ])->header('Access-Control-Allow-Origin', '*');
+        ]);
     }
 
-    private function isOriginAllowed(Request $request, Chatbot $chatbot): bool
+    private function allowedOrigin(
+        Request $request,
+        Chatbot $chatbot,
+        WidgetOriginService $origins,
+    ): ?string {
+        $origin = $request->attributes->get('widget_origin');
+        $origin = is_string($origin) ? $origin : $origins->fromRequest($request);
+
+        return $origins->isAllowed($chatbot, $origin) ? $origin : null;
+    }
+
+    private function logQuotaExceeded(Chatbot $chatbot): void
     {
-        if (blank($chatbot->domain_whitelist)) {
-            return true;
-        }
-
-        $origin = $request->header('Origin') ?? $request->header('Referer');
-        $originHost = $origin ? strtolower((string) parse_url($origin, PHP_URL_HOST)) : '';
-
-        if ($originHost === '') {
-            return false;
-        }
-
-        foreach (explode(',', $chatbot->domain_whitelist) as $entry) {
-            $entry = strtolower(trim($entry));
-            if ($entry === '*') {
-                return true;
-            }
-
-            $allowedHost = (string) parse_url(
-                str_contains($entry, '://') ? $entry : "https://{$entry}",
-                PHP_URL_HOST
-            );
-
-            if ($allowedHost !== '' &&
-                ($originHost === $allowedHost || str_ends_with($originHost, ".{$allowedHost}"))) {
-                return true;
-            }
-        }
-
-        return false;
+        Log::notice('Monthly message quota exceeded.', [
+            'user_id' => $chatbot->user_id,
+            'chatbot_id' => $chatbot->id,
+            'channel' => 'widget',
+        ]);
     }
 }

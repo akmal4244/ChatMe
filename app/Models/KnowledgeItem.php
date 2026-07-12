@@ -19,10 +19,12 @@ class KnowledgeItem extends Model
     protected function casts(): array
     {
         return [
+            'chatbot_id' => 'integer',
             'is_active' => 'boolean',
         ];
     }
 
+    /** @return BelongsTo<Chatbot, $this> */
     public function chatbot(): BelongsTo
     {
         return $this->belongsTo(Chatbot::class);

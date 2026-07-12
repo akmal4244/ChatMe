@@ -1,4 +1,5 @@
 *.log
+*.bak
 error_log
 *_production_*.sql
 *.sql

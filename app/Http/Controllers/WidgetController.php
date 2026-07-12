@@ -20,6 +20,7 @@ class WidgetController extends Controller
             'welcomeMessage' => $chatbot->welcome_message,
             'placeholderText' => $chatbot->placeholder_text,
             'avatarUrl' => $chatbot->resolvedAvatarUrl(),
+            'showBranding' => ! (bool) $chatbot->user->currentPlan()?->remove_branding,
         ];
 
         $js = file_get_contents(public_path('widget.js'));
@@ -29,7 +30,6 @@ class WidgetController extends Controller
 {$js}";
 
         return response($response)->header('Content-Type', 'application/javascript')
-            ->header('Access-Control-Allow-Origin', '*')
-            ->header('Cache-Control', 'public, max-age=3600');
+            ->header('Cache-Control', 'no-store, private');
     }
 }

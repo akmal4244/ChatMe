@@ -159,6 +159,7 @@ return [
         'name' => 'nama',
         'email' => 'alamat e-mel',
         'password' => 'kata laluan',
+        'current_password' => 'kata laluan semasa',
         'password_confirmation' => 'pengesahan kata laluan',
         'company' => 'syarikat',
         'website' => 'laman web',

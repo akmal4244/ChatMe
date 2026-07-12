@@ -3,6 +3,7 @@
 namespace App\Services\Payments;
 
 use App\Models\PaymentOrder;
+use App\Models\User;
 use App\Support\Ringgit;
 use App\Support\ToyyibPayTimestamp;
 use Illuminate\Support\Facades\DB;
@@ -19,10 +20,23 @@ class ToyyibPayReconciliationService
      */
     public function reconcile(PaymentOrder $order, array $transactions): PaymentOrder
     {
-        return DB::transaction(function () use ($order, $transactions): PaymentOrder {
+        $ownerId = (int) PaymentOrder::query()
+            ->whereKey($order->getKey())
+            ->value('user_id');
+
+        if ($ownerId < 1) {
+            throw new InvalidArgumentException('Payment order owner is missing.');
+        }
+
+        return DB::transaction(function () use ($order, $ownerId, $transactions): PaymentOrder {
+            $owner = User::query()->lockForUpdate()->findOrFail($ownerId);
             $lockedOrder = PaymentOrder::query()
                 ->lockForUpdate()
                 ->findOrFail($order->getKey());
+
+            if ($lockedOrder->user_id !== $owner->id) {
+                throw new InvalidArgumentException('Payment order owner changed during reconciliation.');
+            }
 
             if ($lockedOrder->status === PaymentOrder::STATUS_PAID || ! $lockedOrder->bill_code) {
                 return $lockedOrder;
@@ -70,7 +84,7 @@ class ToyyibPayReconciliationService
             }
 
             return $lockedOrder->fresh();
-        });
+        }, 3);
     }
 
     /** @param array<string, mixed> $transaction */

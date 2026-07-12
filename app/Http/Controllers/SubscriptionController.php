@@ -4,13 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Models\PaymentOrder;
 use App\Models\Plan;
+use App\Models\User;
 use App\Services\Payments\ToyyibPayReconciliationService;
 use App\Services\ToyyibPay\ToyyibPayClient;
 use App\Services\ToyyibPay\ToyyibPayException;
 use App\Support\MalaysianPhone;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use InvalidArgumentException;
@@ -19,11 +22,18 @@ use UnexpectedValueException;
 
 class SubscriptionController extends Controller
 {
-    public function plans()
+    private const CREATING_STALE_AFTER_MINUTES = 5;
+
+    private const BILL_EXPIRES_AFTER_DAYS = 3;
+
+    public function plans(): View
     {
         $plans = Plan::visibleForSale()->get();
+        $checkoutKeys = $plans
+            ->reject(fn (Plan $plan): bool => $plan->slug === 'free')
+            ->mapWithKeys(fn (Plan $plan): array => [$plan->id => (string) Str::uuid()]);
 
-        return view('subscription.plans', compact('plans'));
+        return view('subscription.plans', compact('checkoutKeys', 'plans'));
     }
 
     public function checkout(
@@ -33,12 +43,13 @@ class SubscriptionController extends Controller
     ): RedirectResponse {
         $amountCents = $this->purchasableAmount($plan);
 
-        $request->validate([
+        $validated = $request->validate([
             'phone' => ['required', 'string', 'max:30'],
+            'checkout_key' => ['required', 'uuid'],
         ]);
 
         try {
-            $phone = MalaysianPhone::normalize((string) $request->input('phone'));
+            $phone = MalaysianPhone::normalize((string) $validated['phone']);
         } catch (InvalidArgumentException) {
             throw ValidationException::withMessages([
                 'phone' => 'Masukkan nombor telefon mudah alih Malaysia yang sah.',
@@ -48,18 +59,107 @@ class SubscriptionController extends Controller
         $user = $request->user();
 
         try {
-            $order = $user->paymentOrders()->create([
-                'plan_id' => $plan->id,
-                'provider' => 'toyyibpay',
-                'amount_cents' => $amountCents,
-                'status' => PaymentOrder::STATUS_CREATING,
-            ]);
+            $order = DB::transaction(function () use ($amountCents, $plan, $user, $validated): PaymentOrder {
+                $lockedUser = User::query()
+                    ->whereKey($user->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                $lockedUser->paymentOrders()
+                    ->where('provider', 'toyyibpay')
+                    ->where('status', PaymentOrder::STATUS_CREATING)
+                    ->where('created_at', '<', now()->subMinutes(self::CREATING_STALE_AFTER_MINUTES))
+                    ->update([
+                        'status' => PaymentOrder::STATUS_FAILED,
+                        'failure_reason' => 'stale_creation',
+                        'updated_at' => now(),
+                    ]);
+                $lockedUser->paymentOrders()
+                    ->where('provider', 'toyyibpay')
+                    ->where('status', PaymentOrder::STATUS_PENDING)
+                    ->where('created_at', '<', now()->subDays(self::BILL_EXPIRES_AFTER_DAYS))
+                    ->update([
+                        'status' => PaymentOrder::STATUS_EXPIRED,
+                        'failure_reason' => 'bill_expired',
+                        'updated_at' => now(),
+                    ]);
+
+                $activeOrder = $lockedUser->paymentOrders()
+                    ->where('plan_id', $plan->id)
+                    ->where('provider', 'toyyibpay')
+                    ->where('amount_cents', $amountCents)
+                    ->whereIn('status', [
+                        PaymentOrder::STATUS_CREATING,
+                        PaymentOrder::STATUS_PENDING,
+                    ])
+                    ->latest('id')
+                    ->first();
+
+                if ($activeOrder) {
+                    return $activeOrder;
+                }
+
+                $recoverableOrder = $lockedUser->paymentOrders()
+                    ->where('plan_id', $plan->id)
+                    ->where('provider', 'toyyibpay')
+                    ->where('amount_cents', $amountCents)
+                    ->where('status', PaymentOrder::STATUS_FAILED)
+                    ->where('failure_reason', 'internal_error')
+                    ->whereNotNull('bill_code')
+                    ->where('created_at', '>=', now()->subDays(self::BILL_EXPIRES_AFTER_DAYS))
+                    ->latest('id')
+                    ->first();
+
+                if ($recoverableOrder) {
+                    $recoverableOrder->forceFill([
+                        'status' => PaymentOrder::STATUS_PENDING,
+                        'failure_reason' => null,
+                    ])->save();
+
+                    return $recoverableOrder;
+                }
+
+                return $lockedUser->paymentOrders()->firstOrCreate([
+                    'checkout_key' => $validated['checkout_key'],
+                ], [
+                    'plan_id' => $plan->id,
+                    'provider' => 'toyyibpay',
+                    'amount_cents' => $amountCents,
+                    'status' => PaymentOrder::STATUS_CREATING,
+                ]);
+            }, 3);
         } catch (Throwable $exception) {
             Log::error('Payment order could not be created.', [
                 'user_id' => $user->id,
                 'plan_id' => $plan->id,
                 'exception_class' => $exception::class,
             ]);
+
+            return $this->checkoutFailureResponse($request);
+        }
+
+        if (! $order->wasRecentlyCreated) {
+            if ($order->plan_id !== $plan->id
+                || $order->provider !== 'toyyibpay'
+                || $order->amount_cents !== $amountCents) {
+                throw ValidationException::withMessages([
+                    'payment' => 'Permintaan pembayaran ini tidak sepadan dengan pelan yang dipilih.',
+                ]);
+            }
+
+            if ($order->status === PaymentOrder::STATUS_PAID) {
+                return redirect()->route('subscription.return', $order)
+                    ->with('success', 'Pembayaran telah disahkan dan langganan anda aktif.');
+            }
+
+            if ($order->status === PaymentOrder::STATUS_PENDING && filled($order->bill_code)) {
+                return redirect()->away($client->paymentUrl((string) $order->bill_code));
+            }
+
+            if ($order->status === PaymentOrder::STATUS_CREATING) {
+                return redirect()->route('subscription.return', $order)
+                    ->with('info', 'Permintaan pembayaran sedang diproses. Sila semak semula sebentar lagi.');
+            }
 
             return $this->checkoutFailureResponse($request);
         }

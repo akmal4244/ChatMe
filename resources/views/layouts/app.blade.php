@@ -9,10 +9,6 @@
     <title>{{ str_contains($documentTitle, 'ChatMe') ? $documentTitle : $documentTitle.' — ChatMe' }}</title>
 
     <link rel="icon" type="image/png" href="{{ asset('akmal3d.png') }}">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
     @php($stylesheetVersion = substr(hash_file('sha256', public_path('css/app.css')), 0, 12))
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ $stylesheetVersion }}">
     @stack('styles')
@@ -45,6 +41,12 @@
 
             <p class="nav-group-title">Akaun</p>
             <ul class="nav-list">
+                <li class="nav-item">
+                    <a href="{{ route('profile.edit') }}" class="nav-link {{ request()->routeIs('profile.*') ? 'active' : '' }}" aria-label="Profil akaun" @if(request()->routeIs('profile.*')) aria-current="page" @endif>
+                        <i class="ph ph-user-circle nav-icon" aria-hidden="true"></i>
+                        <span class="nav-text">Profil akaun</span>
+                    </a>
+                </li>
                 <li class="nav-item">
                     <a href="{{ route('subscription.plans') }}" class="nav-link {{ request()->routeIs('subscription.*') ? 'active' : '' }}" aria-label="Pelan Langganan" @if(request()->routeIs('subscription.*')) aria-current="page" @endif>
                         <i class="ph ph-crown nav-icon" aria-hidden="true"></i>
@@ -101,6 +103,7 @@
                     </div>
                     <ul>
                         <li><a href="{{ route('dashboard') }}"><i class="ph ph-gauge" aria-hidden="true"></i>Papan pemuka</a></li>
+                        <li><a href="{{ route('profile.edit') }}"><i class="ph ph-user-circle" aria-hidden="true"></i>Profil akaun</a></li>
                         <li><a href="{{ route('subscription.plans') }}"><i class="ph ph-crown" aria-hidden="true"></i>Pelan Langganan</a></li>
                         @if(auth()->user()?->is_admin)
                             <li><a href="{{ route('admin.dashboard') }}"><i class="ph ph-shield-check" aria-hidden="true"></i>Panel Pentadbir</a></li>
@@ -120,7 +123,88 @@
     </div>
 
     @stack('modals')
+    <div
+        id="session-expiry-config"
+        data-expires-at="{{ now()->addMinutes((int) config('session.lifetime'))->timestamp }}"
+        data-warning-seconds="300"
+        data-login-url="{{ route('login', ['session_expired' => 1]) }}"
+        data-header-name="X-Session-Expires-At"
+        hidden
+    ></div>
     @include('partials.toasts')
+
+    <script nonce="{{ Vite::cspNonce() }}">
+    (() => {
+        const sessionConfig = document.getElementById('session-expiry-config');
+        if (!sessionConfig || typeof window.showToast !== 'function') return;
+
+        let expiresAt = Number(sessionConfig.dataset.expiresAt) * 1000;
+        const warningSeconds = Number(sessionConfig.dataset.warningSeconds);
+        const loginUrl = sessionConfig.dataset.loginUrl;
+        const headerName = sessionConfig.dataset.headerName;
+        let warningToast = null;
+        let warningDismissed = false;
+        let redirectStarted = false;
+
+        const removeWarningToast = () => {
+            warningToast?.remove();
+            warningToast = null;
+            warningDismissed = false;
+        };
+
+        const updateSessionCountdown = () => {
+            if (!Number.isFinite(expiresAt) || !Number.isFinite(warningSeconds) || !loginUrl) return;
+
+            const remainingSeconds = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+            if (remainingSeconds === 0) {
+                if (!redirectStarted) {
+                    redirectStarted = true;
+                    window.location.replace(loginUrl);
+                }
+                return;
+            }
+
+            if (remainingSeconds > warningSeconds) return;
+
+            if (warningToast && !warningToast.isConnected) {
+                warningToast = null;
+                warningDismissed = true;
+            }
+
+            if (!warningToast && !warningDismissed) {
+                warningToast = window.showToast('Sesi anda akan tamat tidak lama lagi.', 'info', { duration: 0 });
+            }
+
+            const minutes = Math.floor(remainingSeconds / 60);
+            const seconds = String(remainingSeconds % 60).padStart(2, '0');
+            const message = warningToast?.querySelector('.toast-message');
+            if (message) message.textContent = `Sesi anda akan tamat dalam ${String(minutes).padStart(2, '0')}:${seconds}.`;
+        };
+
+        const originalFetch = window.fetch.bind(window);
+        window.fetch = async (...args) => {
+            const response = await originalFetch(...args);
+            const input = args[0];
+            const requestTarget = input instanceof Request ? input.url : String(input);
+            const requestUrl = new URL(requestTarget, window.location.href);
+
+            if (requestUrl.origin === window.location.origin && response.ok) {
+                const nextDeadline = Number(response.headers.get(headerName));
+                if (Number.isFinite(nextDeadline) && nextDeadline > 0) {
+                    expiresAt = nextDeadline * 1000;
+                    sessionConfig.dataset.expiresAt = String(nextDeadline);
+                    removeWarningToast();
+                    updateSessionCountdown();
+                }
+            }
+
+            return response;
+        };
+
+        updateSessionCountdown();
+        window.setInterval(updateSessionCountdown, 1000);
+    })();
+    </script>
 
     <div class="modal-backdrop" id="logout-modal" hidden>
         <section class="modal-box" role="dialog" aria-modal="true" aria-labelledby="logout-modal-title" aria-describedby="logout-modal-description">
@@ -144,7 +228,7 @@
         </section>
     </div>
 
-    <script>
+    <script nonce="{{ Vite::cspNonce() }}">
     (() => {
         const sidebar = document.getElementById('sidebar');
         const appShell = document.getElementById('app-shell');
@@ -217,9 +301,11 @@
             if (isMobile()) setSidebarState(false);
         }));
 
-        const closeUserMenu = () => {
+        const closeUserMenu = (restoreFocus = false) => {
+            const wasOpen = userDropdown && !userDropdown.hidden;
             userDropdown.hidden = true;
             userButton?.setAttribute('aria-expanded', 'false');
+            if (restoreFocus && wasOpen) userButton?.focus();
         };
         userButton?.addEventListener('click', (event) => {
             event.stopPropagation();
@@ -227,7 +313,7 @@
             userDropdown.hidden = !opening;
             userButton.setAttribute('aria-expanded', opening ? 'true' : 'false');
         });
-        document.addEventListener('click', closeUserMenu);
+        document.addEventListener('click', () => closeUserMenu(false));
         userDropdown?.addEventListener('click', (event) => event.stopPropagation());
 
         const closeModal = (modal) => {
@@ -242,7 +328,7 @@
         const openModal = (modal) => {
             if (!modal) return;
             lastFocused = userDropdown?.contains(document.activeElement) ? userButton : document.activeElement;
-            closeUserMenu();
+            closeUserMenu(false);
             modal.hidden = false;
             document.body.classList.add('modal-open');
             appShell.inert = true;
@@ -259,7 +345,7 @@
             const activeModal = document.querySelector('.modal-backdrop:not([hidden])');
 
             if (event.key === 'Escape') {
-                closeUserMenu();
+                closeUserMenu(true);
                 if (activeModal) closeModal(activeModal);
                 if (isMobile() && sidebar.classList.contains('mobile-open')) {
                     setSidebarState(false, true);
@@ -302,6 +388,17 @@
             };
             openModal(modal);
         };
+
+        document.querySelectorAll('form[data-submit-loading]').forEach((form) => {
+            form.addEventListener('submit', (event) => {
+                const submitButton = event.submitter instanceof HTMLButtonElement
+                    ? event.submitter
+                    : form.querySelector('button[type="submit"]');
+                if (!submitButton) return;
+                submitButton.disabled = true;
+                submitButton.setAttribute('aria-disabled', 'true');
+            });
+        });
 
         document.addEventListener('submit', (event) => {
             const form = event.target;
