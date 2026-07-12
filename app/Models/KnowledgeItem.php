@@ -23,6 +23,7 @@ class KnowledgeItem extends Model
         ];
     }
 
+    /** @return BelongsTo<Chatbot, $this> */
     public function chatbot(): BelongsTo
     {
         return $this->belongsTo(Chatbot::class);

@@ -141,39 +141,6 @@ class ChatbotController extends Controller
             ->with('success', 'Chatbot berjaya dipadam.');
     }
 
-    /**
-     * Show the customization form for a specific chatbot.
-     */
-    public function customize(Chatbot $chatbot)
-    {
-        Gate::authorize('view', $chatbot);
-
-        return view('chatbots.customize', compact('chatbot'));
-    }
-
-    /**
-     * Update customization settings for a chatbot.
-     */
-    public function updateCustomization(Request $request, Chatbot $chatbot)
-    {
-        Gate::authorize('update', $chatbot);
-
-        $validated = $request->validate([
-            'primary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
-            'secondary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
-            'position' => ['required', 'string', 'in:bottom-right,bottom-left'],
-            'welcome_message' => ['nullable', 'string', 'max:1000'],
-            'placeholder_text' => ['nullable', 'string', 'max:255'],
-            'bot_name' => ['nullable', 'string', 'max:255'],
-            'avatar_url' => ['nullable', 'url', 'max:2048'],
-        ]);
-
-        $chatbot->update($validated);
-
-        return redirect()->route('chatbots.customize', $chatbot)
-            ->with('success', 'Penampilan chatbot berjaya dikemas kini.');
-    }
-
     public function toggle(Chatbot $chatbot)
     {
         Gate::authorize('update', $chatbot);

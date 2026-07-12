@@ -25,7 +25,7 @@ class EmailVerificationPromptController extends Controller
     {
         [$local, $domain] = array_pad(explode('@', $email, 2), 2, '');
         $domainParts = explode('.', $domain);
-        $domainName = array_shift($domainParts) ?? '';
+        $domainName = array_shift($domainParts);
 
         $maskedLocal = Str::substr($local, 0, 1).str_repeat('*', max(0, Str::length($local) - 1));
         $maskedDomain = Str::substr($domainName, 0, 1).str_repeat('*', max(0, Str::length($domainName) - 1));

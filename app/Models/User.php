@@ -50,16 +50,19 @@ class User extends Authenticatable implements MustVerifyEmail
         $this->notify((new VerifyEmail)->locale('ms'));
     }
 
+    /** @return HasMany<Subscription, $this> */
     public function subscriptions(): HasMany
     {
         return $this->hasMany(Subscription::class);
     }
 
+    /** @return HasMany<Chatbot, $this> */
     public function chatbots(): HasMany
     {
         return $this->hasMany(Chatbot::class);
     }
 
+    /** @return HasMany<PaymentOrder, $this> */
     public function paymentOrders(): HasMany
     {
         return $this->hasMany(PaymentOrder::class);
