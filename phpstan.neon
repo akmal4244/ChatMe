@@ -1,0 +1,20 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    paths:
+        - app
+
+    # Level 5 is a deliberate production gate: it checks the complete
+    # application without hiding existing findings in a generated suppression file.
+    level: 5
+
+    tmpDir: storage/framework/cache/phpstan
+
+    # Analyse the schema from this application's migrations so Larastan can
+    # infer real Eloquent columns instead of treating every model as dynamic.
+    databaseMigrationsPath:
+        - database/migrations
+
+    checkModelProperties: true
+    checkConfigTypes: true
