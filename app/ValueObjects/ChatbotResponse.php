@@ -9,5 +9,6 @@ final readonly class ChatbotResponse
         public string $source,
         public float $score,
         public ?int $providerLatencyMs = null,
+        public bool $aiLimitReached = false,
     ) {}
 }

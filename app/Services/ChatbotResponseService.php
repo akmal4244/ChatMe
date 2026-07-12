@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Contracts\AiAnswerProvider;
 use App\Models\Chatbot;
 use App\ValueObjects\ChatbotResponse;
+use Closure;
 
 class ChatbotResponseService
 {
@@ -13,8 +14,12 @@ class ChatbotResponseService
         private readonly AiAnswerProvider $provider,
     ) {}
 
-    public function respond(Chatbot $chatbot, string $message, bool $allowAi = true): ChatbotResponse
-    {
+    public function respond(
+        Chatbot $chatbot,
+        string $message,
+        bool $allowAi = true,
+        ?Closure $beforeProvider = null,
+    ): ChatbotResponse {
         $match = $this->matcher->match($chatbot, $message);
 
         if ($match->isHighConfidence()) {
@@ -26,6 +31,15 @@ class ChatbotResponseService
         }
 
         if ($allowAi && $match->hasCandidates()) {
+            if ($beforeProvider !== null && ! $beforeProvider()) {
+                return new ChatbotResponse(
+                    answer: $chatbot->fallbackResponse(),
+                    source: 'fallback',
+                    score: $match->score,
+                    aiLimitReached: true,
+                );
+            }
+
             $ai = $this->provider->answer($chatbot, $message, $match->candidates->take(3));
 
             if ($ai !== null) {

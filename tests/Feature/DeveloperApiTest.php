@@ -31,13 +31,21 @@ class DeveloperApiTest extends TestCase
         [$user, $chatbot] = $this->chatbotForPlan('pro');
 
         $response = $this->actingAs($user)
-            ->post(route('chatbots.developer-token', $chatbot))
-            ->assertRedirect(route('chatbots.embed', $chatbot))
-            ->assertSessionHas('success');
+            ->post(route('chatbots.developer-token', $chatbot), [
+                'current_password' => 'password',
+            ])
+            ->assertOk()
+            ->assertHeader('Cache-Control', 'max-age=0, must-revalidate, no-store, private')
+            ->assertHeader('Pragma', 'no-cache')
+            ->assertHeader('X-Robots-Tag', 'noindex, nofollow')
+            ->assertSessionMissing('developer_token')
+            ->assertSee('Token ini hanya dipaparkan sekali.');
 
-        $raw = $response->getSession()->get('developer_token');
+        preg_match('/cm_live_[A-Za-z0-9_-]+/', $response->getContent(), $matches);
+        $raw = $matches[0] ?? null;
         $this->assertIsString($raw);
         $this->assertStringStartsWith('cm_live_', $raw);
+        $this->assertStringNotContainsString($raw, route('chatbots.developer-token', $chatbot));
 
         $chatbot->refresh();
         $this->assertSame(hash('sha256', $raw), $chatbot->developer_api_token_hash);
@@ -47,13 +55,10 @@ class DeveloperApiTest extends TestCase
 
         $this->get(route('chatbots.embed', $chatbot))
             ->assertOk()
-            ->assertSee($raw)
-            ->assertSee('Token ini hanya dipaparkan sekali.');
-
-        $this->get(route('chatbots.embed', $chatbot))
-            ->assertOk()
             ->assertDontSee($raw)
-            ->assertSee($chatbot->developer_api_token_prefix);
+            ->assertSee($chatbot->developer_api_token_prefix)
+            ->assertSee('name="current_password"', false)
+            ->assertSee('autocomplete="current-password"', false);
     }
 
     public function test_free_owner_cannot_generate_a_developer_token_and_sees_upgrade_copy(): void
@@ -70,6 +75,21 @@ class DeveloperApiTest extends TestCase
             ->assertOk()
             ->assertSee('Pelan anda tidak mempunyai akses API pembangun.')
             ->assertDontSee('Jana token API pembangun');
+    }
+
+    public function test_paid_owner_must_confirm_the_current_password_before_rotating_a_developer_token(): void
+    {
+        [$user, $chatbot] = $this->chatbotForPlan('pro');
+
+        foreach ([null, 'password-salah'] as $currentPassword) {
+            $this->actingAs($user)
+                ->post(route('chatbots.developer-token', $chatbot), [
+                    'current_password' => $currentPassword,
+                ])
+                ->assertSessionHasErrors('current_password');
+        }
+
+        $this->assertNull($chatbot->fresh()->developer_api_token_hash);
     }
 
     public function test_other_user_cannot_rotate_a_chatbot_developer_token(): void
@@ -240,7 +260,7 @@ class DeveloperApiTest extends TestCase
         $this->assertDatabaseCount('chat_logs', 0);
     }
 
-    public function test_developer_api_has_no_wildcard_cors_while_widget_api_keeps_it(): void
+    public function test_developer_api_has_no_cors_and_widget_api_reflects_only_the_allowed_origin(): void
     {
         [, $chatbot] = $this->chatbotForPlan('pro');
         $token = $chatbot->rotateDeveloperApiToken();
@@ -256,7 +276,8 @@ class DeveloperApiTest extends TestCase
         $this->withHeader('Origin', 'https://site.example')
             ->getJson(route('api.widget.config', $chatbot->api_key))
             ->assertOk()
-            ->assertHeader('Access-Control-Allow-Origin', '*');
+            ->assertHeader('Access-Control-Allow-Origin', 'https://site.example')
+            ->assertHeader('Vary', 'Origin');
     }
 
     public function test_developer_api_bounds_untrusted_user_agent_before_persisting(): void

@@ -3,67 +3,53 @@
 namespace App\Http\Controllers;
 
 use App\Models\Chatbot;
-use App\Models\ChatLog;
-use App\Models\User;
 use App\Services\ChatbotResponseService;
+use App\Services\MessageQuotaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Throwable;
 
 class DeveloperApiController extends Controller
 {
-    public function __invoke(Request $request, ChatbotResponseService $responses): JsonResponse
-    {
+    public function __invoke(
+        Request $request,
+        ChatbotResponseService $responses,
+        MessageQuotaService $quotas,
+    ): JsonResponse {
         $chatbot = $request->attributes->get('developer_chatbot');
         abort_unless($chatbot instanceof Chatbot, 401);
-
-        if (! $chatbot->user->canSendChatMessage()) {
-            return $this->monthlyLimitResponse($chatbot);
-        }
 
         $validated = $request->validate([
             'message' => ['required', 'string', 'max:1000'],
             'session_id' => ['nullable', 'string', 'max:100'],
         ]);
 
-        $sessionId = $validated['session_id'] ?? 'session_'.uniqid();
+        $permit = $quotas->reserve($chatbot, 'developer_api');
+        if ($permit === null) {
+            return $this->monthlyLimitResponse($chatbot);
+        }
+
+        $sessionId = $validated['session_id'] ?? 'session_'.Str::uuid();
         $userMessage = trim($validated['message']);
-        $preparedResponse = $responses->respond($chatbot, $userMessage)->answer;
         $ipAddress = is_string($request->ip()) ? Str::substr($request->ip(), 0, 255) : null;
         $userAgent = is_string($request->userAgent()) ? Str::substr($request->userAgent(), 0, 255) : null;
 
-        $response = DB::transaction(function () use ($chatbot, $ipAddress, $preparedResponse, $sessionId, $userAgent, $userMessage): ?string {
-            $owner = User::query()
-                ->lockForUpdate()
-                ->findOrFail($chatbot->user_id);
+        try {
+            $response = $responses->respond($chatbot, $userMessage)->answer;
+            $quotas->complete(
+                $permit,
+                sessionId: $sessionId,
+                userMessage: $userMessage,
+                botMessage: $response,
+                ipAddress: $ipAddress,
+                userAgent: $userAgent,
+            );
+        } catch (Throwable $exception) {
+            $quotas->release($permit);
 
-            if (! $owner->canSendChatMessage()) {
-                return null;
-            }
-
-            ChatLog::create([
-                'chatbot_id' => $chatbot->id,
-                'session_id' => $sessionId,
-                'message' => $userMessage,
-                'role' => 'user',
-                'ip_address' => $ipAddress,
-                'user_agent' => $userAgent,
-            ]);
-
-            ChatLog::create([
-                'chatbot_id' => $chatbot->id,
-                'session_id' => $sessionId,
-                'message' => $preparedResponse,
-                'role' => 'bot',
-            ]);
-
-            return $preparedResponse;
-        });
-
-        if ($response === null) {
-            return $this->monthlyLimitResponse($chatbot);
+            throw $exception;
         }
 
         return response()->json([

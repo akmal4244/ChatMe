@@ -1,14 +1,11 @@
 <?php
 
 return [
-    'paths' => [
-        'api/chatbots/*/chat',
-        'api/chatbots/*/config',
-    ],
+    'paths' => [],
 
     'allowed_methods' => ['GET', 'POST', 'OPTIONS'],
 
-    'allowed_origins' => ['*'],
+    'allowed_origins' => [],
 
     'allowed_origins_patterns' => [],
 

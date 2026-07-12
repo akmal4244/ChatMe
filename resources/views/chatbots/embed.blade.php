@@ -37,28 +37,26 @@
         @if($apiAccess)
             <p class="text-sm text-neutral-600 mb-4">Gunakan token rahsia ini pada endpoint <code>POST /api/v1/chat</code>. Jangan masukkan token ke dalam JavaScript atau laman awam.</p>
 
-            @if(session('developer_token'))
-                <div class="alert alert-warning mb-4" role="alert">
-                    <strong>Token ini hanya dipaparkan sekali.</strong> Salin dan simpan sekarang sebelum meninggalkan halaman ini.
-                </div>
-                <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
-                    <code id="developer-token" class="flex-1 overflow-x-auto rounded-lg bg-neutral-100 border border-neutral-200 px-4 py-3 text-sm font-mono text-neutral-900">{{ session('developer_token') }}</code>
-                    <button type="button" class="btn btn-secondary btn-sm self-start sm:self-auto" data-copy-target="#developer-token">Salin token</button>
-                </div>
-            @elseif($chatbot->developer_api_token_prefix)
+            @if($chatbot->developer_api_token_prefix)
                 <p class="text-sm text-neutral-600 mb-4">Token aktif: <code>{{ $chatbot->developer_api_token_prefix }}••••••••</code></p>
             @else
                 <p class="text-sm text-neutral-600 mb-4">Belum ada token API pembangun untuk chatbot ini.</p>
             @endif
 
-            <form action="{{ route('chatbots.developer-token', $chatbot) }}" method="POST" class="inline"
+            <form action="{{ route('chatbots.developer-token', $chatbot) }}" method="POST" class="auth-form"
                   @if($chatbot->developer_api_token_hash)
                   data-confirm-title="Jana semula token API pembangun?"
                   data-confirm-description="Token lama akan berhenti berfungsi serta-merta."
                   data-confirm-text="Jana semula token"
                   data-confirm-type="danger"
-                  @endif>
+                @endif>
                 @csrf
+                <div class="form-field mb-3">
+                    <label for="developer-token-current-password">Kata laluan semasa</label>
+                    <p id="developer-token-password-hint" class="field-hint">Diperlukan untuk melindungi token API jangka panjang.</p>
+                    <input id="developer-token-current-password" name="current_password" type="password" autocomplete="current-password" aria-describedby="developer-token-password-hint{{ $errors->has('current_password') ? ' developer-token-current-password-error' : '' }}" @error('current_password') aria-invalid="true" @enderror required>
+                    @error('current_password')<p id="developer-token-current-password-error" class="field-error">{{ $message }}</p>@enderror
+                </div>
                 <button type="submit" class="btn {{ $chatbot->developer_api_token_hash ? 'btn-danger' : 'btn-primary' }} btn-sm">
                     {{ $chatbot->developer_api_token_hash ? 'Jana semula token API pembangun' : 'Jana token API pembangun' }}
                 </button>

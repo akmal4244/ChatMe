@@ -25,7 +25,9 @@
                 <td><span class="badge {{ $u->is_admin ? 'badge-admin' : 'badge-inactive' }}">{{ $u->is_admin ? 'Pentadbir' : 'Pengguna' }}</span></td>
                 <td><time datetime="{{ $u->created_at->toDateString() }}">{{ $u->created_at->format('d/m/Y') }}</time></td>
                 <td>
-                    @if($u->id !== auth()->id())
+                    @if(filled($u->system_role))
+                    <span class="text-xs text-neutral-500">Akaun sistem</span>
+                    @elseif($u->id !== auth()->id())
                     <form action="{{ route('admin.users.toggle-admin', $u) }}" method="POST" class="inline-flex"
                           data-confirm-title="{{ $u->is_admin ? 'Tarik balik peranan pentadbir?' : 'Jadikan pentadbir?' }}"
                           data-confirm-description="{{ $u->is_admin ? 'Tarik balik peranan pentadbir '.$u->name.'? Pengguna ini tidak lagi boleh mengakses panel pentadbir.' : 'Jadikan '.$u->name.' sebagai pentadbir? Pengguna ini akan mendapat akses ke panel pentadbir.' }}"

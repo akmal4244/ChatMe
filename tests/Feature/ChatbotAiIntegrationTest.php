@@ -11,6 +11,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 class ChatbotAiIntegrationTest extends TestCase
@@ -31,7 +32,7 @@ class ChatbotAiIntegrationTest extends TestCase
         ]);
     }
 
-    public function test_public_chat_calls_ai_before_the_quota_transaction_and_writes_two_logs(): void
+    public function test_public_chat_reserves_quota_before_ai_and_writes_two_logs_after_the_provider_returns(): void
     {
         $chatbot = $this->chatbotWithUncertainKnowledge();
         $baselineTransactionLevel = DB::transactionLevel();
@@ -41,6 +42,8 @@ class ChatbotAiIntegrationTest extends TestCase
                 DB::transactionLevel(),
                 'Cloudflare must not run inside the quota transaction.',
             );
+            $this->assertDatabaseCount('message_quota_reservations', 1);
+            $this->assertDatabaseCount('chat_logs', 0);
 
             return Http::response([
                 'success' => true,
@@ -50,22 +53,47 @@ class ChatbotAiIntegrationTest extends TestCase
             ]);
         });
 
-        $this->postJson(route('api.chat', $chatbot->api_key), [
+        $this->postWidgetJson($chatbot, [
             'message' => 'Boleh jelaskan waktu yang sesuai?',
-            'session_id' => 'ai-public-session',
-        ])
+        ], $publicSession)
             ->assertOk()
             ->assertExactJson([
                 'response' => 'Jawapan AI berasaskan knowledge.',
-                'session_id' => 'ai-public-session',
+                'session_id' => $publicSession,
             ]);
 
         Http::assertSentCount(1);
+        $this->assertDatabaseCount('message_quota_reservations', 0);
         $this->assertDatabaseCount('chat_logs', 2);
         $this->assertDatabaseHas('chat_logs', [
-            'session_id' => 'ai-public-session',
+            'session_id' => $publicSession,
             'message' => 'Jawapan AI berasaskan knowledge.',
             'role' => 'bot',
+        ]);
+    }
+
+    public function test_quota_rejection_never_calls_ai_or_writes_a_partial_chat_pair(): void
+    {
+        $chatbot = $this->chatbotWithUncertainKnowledge();
+        ChatLog::create([
+            'chatbot_id' => $chatbot->id,
+            'session_id' => 'quota-already-used',
+            'message' => 'Slot telah digunakan',
+            'role' => 'user',
+        ]);
+        Http::fake();
+
+        $this->postWidgetJson($chatbot, [
+            'message' => 'Boleh jelaskan waktu yang sesuai?',
+        ], $rejectedSession)
+            ->assertStatus(429)
+            ->assertExactJson(['error' => 'Had mesej bulanan telah dicapai.']);
+
+        Http::assertNothingSent();
+        $this->assertDatabaseCount('message_quota_reservations', 0);
+        $this->assertDatabaseCount('chat_logs', 1);
+        $this->assertDatabaseMissing('chat_logs', [
+            'session_id' => $rejectedSession,
         ]);
     }
 
@@ -95,6 +123,10 @@ class ChatbotAiIntegrationTest extends TestCase
 
         Http::assertSentCount(1);
         $this->assertDatabaseCount('chat_logs', 1);
+        $this->assertDatabaseHas('tester_ai_usages', [
+            'user_id' => $user->id,
+            'attempts' => 1,
+        ]);
     }
 
     public function test_provider_failure_still_returns_successful_stable_fallback(): void
@@ -104,15 +136,14 @@ class ChatbotAiIntegrationTest extends TestCase
         ]);
         Http::fake(['*' => Http::response(['success' => false, 'errors' => []], 500)]);
 
-        $this->postJson(route('api.chat', $chatbot->api_key), [
+        $this->postWidgetJson($chatbot, [
             'message' => 'Boleh jelaskan waktu yang sesuai?',
-            'session_id' => 'ai-fallback-session',
-        ])
+        ], $fallbackSession)
             ->assertOk()
             ->assertJsonPath('response', 'Maklumat belum tersedia.');
 
         $this->assertDatabaseHas('chat_logs', [
-            'session_id' => 'ai-fallback-session',
+            'session_id' => $fallbackSession,
             'message' => 'Maklumat belum tersedia.',
             'role' => 'bot',
         ]);
@@ -150,5 +181,22 @@ class ChatbotAiIntegrationTest extends TestCase
         ]);
 
         return $chatbot;
+    }
+
+    private function postWidgetJson(
+        Chatbot $chatbot,
+        array $payload,
+        ?string &$sessionId = null,
+    ): TestResponse {
+        $origin = 'https://widget.example.test';
+        $config = $this->withHeader('Origin', $origin)
+            ->getJson(route('api.widget.config', $chatbot->api_key))
+            ->assertOk();
+        $sessionId = $config->json('widget_session_id');
+        $payload['session_id'] = $sessionId;
+        $payload['widget_ticket'] = $config->json('widget_ticket');
+
+        return $this->withHeader('Origin', $origin)
+            ->postJson(route('api.chat', $chatbot->api_key), $payload);
     }
 }

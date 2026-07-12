@@ -46,6 +46,10 @@ class AdminController extends Controller
 
     public function toggleAdmin(User $user)
     {
+        if (filled($user->system_role)) {
+            return back()->with('error', 'Peranan akaun sistem tidak boleh diubah melalui panel pentadbir.');
+        }
+
         if ($user->id === auth()->id()) {
             return back()->with('error', 'Anda tidak boleh menukar peranan pentadbir anda sendiri.');
         }

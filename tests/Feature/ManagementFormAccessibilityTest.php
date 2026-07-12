@@ -13,6 +13,17 @@ class ManagementFormAccessibilityTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_escape_closes_the_account_menu_and_restores_button_focus(): void
+    {
+        $layout = file_get_contents(resource_path('views/layouts/app.blade.php'));
+
+        $this->assertStringContainsString('closeUserMenu = (restoreFocus = false)', $layout);
+        $this->assertStringContainsString('restoreFocus && wasOpen', $layout);
+        $this->assertStringContainsString('userButton?.focus()', $layout);
+        $this->assertStringContainsString('closeUserMenu(false)', $layout);
+        $this->assertStringContainsString('closeUserMenu(true)', $layout);
+    }
+
     public function test_chatbot_validation_error_is_linked_to_its_field(): void
     {
         $user = User::factory()->create();

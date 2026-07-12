@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\AddSessionExpiryHeader;
 use App\Http\Middleware\AdminMiddleware;
 use App\Http\Middleware\AuthenticateDeveloperToken;
 use App\Http\Middleware\Cors;
@@ -22,9 +23,17 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->trustHosts(at: function (): array {
+            $host = parse_url((string) config('app.url'), PHP_URL_HOST);
+
+            return is_string($host) && $host !== ''
+                ? ['^'.preg_quote($host, '/').'$']
+                : [];
+        }, subdomains: false);
         $middleware->alias([
             'admin' => AdminMiddleware::class,
             'developer.token' => AuthenticateDeveloperToken::class,
+            'session.deadline' => AddSessionExpiryHeader::class,
         ]);
         $middleware->validateCsrfTokens(except: [
             'payments/toyyibpay/callback',

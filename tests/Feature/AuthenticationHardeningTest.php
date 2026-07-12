@@ -150,10 +150,55 @@ class AuthenticationHardeningTest extends TestCase
                 'password' => 'Password123!',
                 'password_confirmation' => 'Password123!',
             ])
-            ->assertRedirect(route('onboarding'));
+            ->assertRedirect(route('verification.notice'));
 
         $this->assertTrue(Auth::check());
         $this->assertNotSame($before, Session::getId());
         $this->assertSame('kekal', Session::get('marker'));
+    }
+
+    public function test_registration_normalizes_email_and_rejects_case_insensitive_duplicates(): void
+    {
+        User::factory()->create(['email' => 'Existing@Example.com']);
+
+        $this->post('/register', [
+            'name' => 'Pengguna Baharu',
+            'email' => ' EXISTING@example.com ',
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
+        ])
+            ->assertRedirect()
+            ->assertSessionHasErrors('email');
+
+        $this->assertDatabaseCount('users', 1);
+
+        $this->post('/register', [
+            'name' => 'Pengguna Normal',
+            'email' => ' Normal@Example.com ',
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
+        ])->assertRedirect(route('verification.notice'));
+
+        $this->assertDatabaseHas('users', ['email' => 'normal@example.com']);
+    }
+
+    public function test_registration_cannot_preclaim_reserved_system_emails_case_insensitively(): void
+    {
+        config(['chatme.admin.email' => 'Primary.Admin@Example.com']);
+
+        foreach ([' HOMEPAGE-BOT@CHATME.INVALID ', ' primary.ADMIN@example.COM '] as $reservedEmail) {
+            $this->post('/register', [
+                'name' => 'Cubaan Akaun Sistem',
+                'email' => $reservedEmail,
+                'password' => 'Password123!',
+                'password_confirmation' => 'Password123!',
+            ])
+                ->assertRedirect()
+                ->assertSessionHasErrors([
+                    'email' => 'Alamat e-mel ini tidak boleh digunakan.',
+                ]);
+        }
+
+        $this->assertDatabaseCount('users', 0);
     }
 }

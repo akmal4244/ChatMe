@@ -14,7 +14,7 @@
 
         <p class="chatbot-tester-mode" id="chatbot-tester-description">
             <i class="ph ph-flask" aria-hidden="true"></i>
-            Mod ujian — mesej tidak dikira dalam kuota
+            Mod ujian — mesej tidak dikira dalam kuota; AI dihadkan 20 kali sehari
         </p>
 
         <div class="chatbot-tester-messages" id="chatbot-tester-messages" role="log" aria-live="polite" aria-relevant="additions" aria-busy="false"></div>
@@ -181,6 +181,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             pending.remove();
             addMessage(payload.response, 'bot');
+            if (typeof payload.notice === 'string' && payload.notice.trim()) {
+                window.showToast?.(payload.notice, 'info');
+            }
         } catch (error) {
             pending.remove();
             const errorMessage = 'Mesej ujian tidak dapat dihantar. Sila cuba semula.';

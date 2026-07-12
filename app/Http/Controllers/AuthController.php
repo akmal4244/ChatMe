@@ -4,13 +4,22 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\LoginRequest;
 use App\Models\User;
+use App\Rules\AccountEmailAvailability;
+use App\Support\AccountNotificationFailureLogger;
+use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
+use Throwable;
 
 class AuthController extends Controller
 {
+    public function __construct(
+        private readonly AccountNotificationFailureLogger $notificationFailureLogger,
+    ) {}
+
     /**
      * Show the registration form.
      */
@@ -24,9 +33,19 @@ class AuthController extends Controller
      */
     public function register(Request $request)
     {
+        $normalizedEmail = Str::lower(trim((string) $request->input('email')));
+        $request->merge(['email' => $normalizedEmail]);
+
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
+            'email' => [
+                'bail',
+                'required',
+                'string',
+                'email',
+                'max:255',
+                new AccountEmailAvailability,
+            ],
             'password' => ['required', 'confirmed', Password::defaults()],
             'company' => ['nullable', 'string', 'max:255'],
             'website' => ['nullable', 'string', 'max:255'],
@@ -40,16 +59,35 @@ class AuthController extends Controller
             'website' => $request->website,
         ]);
 
+        $notificationFailed = false;
+        try {
+            event(new Registered($user));
+        } catch (Throwable $exception) {
+            $notificationFailed = true;
+            $this->notificationFailureLogger->report('registration_verification', $user->email, $exception);
+        }
         Auth::login($user);
+        $request->session()->regenerate();
 
-        return redirect()->route('onboarding');
+        $redirect = redirect()->route('verification.notice');
+
+        return $notificationFailed
+            ? $redirect->with(
+                'error',
+                'Akaun berjaya dicipta, tetapi e-mel pengesahan tidak dapat dihantar. Sila cuba hantar semula.',
+            )
+            : $redirect;
     }
 
     /**
      * Show the login form.
      */
-    public function showLogin()
+    public function showLogin(Request $request)
     {
+        if ($request->boolean('session_expired')) {
+            $request->session()->flash('info', 'Sesi anda telah tamat. Sila log masuk semula.');
+        }
+
         return view('auth.login');
     }
 

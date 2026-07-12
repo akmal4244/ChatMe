@@ -30,7 +30,6 @@ class WidgetController extends Controller
 {$js}";
 
         return response($response)->header('Content-Type', 'application/javascript')
-            ->header('Access-Control-Allow-Origin', '*')
             ->header('Cache-Control', 'no-store, private');
     }
 }
