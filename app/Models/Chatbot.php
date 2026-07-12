@@ -34,6 +34,7 @@ class Chatbot extends Model
     protected function casts(): array
     {
         return [
+            'user_id' => 'integer',
             'is_active' => 'boolean',
         ];
     }
@@ -79,16 +80,19 @@ class Chatbot extends Model
         return $rawToken;
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+    /** @return HasMany<KnowledgeItem, $this> */
     public function knowledgeItems(): HasMany
     {
         return $this->hasMany(KnowledgeItem::class);
     }
 
+    /** @return HasMany<ChatLog, $this> */
     public function chatLogs(): HasMany
     {
         return $this->hasMany(ChatLog::class);

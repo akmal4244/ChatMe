@@ -16,6 +16,14 @@ class MessageQuotaReservationTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_chatbot_owner_foreign_key_is_cast_to_integer_for_mysql_strict_comparison(): void
+    {
+        $chatbot = new Chatbot;
+        $chatbot->setRawAttributes(['user_id' => '123']);
+
+        $this->assertSame(123, $chatbot->user_id);
+    }
+
     public function test_the_last_limited_slot_is_reserved_before_logs_and_cannot_be_double_reserved(): void
     {
         $chatbot = $this->chatbotWithLimit(1);
