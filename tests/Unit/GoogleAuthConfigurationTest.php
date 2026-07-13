@@ -48,4 +48,52 @@ class GoogleAuthConfigurationTest extends TestCase
         $this->assertTrue($configuration->isReady());
         $this->assertSame('ok', $configuration->status());
     }
+
+    public function test_production_google_auth_rejects_a_noncanonical_callback(): void
+    {
+        config()->set('app.env', 'production');
+        config()->set('services.google', [
+            'enabled' => true,
+            'client_id' => 'client-id',
+            'client_secret' => 'client-secret',
+            'redirect' => 'http://chatme.akmalmarvis.com/auth/google/callback',
+        ]);
+
+        $configuration = app(GoogleAuthConfiguration::class);
+
+        $this->assertFalse($configuration->isReady());
+        $this->assertSame('failed', $configuration->status());
+    }
+
+    public function test_production_google_auth_accepts_only_the_canonical_callback(): void
+    {
+        config()->set('app.env', 'production');
+        config()->set('services.google', [
+            'enabled' => true,
+            'client_id' => 'client-id',
+            'client_secret' => 'client-secret',
+            'redirect' => 'https://chatme.akmalmarvis.com/auth/google/callback',
+        ]);
+
+        $configuration = app(GoogleAuthConfiguration::class);
+
+        $this->assertTrue($configuration->isReady());
+        $this->assertSame('ok', $configuration->status());
+    }
+
+    public function test_local_google_auth_accepts_the_documented_relative_callback(): void
+    {
+        config()->set('app.env', 'local');
+        config()->set('services.google', [
+            'enabled' => true,
+            'client_id' => 'client-id',
+            'client_secret' => 'client-secret',
+            'redirect' => '/auth/google/callback',
+        ]);
+
+        $configuration = app(GoogleAuthConfiguration::class);
+
+        $this->assertTrue($configuration->isReady());
+        $this->assertSame('ok', $configuration->status());
+    }
 }
