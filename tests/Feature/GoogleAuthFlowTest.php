@@ -605,6 +605,29 @@ class GoogleAuthFlowTest extends TestCase
             });
     }
 
+    public function test_provider_bootstrap_failure_consumes_the_one_time_callback_state(): void
+    {
+        $this->readyGoogleConfiguration();
+        $factory = new RejectingGoogleSocialiteFactory;
+        Socialite::swap($factory);
+
+        $response = $this->withSession([
+            'state' => 'provider-bootstrap-state',
+            'marker' => 'kekal',
+        ])->get($this->callbackUrl([
+            'state' => 'provider-bootstrap-state',
+            'code' => 'unused-provider-bootstrap-code',
+        ]));
+
+        $this->assertGenericGoogleFailure($response);
+        $response
+            ->assertSessionHas('marker', 'kekal')
+            ->assertSessionMissing('state');
+        $this->assertSame(1, $factory->driverCalls);
+        $this->assertGuest();
+        $this->assertDatabaseCount('users', 0);
+    }
+
     public function test_non_authoritative_identity_returns_local_ownership_guidance_without_login_or_user_mutation(): void
     {
         $this->readyGoogleConfiguration();

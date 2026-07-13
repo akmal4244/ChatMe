@@ -92,10 +92,11 @@ final class GoogleAuthController extends Controller
             return $this->fail($exception->reason(), $exception, $message);
         } catch (Throwable $exception) {
             return $this->fail('provider_exception', $exception);
+        } finally {
+            $request->session()->forget('state');
         }
 
         Auth::login($user);
-        $request->session()->forget('state');
         $request->session()->regenerate();
 
         return redirect()->intended(route('dashboard'));
