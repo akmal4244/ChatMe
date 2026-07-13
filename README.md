@@ -58,6 +58,7 @@ Salin nama pemboleh ubah daripada `.env.example`. Jangan commit `.env`, token, p
 | Session/cache/queue/storage | `SESSION_DRIVER`, `SESSION_LIFETIME`, `SESSION_ENCRYPT`, `SESSION_PATH`, `SESSION_DOMAIN`, `CACHE_STORE`, `CACHE_PREFIX`, `QUEUE_CONNECTION`, `FILESYSTEM_DISK`, `BROADCAST_CONNECTION` |
 | Log | `LOG_CHANNEL`, `LOG_STACK`, `LOG_DAILY_DAYS`, `LOG_LEVEL` |
 | E-mel | `MAIL_MAILER`, `MAIL_SCHEME`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME` |
+| Google Sign-In | `GOOGLE_AUTH_ENABLED`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` |
 | Pentadbir | `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` |
 | Chatbot homepage | `CHATME_HOMEPAGE_CHATBOT_SLUG`, `CHATME_HOMEPAGE_CHATBOT_DOMAINS`, `CHATME_HOMEPAGE_LEGACY_CHATBOT_ID` |
 | ToyyibPay | `TOYYIBPAY_BASE_URL`, `TOYYIBPAY_SANDBOX`, `TOYYIBPAY_SECRET_KEY`, `TOYYIBPAY_CATEGORY_CODE`, `TOYYIBPAY_DNQR_ENABLED`, `TOYYIBPAY_TIMEOUT` |
@@ -74,6 +75,25 @@ Selepas mengubah `.env`, bina semula cache konfigurasi hanya setelah nilainya di
 php artisan optimize:clear
 php artisan config:cache
 ```
+
+## Google Sign-In
+
+Cipta OAuth client jenis **Web application** dalam Google Cloud Console. Tetapkan authorized domain `akmalmarvis.com` dan daftarkan URI callback production tepat berikut:
+
+```text
+https://chatme.akmalmarvis.com/auth/google/callback
+```
+
+Simpan `GOOGLE_CLIENT_ID` dan `GOOGLE_CLIENT_SECRET` hanya dalam stor rahsia hosting. Tetapkan `GOOGLE_REDIRECT_URI=https://chatme.akmalmarvis.com/auth/google/callback` dan mulakan deployment dengan `GOOGLE_AUTH_ENABLED=false`. Jangan commit nilai sebenar atau mencetaknya ke log.
+
+Selepas sebarang perubahan konfigurasi Google, bina semula cache:
+
+```bash
+php artisan optimize:clear
+php artisan config:cache
+```
+
+Hidupkan `GOOGLE_AUTH_ENABLED=true` hanya selepas smoke test laluan log masuk tempatan, callback HTTPS dan login e-mel sedia ada lulus. Untuk mematikan segera, tetapkan `GOOGLE_AUTH_ENABLED=false`, kemudian jalankan semula `php artisan optimize:clear` dan `php artisan config:cache`. Jangan anggap perubahan flag berkuat kuasa sehingga cache konfigurasi telah dibina semula.
 
 ## Route operasi utama
 
@@ -199,3 +219,5 @@ php artisan queue:failed
 ## Keselamatan
 
 Laporkan kelemahan melalui saluran peribadi pemilik sistem. Jangan buka issue awam yang mengandungi credential, data pelanggan, payload pembayaran, token reset, token API atau dump pangkalan data. Jika secret pernah muncul dalam chat/log/Git, anggap ia terdedah: revoke/rotate dahulu, kemudian bersihkan punca dan jalankan semula Gitleaks.
+
+Token reset kata laluan dalam `/tetap-semula-kata-laluan/*` dan sebarang query string berkaitan ialah rahsia sekali guna. Konfigurasikan access log cPanel/LiteSpeed, CDN, reverse proxy serta alat analitik supaya segmen token dan query string laluan ini dipadam atau disunting sebelum disimpan atau dihantar ke pihak lain.

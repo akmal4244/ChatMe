@@ -8,6 +8,7 @@ use App\Services\AccountSessionService;
 use Illuminate\Auth\Events\PasswordReset as PasswordResetEvent;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
@@ -20,8 +21,15 @@ class NewPasswordController extends Controller
         private readonly AccountSessionService $accountSessionService,
     ) {}
 
-    public function create(Request $request, string $token): View
+    public function create(Request $request, string $token): View|RedirectResponse
     {
+        if (! $this->authenticatedEmailMatches($request, (string) $request->query('email', ''))) {
+            return redirect()->route('profile.edit')->with(
+                'error',
+                'Pautan tetapan kata laluan ini bukan untuk akaun yang sedang log masuk.',
+            );
+        }
+
         return view('auth.reset-password', [
             'email' => (string) $request->query('email', ''),
             'token' => $token,
@@ -33,6 +41,13 @@ class NewPasswordController extends Controller
         $request->merge([
             'email' => Str::lower(trim((string) $request->input('email'))),
         ]);
+
+        if (! $this->authenticatedEmailMatches($request, (string) $request->input('email'))) {
+            return redirect()->route('profile.edit')->with(
+                'error',
+                'Pautan tetapan kata laluan ini bukan untuk akaun yang sedang log masuk.',
+            );
+        }
 
         $validated = $request->validate([
             'token' => ['required', 'string'],
@@ -60,6 +75,10 @@ class NewPasswordController extends Controller
         );
 
         if ($status === Password::PASSWORD_RESET) {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
             return redirect()->route('login')
                 ->with('success', 'Kata laluan anda berjaya ditetapkan semula. Sila log masuk.');
         }
@@ -67,5 +86,20 @@ class NewPasswordController extends Controller
         return back()
             ->withErrors(['email' => __('passwords.token')])
             ->withInput($request->only('email'));
+    }
+
+    private function authenticatedEmailMatches(Request $request, string $candidateEmail): bool
+    {
+        $user = $request->user();
+        if (! $user instanceof User) {
+            return true;
+        }
+
+        $authenticatedEmail = Str::lower(trim((string) $user->email));
+        $candidateEmail = Str::lower(trim($candidateEmail));
+
+        return $authenticatedEmail !== ''
+            && $candidateEmail !== ''
+            && hash_equals($authenticatedEmail, $candidateEmail);
     }
 }

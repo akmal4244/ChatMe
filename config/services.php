@@ -35,6 +35,13 @@ return [
         ],
     ],
 
+    'google' => [
+        'enabled' => filter_var(env('GOOGLE_AUTH_ENABLED', false), FILTER_VALIDATE_BOOL),
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI', '/auth/google/callback'),
+    ],
+
     'toyyibpay' => [
         'base_url' => env('TOYYIBPAY_BASE_URL', 'https://toyyibpay.com'),
         'sandbox' => (bool) env('TOYYIBPAY_SANDBOX', false),

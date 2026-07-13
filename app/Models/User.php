@@ -29,15 +29,22 @@ class User extends Authenticatable implements MustVerifyEmail
     protected $hidden = [
         'password',
         'remember_token',
+        'google_sub',
     ];
 
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
+            'google_linked_at' => 'datetime',
             'password' => 'hashed',
             'is_admin' => 'boolean',
         ];
+    }
+
+    public function hasLocalPassword(): bool
+    {
+        return filled($this->getRawOriginal('password'));
     }
 
     public function sendPasswordResetNotification($token): void

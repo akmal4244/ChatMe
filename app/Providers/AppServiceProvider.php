@@ -163,6 +163,46 @@ class AppServiceProvider extends ServiceProvider
                 ->withInput($request->except('password', 'password_confirmation'))
                 ->withHeaders($headers)));
 
+        RateLimiter::for('google-auth', function (Request $request): array {
+            $ipAddress = $request->ip() ?: 'unknown';
+            $response = fn (Request $request, array $headers) => redirect()
+                ->route('login')
+                ->with('error', 'Terlalu banyak percubaan log masuk Google. Sila cuba semula kemudian.')
+                ->withHeaders($headers);
+            $limits = [
+                Limit::perMinute(30)
+                    ->by('google-auth-minute|'.$ipAddress)
+                    ->response($response),
+            ];
+
+            if ($request->route()?->getName() === 'auth.google.callback') {
+                $limits[] = Limit::perHour(10)
+                    ->by('google-auth-callback-hour|'.$ipAddress)
+                    ->response($response);
+            }
+
+            return $limits;
+        });
+
+        RateLimiter::for('google-password-setup', function (Request $request): array {
+            $userKey = $request->user()?->getAuthIdentifier() ?? 'guest';
+            $ipAddress = $request->ip() ?: 'unknown';
+            $key = $userKey.'|'.$ipAddress;
+            $response = fn (Request $request, array $headers) => redirect()
+                ->route('profile.edit')
+                ->with('error', 'Terlalu banyak permintaan pautan. Sila cuba semula kemudian.')
+                ->withHeaders($headers);
+
+            return [
+                Limit::perMinute(5)
+                    ->by('google-password-setup-minute|'.$key)
+                    ->response($response),
+                Limit::perHour(20)
+                    ->by('google-password-setup-hour|'.$key)
+                    ->response($response),
+            ];
+        });
+
         RateLimiter::for('password-reset', function (Request $request): array {
             $emailHash = hash('sha256', Str::lower(trim((string) $request->input('email'))));
             $routeKey = $request->route()?->getName() ?? 'password-reset';

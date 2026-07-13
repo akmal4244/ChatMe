@@ -53,4 +53,24 @@ class SecurityHeadersTest extends TestCase
         $css = file_get_contents(resource_path('css/app.css'));
         $this->assertStringContainsString("@import '@phosphor-icons/web/regular';", $css);
     }
+
+    public function test_google_callback_never_leaks_oauth_query_values_through_cache_or_referrers(): void
+    {
+        config()->set('services.google.enabled', false);
+
+        $response = $this->get(route('auth.google.callback', [
+            'code' => 'synthetic-one-time-code',
+            'state' => 'synthetic-one-time-state',
+        ]));
+
+        $response->assertRedirect(route('login'))
+            ->assertHeader('Referrer-Policy', 'no-referrer')
+            ->assertHeader('Pragma', 'no-cache')
+            ->assertHeader('X-Robots-Tag', 'noindex, nofollow');
+
+        $cacheControl = (string) $response->headers->get('Cache-Control');
+        foreach (['no-store', 'private', 'max-age=0', 'must-revalidate'] as $directive) {
+            $this->assertStringContainsString($directive, $cacheControl);
+        }
+    }
 }
