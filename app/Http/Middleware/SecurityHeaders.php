@@ -36,7 +36,11 @@ class SecurityHeaders
             "connect-src 'self'",
         ]));
 
-        if ($request->routeIs('password.reset', 'password.update')) {
+        if ($request->routeIs(
+            'password.reset',
+            'password.update',
+            'auth.google.callback',
+        )) {
             $response->headers->set('Referrer-Policy', 'no-referrer');
             $response->headers->set('Cache-Control', 'no-store, private, max-age=0, must-revalidate');
             $response->headers->set('Pragma', 'no-cache');
