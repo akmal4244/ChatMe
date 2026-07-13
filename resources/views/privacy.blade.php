@@ -10,7 +10,7 @@
                 Kembali ke ChatMe
             </a>
             <h1 id="privacy-heading">Dasar Privasi</h1>
-            <p>Dikemas kini pada <time datetime="2026-07-10">10 Julai 2026</time></p>
+            <p>Dikemas kini pada <time datetime="2026-07-13">13 Julai 2026</time></p>
         </header>
 
         <div class="legal-content">
@@ -24,6 +24,11 @@
             <section aria-labelledby="privacy-use">
                 <h2 id="privacy-use">Cara data digunakan</h2>
                 <p>Maklumat ini digunakan untuk menyediakan dan melindungi akaun anda, menjalankan chatbot, mengurus langganan, menyelesaikan masalah, menambah baik ChatMe dan mematuhi undang-undang.</p>
+            </section>
+
+            <section aria-labelledby="privacy-google">
+                <h2 id="privacy-google">Log masuk dengan Google</h2>
+                <p>Jika anda memilih Google Sign-In, ChatMe menerima nama, alamat e-mel, status pengesahan e-mel dan ID akaun Google yang unik untuk mengenal pasti atau memautkan akaun anda. ChatMe tidak menyimpan token akses atau token muat semula Google.</p>
             </section>
 
             <section aria-labelledby="privacy-payment">

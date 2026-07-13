@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\LoginRequest;
 use App\Models\User;
 use App\Rules\AccountEmailAvailability;
+use App\Services\GoogleAuthConfiguration;
 use App\Support\AccountNotificationFailureLogger;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\Request;
@@ -18,6 +19,7 @@ class AuthController extends Controller
 {
     public function __construct(
         private readonly AccountNotificationFailureLogger $notificationFailureLogger,
+        private readonly GoogleAuthConfiguration $googleAuth,
     ) {}
 
     /**
@@ -25,7 +27,9 @@ class AuthController extends Controller
      */
     public function showRegister()
     {
-        return view('auth.register');
+        return view('auth.register', [
+            'googleAuthAvailable' => $this->googleAuth->isReady(),
+        ]);
     }
 
     /**
@@ -88,7 +92,9 @@ class AuthController extends Controller
             $request->session()->flash('info', 'Sesi anda telah tamat. Sila log masuk semula.');
         }
 
-        return view('auth.login');
+        return view('auth.login', [
+            'googleAuthAvailable' => $this->googleAuth->isReady(),
+        ]);
     }
 
     /**

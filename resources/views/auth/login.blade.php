@@ -21,6 +21,24 @@
                 </div>
             @endif
 
+            @if($googleAuthAvailable ?? false)
+                <a class="google-auth-button" href="{{ route('auth.google.redirect') }}">
+                    <img
+                        class="google-auth-button__mark"
+                        src="{{ asset('images/google-g-logo.svg') }}"
+                        alt=""
+                        aria-hidden="true"
+                        width="20"
+                        height="20"
+                    >
+                    <span>Teruskan dengan Google</span>
+                </a>
+
+                <div class="auth-divider" role="separator" aria-label="Pilihan log masuk">
+                    <span>atau teruskan dengan e-mel</span>
+                </div>
+            @endif
+
             <form method="POST" action="{{ route('login') }}" class="auth-form">
                 @csrf
 
@@ -36,7 +54,7 @@
                         placeholder="nama@example.com"
                         @error('email') aria-describedby="email-error" aria-invalid="true" @enderror
                         required
-                        autofocus
+                        @unless($googleAuthAvailable ?? false) autofocus @endunless
                     >
                     @error('email')
                         <p id="email-error" class="field-error">{{ $message }}</p>

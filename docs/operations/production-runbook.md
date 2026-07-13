@@ -35,6 +35,32 @@ php artisan schedule:list
 
 4. Cipta backup dan verify mengikut [backup-restore.md](backup-restore.md). Simpan path backup tepat yang dikeluarkan oleh script.
 
+## Penyediaan dan kill switch Google Sign-In
+
+Dalam Google Cloud Console, cipta OAuth client jenis **Web application**, tetapkan authorized domain `akmalmarvis.com` dan daftarkan URI callback production tepat berikut:
+
+```text
+https://chatme.akmalmarvis.com/auth/google/callback
+```
+
+Masukkan konfigurasi melalui stor rahsia hosting tanpa memaparkan nilainya dalam command line atau log:
+
+```dotenv
+GOOGLE_AUTH_ENABLED=false
+GOOGLE_CLIENT_ID=<client-id-daripada-stor-rahsia>
+GOOGLE_CLIENT_SECRET=<client-secret-daripada-stor-rahsia>
+GOOGLE_REDIRECT_URI=https://chatme.akmalmarvis.com/auth/google/callback
+```
+
+Selepas nilai disemak, bina semula cache konfigurasi dan sahkan `/health` tanpa mencetak config atau secret:
+
+```bash
+php artisan optimize:clear
+php artisan config:cache
+```
+
+Deploy dengan flag masih dimatikan. Hidupkan `GOOGLE_AUTH_ENABLED=true` hanya selepas smoke test laluan log masuk, callback HTTPS dan login e-mel sedia ada lulus. Untuk mematikan segera, tetapkan `GOOGLE_AUTH_ENABLED=false`, kemudian jalankan `php artisan optimize:clear` dan `php artisan config:cache` serta sahkan pilihan Google tidak lagi dipaparkan pada `/login` dan `/register`.
+
 ## Deployment exact SHA
 
 Tetapkan nilai yang telah diluluskan, bukan SHA atau branch pilihan sendiri:
@@ -199,3 +225,7 @@ git rev-parse HEAD
 - Pantau `/up`, `/health`, penggunaan disk, NPROC dan error log.
 - Pastikan backup harian verified, salinan off-host encrypted tersedia dan restore drill terkini lulus.
 - Semak credential provider mengikut polisi rotation tanpa mencetak nilainya.
+
+## Perlindungan token reset dalam access log
+
+Laluan `/tetap-semula-kata-laluan/*` membawa token reset rahsia dan query string boleh mengandungi alamat e-mel atau metadata sensitif. Sebelum production, konfigurasikan access log cPanel/LiteSpeed, CDN, reverse proxy, APM serta analitik untuk tidak menyimpan query string laluan ini dan untuk menyunting segmen token kepada nilai tetap seperti `[REDACTED]`. Uji dengan token sintetik, kemudian sahkan token dan query asal tidak wujud dalam mana-mana log. Hadkan akses serta tempoh simpanan log dan anggap token yang pernah direkod tanpa suntingan sebagai terdedah.

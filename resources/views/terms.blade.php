@@ -10,7 +10,7 @@
                 Kembali ke ChatMe
             </a>
             <h1 id="terms-heading">Terma Perkhidmatan</h1>
-            <p>Dikemas kini pada <time datetime="2026-07-10">10 Julai 2026</time></p>
+            <p>Dikemas kini pada <time datetime="2026-07-13">13 Julai 2026</time></p>
         </header>
 
         <div class="legal-content">
@@ -19,6 +19,7 @@
             <section aria-labelledby="terms-account">
                 <h2 id="terms-account">Akaun</h2>
                 <p>Anda mesti memberikan maklumat yang tepat dan bertanggungjawab menjaga kerahsiaan kata laluan serta semua aktiviti pada akaun anda. Pengguna mestilah berumur sekurang-kurangnya 18 tahun.</p>
+                <p>Jika anda memilih Google Sign-In, ChatMe menerima nama, alamat e-mel, status pengesahan e-mel dan ID akaun Google yang unik untuk mengenal pasti atau memautkan akaun anda. ChatMe tidak menyimpan token akses atau token muat semula Google.</p>
             </section>
 
             <section aria-labelledby="terms-use">

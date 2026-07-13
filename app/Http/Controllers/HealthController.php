@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\GoogleAuthConfiguration;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
@@ -9,6 +10,10 @@ use Throwable;
 
 class HealthController extends Controller
 {
+    public function __construct(
+        private readonly GoogleAuthConfiguration $googleAuth,
+    ) {}
+
     public function __invoke(): JsonResponse
     {
         $checks = [
@@ -18,6 +23,7 @@ class HealthController extends Controller
             'storage' => $this->storageStatus(),
             'payments' => $this->paymentStatus(),
             'ai' => $this->aiStatus(),
+            'google_auth' => $this->googleAuth->status(),
         ];
 
         $healthy = collect($checks)

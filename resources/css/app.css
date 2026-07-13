@@ -19,6 +19,14 @@
     --color-brand-900: #312e81;
 }
 
+@font-face {
+    font-family: 'Google Sans';
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url('/fonts/google-sans-medium-latin.woff2') format('woff2');
+}
+
 :root {
     color-scheme: light;
     --canvas: #F7F6F1;
@@ -429,6 +437,13 @@ table.data-table tbody tr:hover { background: #FBFAF7; }
 .auth-brand img { width: 34px; height: 34px; border-radius: 10px; }
 .auth-card h1 { margin-bottom: 8px; font-family: var(--font-editorial); font-size: 36px; font-weight: 500; letter-spacing: -.035em; line-height: 1.08; }
 .auth-card > p, .auth-intro { margin-bottom: 26px; color: var(--muted); }
+.google-auth-button { display: flex; width: 100%; max-width: 100%; min-height: 44px; align-items: center; justify-content: center; gap: 10px; border: 1px solid #747775; border-radius: 12px; background: #FFFFFF; padding: 1px 12px; color: #1F1F1F; font-family: 'Google Sans', Arial, sans-serif; font-size: 14px; font-weight: 500; line-height: 20px; text-decoration: none; white-space: nowrap; transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease; }
+.google-auth-button:hover { border-color: #5F6368; background: #F8F9FA; color: #1F1F1F; }
+.google-auth-button:focus-visible { outline: 3px solid #4F46E5; outline-offset: 2px; }
+.google-auth-button__mark { display: block; width: 20px; height: 20px; flex: 0 0 20px; }
+.auth-divider { display: flex; align-items: center; gap: 12px; margin: 20px 0; color: var(--subtle); font-size: 12px; text-align: center; }
+.auth-divider::before, .auth-divider::after { height: 1px; flex: 1; background: var(--border); content: ''; }
+.auth-divider span { flex: 0 0 auto; }
 .auth-form { display: grid; gap: 18px; }
 .auth-footer { margin-top: 24px; color: var(--muted); text-align: center; }
 .form-field { display: grid; gap: 7px; }
