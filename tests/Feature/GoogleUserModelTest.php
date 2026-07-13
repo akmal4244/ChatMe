@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class GoogleUserModelTest extends TestCase
@@ -55,5 +56,30 @@ class GoogleUserModelTest extends TestCase
         $user = User::factory()->create(['password' => 'password']);
 
         $this->assertTrue($user->hasLocalPassword());
+    }
+
+    public function test_google_subject_column_declares_binary_collation_for_sqlite_and_mysql(): void
+    {
+        $tableDefinition = (string) DB::selectOne(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'",
+        )->sql;
+        $migration = (string) file_get_contents(database_path(
+            'migrations/2026_07_12_130000_add_google_auth_fields_to_users_table.php',
+        ));
+
+        $this->assertMatchesRegularExpression(
+            '/"google_sub"\s+varchar(?:\(255\))?\s+collate \'BINARY\'/i',
+            $tableDefinition,
+        );
+        $this->assertStringContainsString("->charset('ascii')->collation('ascii_bin')", $migration);
+        $this->assertStringContainsString("'mysql', 'mariadb' =>", $migration);
+    }
+
+    public function test_google_subject_uniqueness_is_case_sensitive(): void
+    {
+        User::factory()->create()->forceFill(['google_sub' => 'Subject-A'])->save();
+        User::factory()->create()->forceFill(['google_sub' => 'subject-a'])->save();
+
+        $this->assertDatabaseCount('users', 2);
     }
 }

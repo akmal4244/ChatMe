@@ -10,7 +10,12 @@ return new class extends Migration
     {
         Schema::table('users', function (Blueprint $table): void {
             $table->string('password')->nullable()->change();
-            $table->string('google_sub', 255)->nullable()->unique()->after('email_verified_at');
+            $googleSubject = $table->string('google_sub', 255)->nullable()->unique()->after('email_verified_at');
+            match (Schema::getConnection()->getDriverName()) {
+                'mysql', 'mariadb' => $googleSubject->charset('ascii')->collation('ascii_bin'),
+                'sqlite' => $googleSubject->collation('BINARY'),
+                default => null,
+            };
             $table->timestamp('google_linked_at')->nullable()->after('google_sub');
         });
     }
