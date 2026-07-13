@@ -73,6 +73,10 @@ final readonly class GoogleIdentity
             return null;
         }
 
+        if (preg_match('/[\x00-\x1F\x7F]/', $hostedDomain) === 1) {
+            throw GoogleAuthenticationException::invalidIdentity();
+        }
+
         $hostedDomain = Str::lower(trim($hostedDomain));
         if ($hostedDomain === '') {
             return null;

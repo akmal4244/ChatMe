@@ -112,6 +112,7 @@ class GoogleAccountServiceTest extends TestCase
         yield 'hosted domain empty label' => ['subject', 'user@gmail.com', 'Nama', 'bad..test'];
         yield 'hosted domain oversized' => ['subject', 'user@gmail.com', 'Nama', str_repeat('a', 254)];
         yield 'hosted domain unicode' => ['subject', 'user@gmail.com', 'Nama', 'contoh.éxample'];
+        yield 'hosted domain control character' => ['subject', 'user@gmail.com', 'Nama', "\0workspace.test"];
     }
 
     #[DataProvider('invalidEmails')]
