@@ -13,7 +13,7 @@
 - Bahasa pengguna mesti Bahasa Melayu Malaysia profesional dan menggunakan “anda” serta “tidak”.
 - OAuth production callback tepat ialah `https://chatme.akmalmarvis.com/auth/google/callback`.
 - Hanya skop `openid email profile`; tiada offline access, access token persistence atau avatar remote.
-- Google `sub` menjadi identifier; e-mel hanya untuk pemautan pertama selepas verified.
+- Google `sub` menjadi identifier; auto-link e-mel pertama hanya dibenarkan apabila Google authoritative (`@gmail.com`, atau verified dengan claim `hd`).
 - Akaun `is_admin`, `system_role` atau e-mel reserved tidak boleh dipaut/login melalui Google.
 - Tiada secret/token/raw provider payload dalam Git, log, browser storage atau output command.
 - Semua production code mesti didahului ujian yang gagal kerana behavior belum wujud.
@@ -202,7 +202,7 @@ git commit -m "build: add Google OAuth configuration"
 - Test: `tests/Feature/PasswordResetFlowTest.php`
 
 **Interfaces:**
-- Produces: nullable unique `users.google_sub`, nullable `google_linked_at`, `User::hasLocalPassword(): bool`.
+- Produces: nullable unique case-sensitive `users.google_sub` (`ascii_bin` on MySQL/MariaDB and explicit `BINARY` on SQLite), nullable `google_linked_at`, `User::hasLocalPassword(): bool`.
 - `google_sub` is hidden and never fillable.
 
 - [ ] **Step 1: Write failing schema/model tests**
@@ -256,7 +256,12 @@ Migration `up()`:
 ```php
 Schema::table('users', function (Blueprint $table): void {
     $table->string('password')->nullable()->change();
-    $table->string('google_sub', 255)->nullable()->unique()->after('email_verified_at');
+    $googleSubject = $table->string('google_sub', 255)->nullable()->unique()->after('email_verified_at');
+    match (Schema::getConnection()->getDriverName()) {
+        'mysql', 'mariadb' => $googleSubject->charset('ascii')->collation('ascii_bin'),
+        'sqlite' => $googleSubject->collation('BINARY'),
+        default => null,
+    };
     $table->timestamp('google_linked_at')->nullable()->after('google_sub');
 });
 ```
@@ -323,7 +328,8 @@ git commit -m "feat: add Google identity fields"
 - Test: `tests/Feature/AuthenticationHardeningTest.php`
 
 **Interfaces:**
-- Produces: `GoogleIdentity::fromProvider(mixed $subject, mixed $email, mixed $name, mixed $verified): self`.
+- Produces: `GoogleIdentity::fromProvider(mixed $subject, mixed $email, mixed $name, mixed $verified, mixed $hostedDomain): self`.
+- Produces: `GoogleIdentity::isEmailAuthoritative(): bool` daripada claim yang telah disanitasi sahaja.
 - Produces: `GoogleAccountService::resolve(GoogleIdentity $identity): User`.
 - Produces: `GoogleAuthenticationException::reason(): string` with fixed non-sensitive reason codes.
 
@@ -332,9 +338,9 @@ git commit -m "feat: add Google identity fields"
 Cover each behavior with a separate named test:
 
 ```php
-public function test_verified_google_identity_creates_one_verified_google_only_user(): void
+public function test_authoritative_google_identity_creates_one_verified_google_only_user(): void
 {
-    $identity = GoogleIdentity::fromProvider('sub-123', ' USER@Example.test ', 'Nama Google', true);
+    $identity = GoogleIdentity::fromProvider('sub-123', ' USER@Example.test ', 'Nama Google', true, 'example.test');
 
     $user = app(GoogleAccountService::class)->resolve($identity);
 
@@ -345,7 +351,7 @@ public function test_verified_google_identity_creates_one_verified_google_only_u
     $this->assertDatabaseCount('users', 1);
 }
 
-public function test_verified_email_links_an_existing_ordinary_user_without_changing_profile_or_password(): void
+public function test_authoritative_email_links_an_existing_ordinary_user_without_changing_profile_or_password(): void
 {
     $user = User::factory()->unverified()->create([
         'email' => 'owner@example.test',
@@ -354,7 +360,7 @@ public function test_verified_email_links_an_existing_ordinary_user_without_chan
     ]);
 
     $resolved = app(GoogleAccountService::class)->resolve(
-        GoogleIdentity::fromProvider('sub-link', 'OWNER@example.test', 'Nama Provider', true),
+        GoogleIdentity::fromProvider('sub-link', 'OWNER@example.test', 'Nama Provider', true, 'example.test'),
     );
 
     $this->assertTrue($resolved->is($user));
@@ -364,7 +370,7 @@ public function test_verified_email_links_an_existing_ordinary_user_without_chan
 }
 ```
 
-Also test: subject-first login after provider email changes, unverified/blank/oversized/malformed fields, subject conflict, e-mail conflict, duplicate retry, `is_admin`, every `system_role`, homepage reserved e-mail and configured admin e-mail. Assert no mutation on every rejection.
+Also test: subject-first login after provider email changes; exact case-sensitive subject (`Subject-A` must never match `subject-a`); leading/trailing whitespace and trailing newline in subject are rejected rather than trimmed; case-insensitive Gmail authority; verified Workspace `hd`; malformed/oversized `hd`; verified third-party e-mail without `hd` creates no user and never auto-links an existing account; legacy mixed-case e-mail lookup; two legacy case-variant e-mail rows fail neutral instead of selecting one; unverified/blank/oversized/malformed fields; subject conflict; e-mail conflict; duplicate retry; `is_admin`; every `system_role`; homepage reserved e-mail; configured admin e-mail. Assert no mutation on every rejection.
 
 - [ ] **Step 2: Run and verify RED**
 
@@ -376,17 +382,24 @@ Expected: FAIL because value object, exception, support and service classes are 
 
 - [ ] **Step 3: Implement the minimal immutable identity and fixed exception**
 
-`GoogleIdentity::fromProvider` must:
+`GoogleIdentity::fromProvider` first requires strict strings for subject/e-mail/name, strict boolean `true` for verification, and only `null|string` for the optional hosted domain. Do not cast arbitrary `mixed` provider values, because arrays can emit warnings and objects can throw before the domain exception. Then normalize the optional hosted domain to lowercase ASCII, treat blank as `null`, reject malformed/over-253-byte values, and:
 
 ```php
-$subject = trim((string) $subject);
-$email = Str::lower(trim((string) $email));
-$name = trim((string) $name);
-
-if ($subject === '' || strlen($subject) > 255 || preg_match('/^[\x20-\x7E]+$/', $subject) !== 1) {
+if (! is_string($subject) || ! is_string($email) || ! is_string($name)
+    || (! is_null($hostedDomain) && ! is_string($hostedDomain))) {
     throw GoogleAuthenticationException::invalidIdentity();
 }
-if (! filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 255 || $verified !== true) {
+if ($verified !== true) {
+    throw GoogleAuthenticationException::unverifiedEmail();
+}
+
+$email = Str::lower(trim($email));
+$name = trim($name);
+
+if (preg_match('/\A[\x21-\x7E]{1,255}\z/D', $subject) !== 1) {
+    throw GoogleAuthenticationException::invalidIdentity();
+}
+if (! filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 255) {
     throw GoogleAuthenticationException::unverifiedEmail();
 }
 if ($name === '' || mb_strlen($name) > 255) {
@@ -394,7 +407,9 @@ if ($name === '' || mb_strlen($name) > 255) {
 }
 ```
 
-Exception reasons are exactly `invalid_identity`, `unverified_email`, `reserved_identity`, `identity_conflict`.
+`isEmailAuthoritative()` is true only when `emailVerified === true` and either the normalized e-mail ends in `@gmail.com` case-insensitively or the sanitized non-empty `hostedDomain` claim exists. A verified third-party e-mail without `hd` is not authoritative.
+
+Exception reasons are exactly `invalid_identity`, `unverified_email`, `ownership_challenge_required`, `reserved_identity`, `identity_conflict`.
 
 - [ ] **Step 4: Centralize reserved e-mail checks**
 
@@ -409,17 +424,15 @@ public function resolve(GoogleIdentity $identity): User
 {
     try {
         return DB::transaction(fn (): User => $this->resolveLocked($identity), 3);
-    } catch (QueryException $exception) {
-        if ((string) $exception->getCode() !== '23000') {
-            throw $exception;
-        }
-
+    } catch (UniqueConstraintViolationException) {
         return DB::transaction(fn (): User => $this->recoverDuplicate($identity), 3);
     }
 }
 ```
 
-`resolveLocked` locks subject first, then normalized e-mail. Before returning/linking it rejects `is_admin`, filled `system_role`, reserved e-mail, and a different existing subject. New users are created with `email_verified_at = now()`, `password = null`, `google_linked_at = now()`. `recoverDuplicate` returns only a row whose e-mail and subject both equal the identity; otherwise it throws `identity_conflict`.
+Import and catch Laravel's portable `Illuminate\Database\UniqueConstraintViolationException` subclass. Do not classify generic `QueryException` by SQLSTATE `23000`, because that state includes other integrity failures and varies across drivers.
+
+`resolveLocked` validates reserved identity, then locks subject first. An exact previously linked subject may continue to log in even if the provider e-mel later changes. If no subject exists and `isEmailAuthoritative()` is false, throw `ownership_challenge_required` before any e-mel lookup/create so no row mutates. For authoritative identity, lock normalized e-mel using the established `LOWER(email) = ?` comparison so legacy mixed-case rows cannot be bypassed. Fetch at most two locked e-mel rows and throw `identity_conflict` if more than one case-variant match exists; never call `first()` and choose arbitrarily. Every subject lookup/recovery still compares the raw stored value with `hash_equals` before returning, so a case-insensitive database misconfiguration fails closed. Before returning/linking it rejects `is_admin`, filled `system_role`, reserved e-mel, and a different existing subject. New users are created verified with `password = null` and `google_linked_at = now()`. Internal provider fields use `forceFill`, never request mass assignment. `recoverDuplicate` returns only a row whose normalized e-mel and subject both equal the identity; otherwise it throws `identity_conflict`.
 
 - [ ] **Step 6: Verify GREEN and regression**
 
@@ -475,11 +488,12 @@ public function test_google_redirect_is_stateful_and_uses_only_identity_scopes()
 public function test_successful_google_callback_logs_in_and_regenerates_the_session(): void
 {
     $this->readyGoogleConfiguration();
-    Socialite::fake('google', (new SocialiteUser)->map([
+    Socialite::fake('google', SocialiteUser::fake([
         'id' => 'sub-session',
         'name' => 'Pengguna Google',
         'email' => 'google@example.test',
         'verified_email' => true,
+        'hd' => 'example.test',
     ]));
     Session::start();
     $before = Session::getId();
@@ -492,7 +506,7 @@ public function test_successful_google_callback_logs_in_and_regenerates_the_sess
 }
 ```
 
-Add tests for disabled/incomplete config, access denied, invalid state, provider exception, safe logging, guest-only middleware and 429 BM with no user/session mutation.
+Add tests for disabled/incomplete config, access denied with valid state, access denied with wrong/missing/array/replayed state, valid-state success through a networkless `GoogleProvider` subclass that inherits real state validation, invalid state on the real provider before any HTTP call, provider exception, safe logging, guest-only middleware and limiter response redirected to login with no user/session mutation. Raw claim tests must reject non-array payload, conflicting `verified_email`/`email_verified`, non-literal booleans and malformed `hd`. Prove a non-authoritative new identity returns to login with BM guidance and zero user/session mutation. Give the fake provider sentinel access/refresh tokens and assert they are absent from session serialization, model/database data and captured logs. Socialite fake bypasses state validation, so it may prove mapping but must never be the sole state test.
 
 - [ ] **Step 2: Run and verify RED**
 
@@ -515,7 +529,7 @@ Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])
     ->name('auth.google.callback');
 ```
 
-The limiter returns a per-minute 30 IP cap for both routes and an additional per-hour 10 IP cap for callback, with popup text `Terlalu banyak percubaan log masuk Google. Sila cuba semula kemudian.`
+The limiter returns a per-minute 30 IP cap for both routes and an additional per-hour 10 IP cap for callback, with popup text `Terlalu banyak percubaan log masuk Google. Sila cuba semula kemudian.` Its custom response always redirects to `login`, never `back()` to the Google origin.
 
 - [ ] **Step 4: Implement minimal controller behavior**
 
@@ -533,7 +547,7 @@ return Socialite::driver('google')
     ->redirect();
 ```
 
-Callback maps `getId()`, `getEmail()`, `getName()` and strict raw `verified_email === true`. It must never call `stateless()`. On success:
+Callback first fails closed when `GoogleAuthConfiguration::isReady()` is false. It requires `getRaw()` to be an array. If both `verified_email` and `email_verified` exist they must be identical; otherwise reject. It maps `getId()`, `getEmail()`, `getName()`, a literal raw boolean verification claim and sanitized raw `hd`. It must never call `stateless()`. Keep the provider user local to the callback, construct `GoogleIdentity` immediately, and never serialize/cache/queue/log its public token fields. On success:
 
 ```php
 Auth::login($user);
@@ -542,7 +556,7 @@ $request->session()->regenerate();
 return redirect()->intended(route('dashboard'));
 ```
 
-Catch `InvalidStateException`, domain exception and provider `Throwable` separately, log only a fixed category/exception type/request ID, then redirect to login with a BM popup. Handle `error=access_denied` as cancellation before provider lookup.
+Catch `InvalidStateException`, domain exception and provider `Throwable` separately, log only a fixed category/exception type/request ID, then redirect to login with a BM popup. Handle `error=access_denied` before provider lookup only after manually pulling and comparing the session/request state with `hash_equals`; wrong, missing or replayed state is an invalid-state failure, not a cancellation.
 
 - [ ] **Step 5: Verify GREEN and commit**
 
@@ -567,6 +581,7 @@ git commit -m "feat: add stateful Google login flow"
 **Files:**
 - Create: `app/Http/Controllers/Auth/AuthenticatedPasswordSetupLinkController.php`
 - Modify: `routes/web.php`
+- Modify: `app/Providers/AppServiceProvider.php`
 - Modify: `resources/views/profile/edit.blade.php`
 - Test: `tests/Feature/GooglePasswordSetupTest.php`
 
@@ -618,7 +633,7 @@ return $status === Password::RESET_LINK_SENT
     : back()->with('error', 'Pautan tidak dapat dihantar. Sila cuba semula.');
 ```
 
-Catch notification exceptions through `AccountNotificationFailureLogger` without e-mail/raw message leakage. Add route under authenticated session middleware with `throttle:password-reset`.
+Catch notification exceptions through `AccountNotificationFailureLogger` without e-mail/raw message leakage. Add route under authenticated session middleware with a dedicated `throttle:google-password-setup` limiter keyed by authenticated user ID plus IP, with minute and hour caps. Never key it from request body `email`.
 
 Render either the existing current-password form or a Google-only explanatory panel/button; never render a fake current-password input for a null-password user.
 
@@ -632,7 +647,7 @@ php vendor\bin\pint --test
 Commit:
 
 ```powershell
-git add app/Http/Controllers/Auth/AuthenticatedPasswordSetupLinkController.php routes/web.php resources/views/profile/edit.blade.php tests/Feature/GooglePasswordSetupTest.php
+git add app/Http/Controllers/Auth/AuthenticatedPasswordSetupLinkController.php routes/web.php app/Providers/AppServiceProvider.php resources/views/profile/edit.blade.php tests/Feature/GooglePasswordSetupTest.php
 git commit -m "feat: add Google password setup flow"
 ```
 
@@ -646,6 +661,7 @@ git commit -m "feat: add Google password setup flow"
 - Modify: `resources/views/auth/login.blade.php`
 - Modify: `resources/views/auth/register.blade.php`
 - Modify: `resources/css/app.css`
+- Create: `public/images/google-g-logo.svg` from the official Google branding asset
 - Modify: `public/css/app.css` through `npm run build`
 - Modify: `tests/Feature/HealthCheckTest.php`
 - Create: `tests/Feature/GoogleAuthUxTest.php`
@@ -700,14 +716,14 @@ Use the same for register. Place a semantic link before the e-mail form:
 ```blade
 @if($googleAuthAvailable)
     <a class="google-auth-button" href="{{ route('auth.google.redirect') }}">
-        <span aria-hidden="true" class="google-auth-button__mark">G</span>
+        <img aria-hidden="true" class="google-auth-button__mark" src="{{ asset('images/google-g-logo.svg') }}" alt="">
         <span>Teruskan dengan Google</span>
     </a>
     <div class="auth-divider" role="separator"><span>atau teruskan dengan e-mel</span></div>
 @endif
 ```
 
-Styles must use local CSS variables, `min-height:44px`, visible `:focus-visible`, responsive width and no remote asset. Health calls `$this->googleAuth->status()` and never returns credentials.
+Styles must use local CSS variables, `min-height:44px`, visible `:focus-visible`, responsive width and no remote asset. The locally bundled multicolor `G`, padding, border and text treatment must follow Google's official branding guidelines. Health calls `$this->googleAuth->status()` and never returns credentials.
 
 Document exact Google Cloud client type/domain/callback, environment names, enable-after-smoke rule and disable switch. Privacy/terms mention identity fields received from Google and no provider token retention.
 
@@ -725,7 +741,7 @@ Expected: PHP/JS tests and build exit 0; synced CSS is updated.
 - [ ] **Step 5: Commit**
 
 ```powershell
-git add app/Http/Controllers/AuthController.php app/Http/Controllers/HealthController.php resources/views/auth/login.blade.php resources/views/auth/register.blade.php resources/css/app.css public/css/app.css tests/Feature/HealthCheckTest.php tests/Feature/GoogleAuthUxTest.php README.md docs/operations/production-runbook.md resources/views/privacy.blade.php resources/views/terms.blade.php
+git add app/Http/Controllers/AuthController.php app/Http/Controllers/HealthController.php resources/views/auth/login.blade.php resources/views/auth/register.blade.php resources/css/app.css public/css/app.css public/images/google-g-logo.svg tests/Feature/HealthCheckTest.php tests/Feature/GoogleAuthUxTest.php README.md docs/operations/production-runbook.md resources/views/privacy.blade.php resources/views/terms.blade.php
 git commit -m "feat: present Google login safely"
 ```
 
@@ -741,12 +757,14 @@ git commit -m "feat: present Google login safely"
 - Evidence outside Git: `tmp/chatme-google-mysql-gate-evidence.json`
 
 **Interfaces:**
-- Two workers each call `GoogleAccountService::resolve()` through distinct MySQL connections with the same subject/e-mail.
-- Verifier requires exactly one user, one link, no duplicate and both worker outcomes resolve the same user ID.
+- Scenario A: two workers call `GoogleAccountService::resolve()` through distinct MySQL connections with the same subject/e-mail; both resolve the same user ID.
+- Scenario B: two different subjects race for one existing authoritative e-mail; exactly one link succeeds and the other returns neutral conflict.
+- Scenario C: one subject races with two different e-mails before creation; exactly one identity wins and the mismatched duplicate recovery returns neutral conflict.
+- Every verifier requires one user/link, no duplicate, production database untouched and complete cleanup.
 
 - [ ] **Step 1: Run the disposable MySQL migration and two-worker gate**
 
-The runner must create a unique cPanel DB/user, upload the current clean source archive without `.git`, `.env`, `vendor` or `node_modules`, run a locked `composer install --no-dev --prefer-dist --no-interaction --no-progress` inside the temporary root, migrate fresh, execute two synchronized workers, write redacted JSON evidence, and always delete DB/user/files in `finally`. It must not reuse the old production `vendor` because that release predates Socialite.
+The runner must create a unique cPanel DB/user, upload the current clean source archive without `.git`, `.env`, `vendor` or `node_modules`, run a locked `composer install --no-dev --prefer-dist --no-interaction --no-progress` inside the temporary root, migrate fresh, assert `users.google_sub` uses binary/case-sensitive collation, execute two synchronized workers, write redacted JSON evidence, and always delete DB/user/files in `finally`. It must not reuse the old production `vendor` because that release predates Socialite.
 
 Expected evidence:
 
@@ -758,6 +776,8 @@ Expected evidence:
   "users": 1,
   "google_links": 1,
   "same_user_id": true,
+  "email_subject_conflict_rejected": true,
+  "subject_email_conflict_rejected": true,
   "production_database_touched": false,
   "cleanup": {
     "database_deleted": true,
@@ -806,7 +826,7 @@ Use explicit paths and a terse commit if a final regression fixture changed. Pus
 
 - [ ] **Step 1: Provision the OAuth client without exposing secrets**
 
-Use the signed-in Google Cloud browser session if available. Configure consent/app branding for ChatMe, add only identity scopes and exact redirect URI. Transfer client ID/secret directly from the browser/secure local channel to production SFTP; never echo or paste it into chat, Git, shell arguments or logs.
+Use the signed-in Google Cloud browser session if available. Configure External audience, support e-mail, ChatMe branding, homepage, privacy, terms, verified domain, production publishing state, only identity scopes and exact redirect URI. Smoke testing must include an ordinary account that is not merely allowlisted as a test user, and record whether any unverified-app warning remains. Transfer client ID/secret directly from the browser/secure local channel to production SFTP; never echo or paste it into chat, Git, shell arguments or logs.
 
 - [ ] **Step 2: Create a new verified recovery point**
 
