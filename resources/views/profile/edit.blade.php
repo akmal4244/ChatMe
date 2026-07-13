@@ -45,16 +45,22 @@
 
                 <div class="form-field">
                     <label for="profile-email">E-mel</label>
-                    <p id="profile-email-hint" class="field-hint">Kami akan meminta kata laluan semasa dan menghantar pautan baharu jika alamat ini berubah.</p>
-                    <input id="profile-email" name="email" type="email" value="{{ old('email', $user->email) }}" autocomplete="email" inputmode="email" aria-describedby="profile-email-hint{{ $errors->has('email') ? ' profile-email-error' : '' }}" @error('email') aria-invalid="true" @enderror required>
+                    @if($user->hasLocalPassword())
+                        <p id="profile-email-hint" class="field-hint">Kami akan meminta kata laluan semasa dan menghantar pautan baharu jika alamat ini berubah.</p>
+                    @else
+                        <p id="profile-email-hint" class="field-hint">Tetapkan kata laluan tempatan dahulu sebelum menukar alamat e-mel.</p>
+                    @endif
+                    <input id="profile-email" name="email" type="email" value="{{ old('email', $user->email) }}" autocomplete="email" inputmode="email" aria-describedby="profile-email-hint{{ $errors->has('email') ? ' profile-email-error' : '' }}" @unless($user->hasLocalPassword()) readonly aria-readonly="true" @endunless @error('email') aria-invalid="true" @enderror required>
                     @error('email')<p id="profile-email-error" class="field-error">{{ $message }}</p>@enderror
                 </div>
 
-                <div class="form-field">
-                    <label for="profile-current-password">Kata laluan semasa <span class="field-optional">(diperlukan jika menukar e-mel)</span></label>
-                    <input id="profile-current-password" name="current_password" type="password" autocomplete="current-password" @error('current_password') aria-describedby="profile-current-password-error" aria-invalid="true" @enderror>
-                    @error('current_password')<p id="profile-current-password-error" class="field-error">{{ $message }}</p>@enderror
-                </div>
+                @if($user->hasLocalPassword())
+                    <div class="form-field">
+                        <label for="profile-current-password">Kata laluan semasa <span class="field-optional">(diperlukan jika menukar e-mel)</span></label>
+                        <input id="profile-current-password" name="current_password" type="password" autocomplete="current-password" @error('current_password') aria-describedby="profile-current-password-error" aria-invalid="true" @enderror>
+                        @error('current_password')<p id="profile-current-password-error" class="field-error">{{ $message }}</p>@enderror
+                    </div>
+                @endif
 
                 <div class="form-field">
                     <label for="profile-company">Syarikat <span class="field-optional">(pilihan)</span></label>
@@ -73,37 +79,51 @@
             </form>
         </section>
 
-        <section class="profile-card panel" aria-labelledby="password-details-heading">
-            <div class="profile-card__header">
-                <h2 id="password-details-heading">Tukar kata laluan</h2>
-                <p>Gunakan kata laluan yang unik dan sukar diteka.</p>
-            </div>
-
-            <form id="password-form" method="POST" action="{{ route('profile.password.update') }}" class="auth-form" data-submit-loading>
-                @csrf
-                @method('PUT')
-
-                <div class="form-field">
-                    <label for="password-current">Kata laluan semasa</label>
-                    <input id="password-current" name="current_password" type="password" autocomplete="current-password" @error('current_password') aria-describedby="password-current-error" aria-invalid="true" @enderror required>
-                    @error('current_password')<p id="password-current-error" class="field-error">{{ $message }}</p>@enderror
+        @if($user->hasLocalPassword())
+            <section class="profile-card panel" aria-labelledby="password-details-heading">
+                <div class="profile-card__header">
+                    <h2 id="password-details-heading">Tukar kata laluan</h2>
+                    <p>Gunakan kata laluan yang unik dan sukar diteka.</p>
                 </div>
 
-                <div class="form-field">
-                    <label for="password-new">Kata laluan baharu</label>
-                    <p id="password-new-hint" class="field-hint">Gunakan sekurang-kurangnya 8 aksara.</p>
-                    <input id="password-new" name="password" type="password" autocomplete="new-password" aria-describedby="password-new-hint{{ $errors->has('password') ? ' password-new-error' : '' }}" @error('password') aria-invalid="true" @enderror required>
-                    @error('password')<p id="password-new-error" class="field-error">{{ $message }}</p>@enderror
+                <form id="password-form" method="POST" action="{{ route('profile.password.update') }}" class="auth-form" data-submit-loading>
+                    @csrf
+                    @method('PUT')
+
+                    <div class="form-field">
+                        <label for="password-current">Kata laluan semasa</label>
+                        <input id="password-current" name="current_password" type="password" autocomplete="current-password" @error('current_password') aria-describedby="password-current-error" aria-invalid="true" @enderror required>
+                        @error('current_password')<p id="password-current-error" class="field-error">{{ $message }}</p>@enderror
+                    </div>
+
+                    <div class="form-field">
+                        <label for="password-new">Kata laluan baharu</label>
+                        <p id="password-new-hint" class="field-hint">Gunakan sekurang-kurangnya 8 aksara.</p>
+                        <input id="password-new" name="password" type="password" autocomplete="new-password" aria-describedby="password-new-hint{{ $errors->has('password') ? ' password-new-error' : '' }}" @error('password') aria-invalid="true" @enderror required>
+                        @error('password')<p id="password-new-error" class="field-error">{{ $message }}</p>@enderror
+                    </div>
+
+                    <div class="form-field">
+                        <label for="password-confirmation">Sahkan kata laluan baharu</label>
+                        <input id="password-confirmation" name="password_confirmation" type="password" autocomplete="new-password" required>
+                    </div>
+
+                    <button type="submit" class="button button-primary">Kemas kini kata laluan</button>
+                </form>
+            </section>
+        @else
+            <section class="profile-card panel" aria-labelledby="password-setup-heading">
+                <div class="profile-card__header">
+                    <h2 id="password-setup-heading">Kata laluan tempatan belum ditetapkan</h2>
+                    <p>Akaun ini menggunakan Google. Tetapkan kata laluan tempatan untuk log masuk melalui e-mel dan mengurus tindakan sensitif.</p>
                 </div>
 
-                <div class="form-field">
-                    <label for="password-confirmation">Sahkan kata laluan baharu</label>
-                    <input id="password-confirmation" name="password_confirmation" type="password" autocomplete="new-password" required>
-                </div>
-
-                <button type="submit" class="button button-primary">Kemas kini kata laluan</button>
-            </form>
-        </section>
+                <form method="POST" action="{{ route('profile.password.setup-link') }}" class="auth-form" data-submit-loading>
+                    @csrf
+                    <button type="submit" class="button button-primary">Hantar pautan tetapkan kata laluan</button>
+                </form>
+            </section>
+        @endif
     </div>
 </section>
 @endsection

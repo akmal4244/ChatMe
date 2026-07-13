@@ -184,6 +184,25 @@ class AppServiceProvider extends ServiceProvider
             return $limits;
         });
 
+        RateLimiter::for('google-password-setup', function (Request $request): array {
+            $userKey = $request->user()?->getAuthIdentifier() ?? 'guest';
+            $ipAddress = $request->ip() ?: 'unknown';
+            $key = $userKey.'|'.$ipAddress;
+            $response = fn (Request $request, array $headers) => redirect()
+                ->route('profile.edit')
+                ->with('error', 'Terlalu banyak permintaan pautan. Sila cuba semula kemudian.')
+                ->withHeaders($headers);
+
+            return [
+                Limit::perMinute(5)
+                    ->by('google-password-setup-minute|'.$key)
+                    ->response($response),
+                Limit::perHour(20)
+                    ->by('google-password-setup-hour|'.$key)
+                    ->response($response),
+            ];
+        });
+
         RateLimiter::for('password-reset', function (Request $request): array {
             $emailHash = hash('sha256', Str::lower(trim((string) $request->input('email'))));
             $routeKey = $request->route()?->getName() ?? 'password-reset';

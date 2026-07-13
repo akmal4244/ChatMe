@@ -36,6 +36,13 @@ class SecurityHeaders
             "connect-src 'self'",
         ]));
 
+        if ($request->routeIs('password.reset', 'password.update')) {
+            $response->headers->set('Referrer-Policy', 'no-referrer');
+            $response->headers->set('Cache-Control', 'no-store, private, max-age=0, must-revalidate');
+            $response->headers->set('Pragma', 'no-cache');
+            $response->headers->set('X-Robots-Tag', 'noindex, nofollow');
+        }
+
         if ($request->isSecure()) {
             $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
         }

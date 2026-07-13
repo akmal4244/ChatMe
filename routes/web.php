@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\Auth\AuthenticatedPasswordSetupLinkController;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
 use App\Http\Controllers\Auth\EmailVerificationPromptController;
 use App\Http\Controllers\Auth\GoogleAuthController;
@@ -49,11 +50,13 @@ Route::middleware('guest')->group(function () {
     Route::post('/lupa-kata-laluan', [PasswordResetLinkController::class, 'store'])
         ->middleware('throttle:password-reset')
         ->name('password.email');
-    Route::get('/tetap-semula-kata-laluan/{token}', [NewPasswordController::class, 'create'])->name('password.reset');
-    Route::post('/tetap-semula-kata-laluan', [NewPasswordController::class, 'store'])
-        ->middleware('throttle:password-reset')
-        ->name('password.update');
 });
+
+// Reset completion also supports an authenticated owner setting their first local password.
+Route::get('/tetap-semula-kata-laluan/{token}', [NewPasswordController::class, 'create'])->name('password.reset');
+Route::post('/tetap-semula-kata-laluan', [NewPasswordController::class, 'store'])
+    ->middleware('throttle:password-reset')
+    ->name('password.update');
 
 // ── Authenticated Routes ──
 Route::middleware(['auth', 'auth.session', 'session.deadline'])->group(function () {
@@ -72,6 +75,9 @@ Route::middleware(['auth', 'auth.session', 'session.deadline'])->group(function 
     Route::put('/profil/kata-laluan', [ProfileController::class, 'updatePassword'])
         ->middleware('throttle:sensitive-account')
         ->name('profile.password.update');
+    Route::post('/profil/kata-laluan/pautan-tetapan', AuthenticatedPasswordSetupLinkController::class)
+        ->middleware('throttle:google-password-setup')
+        ->name('profile.password.setup-link');
 
     Route::middleware('verified')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
