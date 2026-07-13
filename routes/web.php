@@ -3,6 +3,7 @@
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
 use App\Http\Controllers\Auth\EmailVerificationPromptController;
+use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\VerifyEmailController;
@@ -38,6 +39,12 @@ Route::middleware('guest')->group(function () {
     Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:registration');
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login']);
+    Route::get('/auth/google/redirect', [GoogleAuthController::class, 'redirect'])
+        ->middleware('throttle:google-auth')
+        ->name('auth.google.redirect');
+    Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])
+        ->middleware('throttle:google-auth')
+        ->name('auth.google.callback');
     Route::get('/lupa-kata-laluan', [PasswordResetLinkController::class, 'create'])->name('password.request');
     Route::post('/lupa-kata-laluan', [PasswordResetLinkController::class, 'store'])
         ->middleware('throttle:password-reset')
