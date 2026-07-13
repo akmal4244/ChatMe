@@ -3,6 +3,7 @@
 namespace App\Rules;
 
 use App\Models\User;
+use App\Support\ReservedAccountEmail;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Str;
@@ -33,14 +34,7 @@ final class AccountEmailAvailability implements ValidationRule
             }
         }
 
-        $reservedEmails = collect([
-            'homepage-bot@chatme.invalid',
-            config('chatme.admin.email'),
-        ])->filter(fn (mixed $reserved): bool => filled($reserved))
-            ->map(fn (mixed $reserved): string => Str::lower(trim((string) $reserved)))
-            ->all();
-
-        if (in_array($email, $reservedEmails, true)) {
+        if (app(ReservedAccountEmail::class)->contains($email)) {
             $fail('Alamat e-mel ini tidak boleh digunakan.');
 
             return;
