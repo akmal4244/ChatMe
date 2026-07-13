@@ -87,6 +87,49 @@ class PasswordResetFlowTest extends TestCase
         $this->assertNull($chatbot->fresh()->developer_api_token_prefix);
     }
 
+    public function test_google_only_user_can_set_a_local_password_and_revoke_existing_credentials(): void
+    {
+        config()->set('session.driver', 'database');
+        config()->set('session.table', 'sessions');
+        $user = User::factory()->create([
+            'password' => null,
+            'remember_token' => 'token-google-lama',
+        ]);
+        DB::table('sessions')->insert([
+            'id' => 'google-session-lama',
+            'user_id' => $user->id,
+            'ip_address' => '127.0.0.1',
+            'user_agent' => 'test',
+            'payload' => 'stale-google-session',
+            'last_activity' => now()->getTimestamp(),
+        ]);
+        $chatbot = $user->chatbots()->create(['name' => 'API Google']);
+        $chatbot->rotateDeveloperApiToken();
+        $token = Password::createToken($user);
+
+        $this->post('/tetap-semula-kata-laluan', [
+            'token' => $token,
+            'email' => $user->email,
+            'password' => 'PasswordGoogle123!',
+            'password_confirmation' => 'PasswordGoogle123!',
+        ])->assertRedirect('/login')
+            ->assertSessionHas('success', 'Kata laluan anda berjaya ditetapkan semula. Sila log masuk.');
+
+        $user->refresh();
+        $this->assertTrue($user->hasLocalPassword());
+        $this->assertTrue(Hash::check('PasswordGoogle123!', $user->password));
+        $this->assertNotSame('token-google-lama', $user->remember_token);
+        $this->assertDatabaseMissing('sessions', ['id' => 'google-session-lama']);
+        $this->assertNull($chatbot->fresh()->developer_api_token_hash);
+        $this->assertNull($chatbot->fresh()->developer_api_token_prefix);
+
+        $this->post('/login', [
+            'email' => $user->email,
+            'password' => 'PasswordGoogle123!',
+        ])->assertRedirect('/dashboard');
+        $this->assertAuthenticatedAs($user);
+    }
+
     public function test_invalid_and_expired_tokens_are_rejected_with_the_same_malay_error(): void
     {
         $user = User::factory()->create();
