@@ -51,6 +51,12 @@ class WidgetOriginService
             return false;
         }
 
+        // Nota keselamatan: apabila senarai putih domain KOSONG, widget dibenarkan
+        // pada semua origin (backward-compat — kebanyakan chatbot sedia ada tidak
+        // menetapkan domain_whitelist). Untuk mengetatkan origin, isi
+        // domain_whitelist dengan domain yang dibenarkan (cth "example.com").
+        // JANGAN tukar default ini kepada "false" tanpa memastikan setiap chatbot
+        // sedia ada mempunyai domain_whitelist — ia akan mematikan widget mereka.
         if (blank($chatbot->domain_whitelist)) {
             return true;
         }

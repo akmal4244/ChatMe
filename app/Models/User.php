@@ -17,13 +17,16 @@ class User extends Authenticatable implements MustVerifyEmail
     /** @use HasFactory<UserFactory> */
     use HasFactory, MustVerifyEmailTrait, Notifiable;
 
+    // Nota keselamatan: 'is_admin' SENGAJA tidak disenaraikan di sini untuk
+    // elak mass-assignment privilege escalation. Peranan admin hanya ditetapkan
+    // melalui laluan eksplisit (forceFill dalam seeder/GoogleAccountService, atau
+    // AdminController) — bukan melalui input pengguna.
     protected $fillable = [
         'name',
         'email',
         'password',
         'company',
         'website',
-        'is_admin',
     ];
 
     protected $hidden = [
